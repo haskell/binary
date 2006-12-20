@@ -40,7 +40,13 @@ newtype EncM a = EncM { unEncM :: ContT [B.ByteString] (StateT S IO) a }
 instance Monad EncM where
     return a = EncM (return a)
     (EncM m) >>= k = EncM (m >>= unEncM . k)
+    (>>) = bEncM
     fail a = EncM (fail a)
+
+-- A bind for which we control the inlining
+{-# INLINE [1] bEncM #-}
+bEncM :: EncM a -> EncM b -> EncM b
+bEncM (EncM a) (EncM b) = EncM (a >> b)
 
 instance MonadState S EncM where
     get = EncM get
@@ -75,6 +81,7 @@ yield bs = EncM . ContT $ \c -> do
     return (bs:bss)
 
 -- |Pop the ByteString we have constructed so far, if any.
+{-# INLINE [1] pop #-}
 pop :: EncM ()
 pop = do
     S p o u l <- get
@@ -83,6 +90,7 @@ pop = do
         yield $ B.PS p o u 
 
 -- |Ensure that there are at least @n@ many bytes available.
+{-# INLINE [1] ensureFree #-}
 ensureFree :: Int -> EncM ()
 ensureFree n = do
     S _ _ _ l <- get
@@ -94,6 +102,7 @@ ensureFree n = do
 
 -- |Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
+{-# INLINE [1] writeN #-}
 writeN :: Int -> (Ptr Word8 -> IO ()) -> EncM ()
 writeN n f = do
     ensureFree n
@@ -148,6 +157,6 @@ putWord64le w64 = do
     putWord32le (fromIntegral w1)
     putWord32le (fromIntegral w2)
 
-{-# RULES "writeN/combine" forall s1 s2 f1 f2. writeN s1 f1 >> writeN s2 f2 = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
-{-# RULES "ensureFree/combine" forall a b. ensureFree a >> ensureFree b = ensureFree (max a b) #-}
-{-# RULES "pop/combine" pop >> pop = pop #-}
+{-# RULES "writeN/combine" forall s1 s2 f1 f2. bEncM (writeN s1 f1) (writeN s2 f2) = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
+{-# RULES "ensureFree/combine" forall a b. bEncM (ensureFree a) (ensureFree b) = ensureFree (max a b) #-}
+{-# RULES "pop/combine" bEncM pop pop = pop #-}
