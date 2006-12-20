@@ -63,7 +63,7 @@ runEncM m = unsafePerformIO $ do
 unsafeLiftIO :: IO a -> EncM a
 unsafeLiftIO = EncM . liftIO
 
--- ^Add a ByteString as output.
+-- |Add a ByteString as output.
 -- Does a 'unsafeInterleaveIO' trick, which will lazely suspend the rest of
 -- the computation till that ByteString has been consumed.
 yield :: B.ByteString -> EncM ()
@@ -74,7 +74,7 @@ yield bs = EncM . ContT $ \c -> do
     bss <- liftIO $ unsafeInterleaveIO $ evalStateT (c ()) s 
     return (bs:bss)
 
--- ^Pop the ByteString we have constructed so far, if any.
+-- |Pop the ByteString we have constructed so far, if any.
 pop :: EncM ()
 pop = do
     S p o u l <- get
@@ -82,7 +82,7 @@ pop = do
         put $ S p (o+u) 0 l
         yield $ B.PS p o u 
 
--- ^Ensure that there are at least @n@ many bytes available.
+-- |Ensure that there are at least @n@ many bytes available.
 ensureFree :: Int -> EncM ()
 ensureFree n = do
     S _ _ _ l <- get
@@ -92,7 +92,7 @@ ensureFree n = do
         fp <- unsafeLiftIO $ B.mallocByteString newsize
         put $ S fp 0 0 newsize
 
--- ^Ensure that @n@ many bytes are available, and then use @f@ to write some
+-- |Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> EncM ()
 writeN n f = do
