@@ -98,8 +98,8 @@ getWord32be = do
 {-# INLINE getWord32le #-}
 getWord32le :: DecM Word32
 getWord32le = do
-    w1 <- liftM fromIntegral getWord16be
-    w2 <- liftM fromIntegral getWord16be
+    w1 <- liftM fromIntegral getWord16le
+    w2 <- liftM fromIntegral getWord16le
     return $! w2 `shiftL` 16 .|. w1 
 
 {-# INLINE getWord64be #-}
@@ -112,8 +112,8 @@ getWord64be = do
 {-# INLINE getWord64le #-}
 getWord64le :: DecM Word64
 getWord64le = do
-    w1 <- liftM fromIntegral getWord32be
-    w2 <- liftM fromIntegral getWord32be
+    w1 <- liftM fromIntegral getWord32le
+    w2 <- liftM fromIntegral getWord32le
     return $! w2 `shiftL` 32 .|. w1 
 
 {-# *IGNORE* RULES "readN/combine" forall s1 s2 f1 f2 k.  readN s1 f1 >>= \w1 -> readN s2 f2 >>= \w2 -> k = readN (s1+s2) (\s -> f1 s >>= \w1 -> f2 (L.drop s1 s)) #-}

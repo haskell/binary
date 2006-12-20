@@ -131,8 +131,8 @@ putWord32be w32 = do
 putWord32le :: Word32 -> EncM ()
 putWord32le w32 = do
     let (w2, w1) = divMod w32 0x00010000
-    putWord16be (fromIntegral w1)
-    putWord16be (fromIntegral w2)
+    putWord16le (fromIntegral w1)
+    putWord16le (fromIntegral w2)
 
 {-# INLINE putWord64be #-}
 putWord64be :: Word64 -> EncM ()
@@ -145,8 +145,8 @@ putWord64be w64 = do
 putWord64le :: Word64 -> EncM ()
 putWord64le w64 = do
     let (w2, w1) = divMod w64 0x0000000100000000
-    putWord32be (fromIntegral w1)
-    putWord32be (fromIntegral w2)
+    putWord32le (fromIntegral w1)
+    putWord32le (fromIntegral w2)
 
 {-# RULES "writeN/combine" forall s1 s2 f1 f2. writeN s1 f1 >> writeN s2 f2 = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
 {-# RULES "ensureFree/combine" forall a b. ensureFree a >> ensureFree b = ensureFree (max a b) #-}
