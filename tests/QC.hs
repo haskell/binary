@@ -65,4 +65,7 @@ main = do
         , ("Word32le", pDet prop_Word32le)
         , ("Word64be", pDet prop_Word64be)
         , ("Word64le", pDet prop_Word64le)
+        , ("[Word8]",  pDet prop_list)
+        , ("Maybe Word8", pDet prop_maybe)
+        , ("Either Word8 Word16", pDet prop_either)
         ]
