@@ -1,4 +1,4 @@
-Name:            Binary
+Name:            binary
 Version:         0.2
 License:         BSD3
 Author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
@@ -8,5 +8,5 @@ hs-source-dirs:  src/
 Exposed-Modules: Data.Binary,
                  Data.Binary.DecM,
                  Data.Binary.EncM
-Extensions:      CPP, ForeignFunctionInterface, FlexibleInstances
+Extensions:      ForeignFunctionInterface, FlexibleInstances
 ghc-options:     -O

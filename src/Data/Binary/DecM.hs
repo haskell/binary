@@ -10,7 +10,7 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.ByteString.Binary.DecM
+module Data.Binary.DecM
     ( DecM
     , runDecM
     , getWord8
@@ -133,4 +133,4 @@ getWord64le = do
 {-# RULES
  "ensureLeft/combine" forall a b.
         ensureLeft a >> ensureLeft b = ensureLeft (max a b)
-#-}
+ #-}

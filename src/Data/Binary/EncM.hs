@@ -1,4 +1,4 @@
-module Data.ByteString.Binary.EncM 
+module Data.Binary.EncM
     ( EncM
     , runEncM
     , unsafeLiftIO

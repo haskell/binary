@@ -10,13 +10,13 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.ByteString.Binary (
-      module Data.ByteString.Binary.EncM
-    , module Data.ByteString.Binary.DecM
+module Data.Binary (
+      module Data.Binary.EncM
+    , module Data.Binary.DecM
   ) where
 
-import Data.ByteString.Binary.EncM
-import Data.ByteString.Binary.DecM
+import Data.Binary.EncM
+import Data.Binary.DecM
 
 import Control.Monad
 import Foreign
