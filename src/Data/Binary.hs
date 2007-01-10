@@ -23,6 +23,9 @@ import Data.Binary.DecM
 import Control.Monad
 import Foreign
 
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
 class Binary t where
     put :: t -> EncM ()
     get :: DecM t
@@ -116,3 +119,10 @@ instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
         d <- get
         return (a,b,c,d)
 
+instance (Ord a, Binary a) => Binary (Set.Set a) where
+    put = put . Set.toList
+    get = fmap Set.fromList get
+
+instance (Ord k, Binary k, Binary e) => Binary (Map.Map k e) where
+    put = put . Map.toList
+    get = fmap Map.fromList get
