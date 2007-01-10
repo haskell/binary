@@ -9,4 +9,4 @@ hs-source-dirs:  src/
 Exposed-Modules: Data.ByteString.Binary,
                  Data.ByteString.Binary.DecM,
                  Data.ByteString.Binary.EncM
-Extensions:      CPP, ForeignFunctionInterface, IncoherentInstances
+Extensions:      CPP, ForeignFunctionInterface, FlexibleInstances
