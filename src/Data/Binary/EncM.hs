@@ -7,6 +7,7 @@ module Data.Binary.EncM
     , ensureFree
     , writeN
     , putByteString
+    , putLazyByteString
     , putWord8
     , putWord16be
     , putWord32be
@@ -119,6 +120,11 @@ putByteString :: B.ByteString -> EncM ()
 putByteString bs = do
     pop
     yield bs
+
+putLazyByteString :: L.ByteString -> EncM ()
+putLazyByteString bs = do
+    pop
+    mapM_ yield (L.toChunks bs)
 
 {-# INLINE putWord8 #-}
 putWord8 :: Word8 -> EncM ()

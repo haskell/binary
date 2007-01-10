@@ -135,6 +135,14 @@ instance Binary B.ByteString where
         len <- get
         getByteString len
 
+instance Binary L.ByteString where
+    put bs = do
+        put (L.length bs)
+        putLazyByteString bs
+    get = do
+        len <- get
+        getLazyByteString len
+
 instance (Ord a, Binary a) => Binary (Set.Set a) where
     put = put . Set.toList
     get = fmap Set.fromList get

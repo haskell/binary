@@ -14,6 +14,7 @@ module Data.Binary.DecM
     ( DecM
     , runDecM
     , getByteString
+    , getLazyByteString
     , getWord8
     , getWord16be
     , getWord16le
@@ -85,6 +86,10 @@ readN n f = do
 getByteString :: Int -> DecM B.ByteString
 getByteString n = do
     readN (fromIntegral n) (B.concat . L.toChunks)
+
+getLazyByteString :: Int64 -> DecM L.ByteString
+getLazyByteString n = do
+    readN n id
 
 {-# INLINE getWord8 #-}
 getWord8 :: DecM Word8
