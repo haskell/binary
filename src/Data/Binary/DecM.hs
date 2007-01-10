@@ -57,6 +57,9 @@ instance MonadState S DecM where
     get = DecM get
     put f = DecM (put f)
 
+instance Functor DecM where
+    fmap f (DecM m) = DecM (fmap f m)
+
 runDecM :: DecM a -> L.ByteString -> a
 runDecM (DecM m) str = evalState m str
 

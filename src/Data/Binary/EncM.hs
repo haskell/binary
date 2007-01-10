@@ -43,6 +43,9 @@ instance Monad EncM where
     (>>) = bEncM
     fail a = EncM (fail a)
 
+instance Functor EncM where
+    fmap f (EncM m) = EncM (fmap f m)
+
 -- A bind for which we control the inlining
 {-# INLINE [1] bEncM #-}
 bEncM :: EncM a -> EncM b -> EncM b
