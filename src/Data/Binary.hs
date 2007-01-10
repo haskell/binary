@@ -29,6 +29,9 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Char (ord, chr)
+import Data.Array (Array)
+import Data.Array.IArray
+import Data.Array.Unboxed (UArray)
 
 class Binary t where
     put :: t -> EncM ()
@@ -150,3 +153,22 @@ instance (Ord a, Binary a) => Binary (Set.Set a) where
 instance (Ord k, Binary k, Binary e) => Binary (Map.Map k e) where
     put = put . Map.toList
     get = fmap Map.fromList get
+
+instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
+    put a = do
+        put (bounds a)
+        put $ elems a
+    get = do
+        bs <- get
+        es <- get
+        return (listArray bs es)
+
+-- todo handle UArray i Bool specially?
+instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
+    put a = do
+        put (bounds a)
+        put $ elems a
+    get = do
+        bs <- get
+        es <- get
+        return (listArray bs es)
