@@ -50,7 +50,10 @@ prop_either (eab :: Either Word8 Word16) = encdec eab
 
 
 main = do
-    n <- getArgs >>= readIO . head
+    args <- getArgs
+    n <- case args of
+            []  -> return 1
+            (s:_) -> readIO s
     pRun n 1000 $ take (max 100 (length tests)) $ cycle tests
     where
     tests =
