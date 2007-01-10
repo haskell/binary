@@ -13,8 +13,9 @@
 module Data.Binary (
       module Data.Binary.EncM
     , module Data.Binary.DecM
-    , put
-    , get
+    , Binary(..)
+    , encode
+    , decode
   ) where
 
 import Data.Binary.EncM
@@ -32,6 +33,16 @@ import Data.Char (ord, chr)
 import Data.Array (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed (UArray)
+
+------------------------------------------------------------------------
+
+encode :: Binary a => a -> L.ByteString
+encode = runEncM . put
+
+decode :: Binary a => L.ByteString -> a
+decode = runDecM get
+
+------------------------------------------------------------------------
 
 class Binary t where
     put :: t -> EncM ()

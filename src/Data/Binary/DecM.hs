@@ -84,12 +84,10 @@ readN n f = do
     return (f s'')
 
 getByteString :: Int -> DecM B.ByteString
-getByteString n = do
-    readN (fromIntegral n) (B.concat . L.toChunks)
+getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 
 getLazyByteString :: Int64 -> DecM L.ByteString
-getLazyByteString n = do
-    readN n id
+getLazyByteString n = readN n id
 
 {-# INLINE getWord8 #-}
 getWord8 :: DecM Word8
