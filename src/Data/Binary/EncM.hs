@@ -6,6 +6,7 @@ module Data.Binary.EncM
     , pop
     , ensureFree
     , writeN
+    , putByteString
     , putWord8
     , putWord16be
     , putWord32be
@@ -113,6 +114,11 @@ writeN n f = do
     unsafeLiftIO $
         withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
     put $ Buffer fp o (u+n) (l-n)
+
+putByteString :: B.ByteString -> EncM ()
+putByteString bs = do
+    pop
+    yield bs
 
 {-# INLINE putWord8 #-}
 putWord8 :: Word8 -> EncM ()

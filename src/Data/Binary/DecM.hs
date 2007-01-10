@@ -13,6 +13,7 @@
 module Data.Binary.DecM
     ( DecM
     , runDecM
+    , getByteString
     , getWord8
     , getWord16be
     , getWord16le
@@ -73,15 +74,17 @@ ensureLeft n = do
     worker _ []         = fail "not enough bytestring left"
     worker n (x:xs)     = worker (n - fromIntegral (B.length x)) xs
 
-takeN :: Int64 -> DecM B.ByteString
-takeN n = readN n (\s -> let (B.LPS ls) = L.take n s in B.concat ls)
-
 readN :: Int64 -> (L.ByteString -> a) -> DecM a
 readN n f = do
     ensureLeft n
     s <- get
-    put $ L.drop n s
-    return $! (f s)
+    let (s',s'') = L.splitAt n s
+    put s'
+    return (f s'')
+
+getByteString :: Int -> DecM B.ByteString
+getByteString n = do
+    readN (fromIntegral n) (B.concat . L.toChunks)
 
 {-# INLINE getWord8 #-}
 getWord8 :: DecM Word8

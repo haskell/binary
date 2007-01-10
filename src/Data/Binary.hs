@@ -23,6 +23,9 @@ import Data.Binary.DecM
 import Control.Monad
 import Foreign
 
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Char (ord, chr)
@@ -123,6 +126,14 @@ instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
         c <- get
         d <- get
         return (a,b,c,d)
+
+instance Binary B.ByteString where
+    put bs = do
+        put (B.length bs)
+        putByteString bs
+    get = do
+        len <- get
+        getByteString len
 
 instance (Ord a, Binary a) => Binary (Set.Set a) where
     put = put . Set.toList
