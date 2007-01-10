@@ -40,10 +40,10 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 newtype EncM a = EncM { unEncM :: ContT [B.ByteString] (StateT Buffer IO) a }
 
 instance Monad EncM where
-    return a = EncM (return a)
-    (EncM m) >>= k = EncM (m >>= unEncM . k)
-    (>>) = bEncM
-    fail a = EncM (fail a)
+    return a        = EncM (return a)
+    (EncM m) >>= k  = EncM (m >>= unEncM . k)
+    (>>)            = bEncM
+    fail a          = EncM (fail a)
 
 instance Functor EncM where
     fmap f (EncM m) = EncM (fmap f m)
@@ -54,8 +54,8 @@ bEncM :: EncM a -> EncM b -> EncM b
 bEncM (EncM a) (EncM b) = EncM (a >> b)
 
 instance MonadState Buffer EncM where
-    get = EncM get
-    put f = EncM (put f)
+    get     = EncM get
+    put f   = EncM (put f)
 
 defaultSize = 32 * k - overhead 
     where k = 1024

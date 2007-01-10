@@ -51,13 +51,13 @@ type S = L.ByteString
 newtype DecM a = DecM { unDecM :: State S a }
 
 instance Monad DecM where
-    return a = DecM (return a)
-    (DecM m) >>= k = DecM (m >>= unDecM . k)
-    fail a = DecM (fail a)
+    return a        = DecM (return a)
+    (DecM m) >>= k  = DecM (m >>= unDecM . k)
+    fail a          = DecM (fail a)
 
 instance MonadState S DecM where
-    get = DecM get
-    put f = DecM (put f)
+    get         = DecM get
+    put f       = DecM (put f)
 
 instance Functor DecM where
     fmap f (DecM m) = DecM (fmap f m)
