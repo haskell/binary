@@ -26,57 +26,60 @@ class Binary t where
     get :: DecM t
 
 instance Binary () where
-    put () = return ()
-    get    = return ()
-
-instance Binary Bool where
-    put = putWord8 . fromIntegral . fromEnum
-    get = liftM (toEnum . fromIntegral) getWord8
+    put ()  = return ()
+    get     = return ()
 
 instance Binary Word8 where
-    put = putWord8
-    get = getWord8
+    put     = putWord8
+    get     = getWord8
+
+-- 
+-- todo, investigate bit fields for sequences of Bools
+--
+instance Binary Bool where
+    put     = putWord8 . fromIntegral . fromEnum
+    get     = liftM (toEnum . fromIntegral) getWord8
 
 instance Binary Word16 where
-    put = putWord16be
-    get = getWord16be
+    put     = putWord16be
+    get     = getWord16be
 
 instance Binary Word32 where
-    put = putWord32be
-    get = getWord32be
+    put     = putWord32be
+    get     = getWord32be
 
 instance Binary Word64 where
-    put = putWord64be
-    get = getWord64be
+    put     = putWord64be
+    get     = getWord64be
 
 instance Binary Int8 where
-    put i = put (fromIntegral i :: Word8)
-    get = get >>= \(w::Word8) -> return $! fromIntegral w
+    put i   = put (fromIntegral i :: Word8)
+    get     = get >>= \(w::Word8) -> return $! fromIntegral w
 
 instance Binary Int16 where
-    put i = put (fromIntegral i :: Word16)
-    get = get >>= \(w::Word16) -> return $! fromIntegral w
+    put i   = put (fromIntegral i :: Word16)
+    get     = get >>= \(w::Word16) -> return $! fromIntegral w
 
 instance Binary Int32 where
-    put i = put (fromIntegral i :: Word32)
-    get = get >>= \(w::Word32) -> return $! fromIntegral w
+    put i   = put (fromIntegral i :: Word32)
+    get     = get >>= \(w::Word32) -> return $! fromIntegral w
 
 instance Binary Int64 where
-    put i = put (fromIntegral i :: Word64)
-    get = get >>= \(w::Word64) -> return $! fromIntegral w
+    put i   = put (fromIntegral i :: Word64)
+    get     = get >>= \(w::Word64) -> return $! fromIntegral w
 
 instance Binary Int where
-    put i = put (fromIntegral i :: Int32)
-    get = get >>= \(i::Int32) -> return $! fromIntegral i
+    put i   = put (fromIntegral i :: Int32)
+    get     = get >>= \(i::Int32) -> return $! fromIntegral i
 
 instance Binary a => Binary [a] where
-    put [] = putWord8 0
-    put (x:xs) = putWord8 1 >> put x >> put xs
-    get = do
-        w <- getWord8
-        case w of
-            0 -> return []
-            _ -> liftM2 (:) get get
+    put l  = do
+        put (length l)
+        mapM_ put l
+
+    get    = do
+        (n :: Int) <- get bh
+        mapM (const get) [1.. len]
 
 instance Binary a => Binary (Maybe a) where
     put Nothing = putWord8 0
