@@ -99,9 +99,51 @@ instance Binary Int where
 
 -- TODO Integer
 
+-- TODO profile, benchmark and test this instance
 instance Binary Char where
-    put i   = put (fromIntegral . ord $ i :: Word32)
-    get     = (chr . fromIntegral) `fmap` (get :: DecM Word32)
+    put a | c <= 0x7f     = put (fromIntegral c :: Word8)
+          | c <= 0x7ff    = do
+                                put (0xc0 .|. y)
+                                put (0x80 .|. z)
+          | c <= 0xffff   = do
+                                put (0xe0 .|. x)
+                                put (0x80 .|. y)
+                                put (0x80 .|. z)
+          | c <= 0x10ffff = do
+                                put (0xf0 .|. w)
+                                put (0x80 .|. x)
+                                put (0x80 .|. y)
+                                put (0x80 .|. z)
+          | otherwise     = error "Not a valid Unicode code point"
+     where
+        c = ord a
+        z, y, x, w :: Word8
+        z = fromIntegral (c           .&. 0x3f)
+        y = fromIntegral (shiftR c 6  .&. 0x3f)
+        x = fromIntegral (shiftR c 12 .&. 0x3f)
+        w = fromIntegral (shiftR c 18 .&. 0x7)
+
+    get = do
+        let getByte = fmap (fromIntegral :: Word8 -> Int) get
+            shiftL6 = flip shiftL 6 :: Int -> Int
+        w <- getByte
+        r <- case () of
+                _ | w < 0x80  -> return w
+                  | w < 0xe0  -> do
+                                    x <- fmap (xor 0x80) getByte
+                                    return (x .|. shiftL6 (xor 0xc0 w))
+                  | w < 0xf0  -> do
+                                    x <- fmap (xor 0x80) getByte
+                                    y <- fmap (xor 0x80) getByte
+                                    return (y .|. shiftL6 (x .|. shiftL6
+                                            (xor 0xe0 w)))
+                  | otherwise -> do
+                                x <- fmap (xor 0x80) getByte
+                                y <- fmap (xor 0x80) getByte
+                                z <- fmap (xor 0x80) getByte
+                                return (z .|. shiftL6 (y .|. shiftL6
+                                        (x .|. shiftL6 (xor 0x80 w))))
+        return $! chr r
 
 instance Binary a => Binary [a] where
     put l  = do

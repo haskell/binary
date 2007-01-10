@@ -24,6 +24,9 @@ instance Arbitrary Word32 where
 instance Arbitrary Word64 where
     arbitrary = liftM fromIntegral (choose (0, 2^64-1))
 
+instance Arbitrary Char where
+    arbitrary = choose (maxBound, minBound)
+
 instance Arbitrary a => Arbitrary (Maybe a) where
     arbitrary = oneof [ return Nothing, liftM Just arbitrary]
 
@@ -48,6 +51,9 @@ prop_list (xs :: [Word8]) = encdec xs
 prop_maybe (ma :: Maybe Word8) = encdec ma
 prop_either (eab :: Either Word8 Word16) = encdec eab
 
+prop_Char   (c :: Char)    = encdec c
+prop_String (xs :: String) = encdec xs
+
 
 main = do
     args <- getArgs
@@ -70,4 +76,6 @@ main = do
         , ("[Word8]",  pDet prop_list)
         , ("Maybe Word8", pDet prop_maybe)
         , ("Either Word8 Word16", pDet prop_either)
+        , ("Char", pDet prop_Char)
+        , ("String", pDet prop_String)
         ]
