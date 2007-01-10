@@ -74,23 +74,15 @@ instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
     get     = get >>= \(i::Int32) -> return $! fromIntegral i
 
+-- TODO Integer
+
 instance Binary a => Binary [a] where
     put l  = do
         put (length l)
         mapM_ put l
-
     get    = do
         (n :: Int) <- get
         replicateM n get
-
-instance Binary a => Binary (Maybe a) where
-    put Nothing = putWord8 0
-    put (Just x) = putWord8 1 >> put x
-    get = do
-        w <- getWord8
-        case w of
-            0 -> return Nothing
-            _ -> liftM Just get
 
 instance (Binary a, Binary b) => Binary (Either a b) where
     put (Left  a) = putWord8 0 >> put a
@@ -100,3 +92,27 @@ instance (Binary a, Binary b) => Binary (Either a b) where
         case w of
             0 -> liftM Left  get
             _ -> liftM Right get
+
+instance (Binary a, Binary b) => Binary (a,b) where
+    put (a,b) = put a >> put b
+    get       = do a <- get
+                   b <- get
+                   return (a,b)
+
+instance (Binary a, Binary b, Binary c) => Binary (a,b,c) where
+    put (a,b,c) = put a >> put b >> put c
+    get = do
+       a <- get
+       b <- get
+       c <- get
+       return (a,b,c)
+
+instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
+    put (a,b,c,d) = put a >> put b >> put c >> put d
+    get = do
+        a <- get
+        b <- get
+        c <- get
+        d <- get
+        return (a,b,c,d)
+

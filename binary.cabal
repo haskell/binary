@@ -4,9 +4,9 @@ License:         BSD3
 Author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 Synopsis:        Binary serialization using lazy ByteStrings
 Build-Depends:   base, mtl
-hs-source-dirs:  src/
 Exposed-Modules: Data.Binary,
                  Data.Binary.DecM,
                  Data.Binary.EncM
 Extensions:      ForeignFunctionInterface, FlexibleInstances
 ghc-options:     -O
+hs-source-dirs:  src
