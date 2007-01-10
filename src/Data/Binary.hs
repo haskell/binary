@@ -29,6 +29,8 @@ import qualified Data.ByteString.Lazy as L
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
 import Data.Char (ord, chr)
 import Data.Array (Array)
 import Data.Array.IArray
@@ -158,12 +160,20 @@ instance Binary L.ByteString where
         getLazyByteString len
 
 instance (Ord a, Binary a) => Binary (Set.Set a) where
-    put = put . Set.toList
-    get = fmap Set.fromList get
+    put = put . Set.toAscList
+    get = fmap Set.fromDistinctAscList get
 
 instance (Ord k, Binary k, Binary e) => Binary (Map.Map k e) where
-    put = put . Map.toList
-    get = fmap Map.fromList get
+    put = put . Map.toAscList
+    get = fmap Map.fromDistinctAscList get
+
+instance Binary IntSet.IntSet where
+    put = put . IntSet.toAscList
+    get = fmap IntSet.fromDistinctAscList get
+
+instance (Binary e) => Binary (IntMap.IntMap e) where
+    put = put . IntMap.toAscList
+    get = fmap IntMap.fromDistinctAscList get
 
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
     put a = do
