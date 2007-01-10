@@ -30,12 +30,12 @@ import Foreign
 
 import System.IO.Unsafe
 
-data S = S {-# UNPACK #-} !(ForeignPtr Word8)
-           {-# UNPACK #-} !Int                -- ^ offset
-           {-# UNPACK #-} !Int                -- ^ used bytes
-           {-# UNPACK #-} !Int                -- ^ length left
+data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
+                     {-# UNPACK #-} !Int                -- ^ offset
+                     {-# UNPACK #-} !Int                -- ^ used bytes
+                     {-# UNPACK #-} !Int                -- ^ length left
 
-newtype EncM a = EncM { unEncM :: ContT [B.ByteString] (StateT S IO) a }
+newtype EncM a = EncM { unEncM :: ContT [B.ByteString] (StateT Buffer IO) a }
 
 instance Monad EncM where
     return a = EncM (return a)
@@ -48,7 +48,7 @@ instance Monad EncM where
 bEncM :: EncM a -> EncM b -> EncM b
 bEncM (EncM a) (EncM b) = EncM (a >> b)
 
-instance MonadState S EncM where
+instance MonadState Buffer EncM where
     get = EncM get
     put f = EncM (put f)
 
@@ -56,10 +56,10 @@ defaultSize = 32 * k - overhead
     where k = 1024
           overhead = 2 * sizeOf (undefined :: Int) 
 
-initS :: IO S
+initS :: IO Buffer
 initS = do
   fp <- B.mallocByteString defaultSize 
-  return $! S fp 0 0 defaultSize
+  return $! Buffer fp 0 0 defaultSize
 
 runEncM :: EncM () -> L.ByteString
 runEncM m = unsafePerformIO $ do
@@ -74,7 +74,7 @@ unsafeLiftIO = EncM . liftIO
 -- the computation till that ByteString has been consumed.
 yield :: B.ByteString -> EncM ()
 yield bs = EncM . ContT $ \c -> do
-    s@(S _ _ u _) <- get
+    s@(Buffer _ _ u _) <- get
     assert (u == 0) $ do
     -- this truly is a beautyful piece of magic
     bss <- liftIO $ unsafeInterleaveIO $ evalStateT (c ()) s 
@@ -84,21 +84,21 @@ yield bs = EncM . ContT $ \c -> do
 {-# INLINE [1] pop #-}
 pop :: EncM ()
 pop = do
-    S p o u l <- get
+    Buffer p o u l <- get
     when (u /= 0) $ do
-        put $ S p (o+u) 0 l
+        put $ Buffer p (o+u) 0 l
         yield $ B.PS p o u 
 
 -- |Ensure that there are at least @n@ many bytes available.
 {-# INLINE [1] ensureFree #-}
 ensureFree :: Int -> EncM ()
 ensureFree n = do
-    S _ _ _ l <- get
+    Buffer _ _ _ l <- get
     when (n > l) $ do
         pop
         let newsize = max n defaultSize
         fp <- unsafeLiftIO $ B.mallocByteString newsize
-        put $ S fp 0 0 newsize
+        put $ Buffer fp 0 0 newsize
 
 -- |Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
@@ -106,10 +106,10 @@ ensureFree n = do
 writeN :: Int -> (Ptr Word8 -> IO ()) -> EncM ()
 writeN n f = do
     ensureFree n
-    S fp o u l <- get
+    Buffer fp o u l <- get
     unsafeLiftIO $
         withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
-    put $ S fp o (u+n) (l-n)
+    put $ Buffer fp o (u+n) (l-n)
 
 {-# INLINE putWord8 #-}
 putWord8 :: Word8 -> EncM ()
