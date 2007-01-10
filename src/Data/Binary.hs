@@ -120,6 +120,15 @@ instance (Binary a, Binary b) => Binary (Either a b) where
             0 -> liftM Left  get
             _ -> liftM Right get
 
+instance (Binary a) => Binary (Maybe a) where
+    put Nothing  = putWord8 0
+    put (Just x) = putWord8 1 >> put x
+    get = do
+        w <- getWord8
+        case w of
+            0 -> return Nothing
+            _ -> fmap Just get
+
 instance (Binary a, Binary b) => Binary (a,b) where
     put (a,b) = put a >> put b
     get       = do a <- get
