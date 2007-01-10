@@ -13,6 +13,8 @@
 module Data.Binary (
       module Data.Binary.EncM
     , module Data.Binary.DecM
+    , put
+    , get
   ) where
 
 import Data.Binary.EncM
