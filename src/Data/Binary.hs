@@ -66,29 +66,29 @@ instance Binary Word64 where
 
 instance Binary Int8 where
     put i   = put (fromIntegral i :: Word8)
-    get     = get >>= \(w::Word8) -> return $! fromIntegral w
+    get     = fromIntegral `fmap` (get :: DecM Word8)
 
 instance Binary Int16 where
     put i   = put (fromIntegral i :: Word16)
-    get     = get >>= \(w::Word16) -> return $! fromIntegral w
+    get     = fromIntegral `fmap` (get :: DecM Word16)
 
 instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
-    get     = get >>= \(w::Word32) -> return $! fromIntegral w
+    get     = fromIntegral `fmap` (get :: DecM Word32)
 
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
-    get     = get >>= \(w::Word64) -> return $! fromIntegral w
+    get     = fromIntegral `fmap` (get :: DecM Word64)
 
 instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
-    get     = get >>= \(i::Int32) -> return $! fromIntegral i
+    get     = fromIntegral `fmap` (get :: DecM Int32)
 
 -- TODO Integer
 
 instance Binary Char where
     put i   = put (fromIntegral . ord $ i :: Word32)
-    get     = get >>= \(i::Word32) -> return . chr . fromIntegral $! i
+    get     = (chr . fromIntegral) `fmap` (get :: DecM Word32)
 
 instance Binary a => Binary [a] where
     put l  = do
