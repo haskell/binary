@@ -1,8 +1,6 @@
 module Main where
 
-import Data.ByteString.Binary
-import Data.ByteString.Binary.EncM
-import Data.ByteString.Binary.DecM
+import Data.Binary
 
 import Control.Monad
 import Foreign
