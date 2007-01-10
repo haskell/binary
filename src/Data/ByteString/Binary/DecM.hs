@@ -1,4 +1,16 @@
-module Data.ByteString.Binary.DecM 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :
+-- Copyright   : 
+-- License     :  BSD3-style (see LICENSE)
+-- 
+-- Maintainer  :
+-- Stability   :  stable
+-- Portability :  portable
+--
+-----------------------------------------------------------------------------
+
+module Data.ByteString.Binary.DecM
     ( DecM
     , runDecM
     , getWord8
@@ -52,11 +64,11 @@ ensureLeft :: Int64 -> DecM ()
 ensureLeft n = do
     (B.LPS strs) <- get
     worker n strs
-    where
+  where
     worker :: Int64 -> [B.ByteString] -> DecM ()
     worker n _ | n <= 0 = return ()
-    worker _ [] = fail "not enough bytestring left"
-    worker n (x:xs) = worker (n - fromIntegral (B.length x)) xs
+    worker _ []         = fail "not enough bytestring left"
+    worker n (x:xs)     = worker (n - fromIntegral (B.length x)) xs
 
 takeN :: Int64 -> DecM B.ByteString
 takeN n = readN n (\s -> let (B.LPS ls) = L.take n s in B.concat ls)
@@ -77,7 +89,7 @@ getWord16be :: DecM Word16
 getWord16be = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w1 `unsafeShiftL_Word16` 8 .|. w2 
+    return $! w1 `unsafeShiftL_Word16` 8 .|. w2
 
 {-# INLINE getWord16le #-}
 getWord16le :: DecM Word16
@@ -93,21 +105,21 @@ getWord32be :: DecM Word32
 getWord32be = do
     w1 <- liftM fromIntegral getWord16be
     w2 <- liftM fromIntegral getWord16be
-    return $! w1 `shiftL` 16 .|. w2 
+    return $! w1 `shiftL` 16 .|. w2
 
 {-# INLINE getWord32le #-}
 getWord32le :: DecM Word32
 getWord32le = do
     w1 <- liftM fromIntegral getWord16le
     w2 <- liftM fromIntegral getWord16le
-    return $! w2 `shiftL` 16 .|. w1 
+    return $! w2 `shiftL` 16 .|. w1
 
 {-# INLINE getWord64be #-}
 getWord64be :: DecM Word64
 getWord64be = do
     w1 <- liftM fromIntegral getWord32be
     w2 <- liftM fromIntegral getWord32be
-    return $! w1 `shiftL` 32 .|. w2 
+    return $! w1 `shiftL` 32 .|. w2
 
 {-# INLINE getWord64le #-}
 getWord64le :: DecM Word64
@@ -118,4 +130,7 @@ getWord64le = do
 
 {-# *IGNORE* RULES "readN/combine" forall s1 s2 f1 f2 k.  readN s1 f1 >>= \w1 -> readN s2 f2 >>= \w2 -> k = readN (s1+s2) (\s -> f1 s >>= \w1 -> f2 (L.drop s1 s)) #-}
 
-{-# RULES "ensureLeft/combine" forall a b. ensureLeft a >> ensureLeft b = ensureLeft (max a b) #-}
+{-# RULES
+ "ensureLeft/combine" forall a b.
+        ensureLeft a >> ensureLeft b = ensureLeft (max a b)
+#-}
