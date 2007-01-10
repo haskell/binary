@@ -25,6 +25,7 @@ import Foreign
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Char (ord, chr)
 
 class Binary t where
     put :: t -> EncM ()
@@ -78,6 +79,10 @@ instance Binary Int where
     get     = get >>= \(i::Int32) -> return $! fromIntegral i
 
 -- TODO Integer
+
+instance Binary Char where
+    put i   = put (fromIntegral . ord $ i :: Word32)
+    get     = get >>= \(i::Word32) -> return . chr . fromIntegral $! i
 
 instance Binary a => Binary [a] where
     put l  = do
