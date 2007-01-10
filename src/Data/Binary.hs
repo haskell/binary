@@ -78,8 +78,8 @@ instance Binary a => Binary [a] where
         mapM_ put l
 
     get    = do
-        (n :: Int) <- get bh
-        mapM (const get) [1.. len]
+        (n :: Int) <- get
+        replicateM n get
 
 instance Binary a => Binary (Maybe a) where
     put Nothing = putWord8 0
