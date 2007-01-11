@@ -11,7 +11,7 @@ import Test.QuickCheck.Parallel
 roundTrip :: (Eq a, Binary a) => a -> Bool
 roundTrip a = a == decode (encode a)
 
-roundTripWith put get x = x == runDecM get (runEncM (put x))
+roundTripWith put get x = x == runGetM get (runPutM (put x))
 
 instance Arbitrary Word8 where
     arbitrary = liftM fromIntegral (choose (0, 2^8-1))
