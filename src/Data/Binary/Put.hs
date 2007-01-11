@@ -6,7 +6,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : stable
--- Portability : FFI + flexibile instances
+-- Portability : FFI, flexible instances
 --
 -- The Put monad. A monad for efficiently constructing lazy bytestrings.
 --
@@ -18,20 +18,20 @@ module Data.Binary.Put (
       Put
     , runPut
 
-    , yield
-    , pop
+    -- * Flushing the implicit parse state
+    , flush
 
-    , ensureFree
-    , writeN
-    , unsafeLiftIO
-
+    -- * Primitives
+    , putWord8
     , putByteString
     , putLazyByteString
 
-    , putWord8
+    -- * Big-endian primitives
     , putWord16be
     , putWord32be
     , putWord64be
+
+    -- * Little-endian primitives
     , putWord16le
     , putWord32le
     , putWord64le
@@ -102,8 +102,9 @@ initS = do
 runPut :: Put () -> L.ByteString
 runPut m = unsafePerformIO $ do
     i <- initS
-    liftM B.LPS $ evalStateT (runContT (unPut $ m >> pop) (\c -> return [])) i
+    liftM B.LPS $ evalStateT (runContT (unPut $ m >> flush) (\c -> return [])) i
 
+-- Lift an IO action
 unsafeLiftIO :: IO a -> Put a
 unsafeLiftIO = Put . liftIO
 
@@ -124,20 +125,20 @@ yield bs = Put . ContT $ \c -> do
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a
 -- new chunk in the result ByteString.
-pop :: Put ()
-pop = do
+flush :: Put ()
+flush = do
     Buffer p o u l <- get
     when (u /= 0) $ do
         put $ Buffer p (o+u) 0 l
         yield $ B.PS p o u
-{-# INLINE [1] pop #-}
+{-# INLINE [1] flush #-}
 
 -- | Ensure that there are at least @n@ many bytes available.
 ensureFree :: Int -> Put ()
 ensureFree n = do
     Buffer _ _ _ l <- get
     when (n > l) $ do
-        pop
+        flush
         let newsize = max n defaultSize
         fp <- unsafeLiftIO $ B.mallocByteString newsize
         put $ Buffer fp 0 0 newsize
@@ -154,16 +155,24 @@ writeN n f = do
     put $ Buffer fp o (u+n) (l-n)
 {-# INLINE [1] writeN #-}
 
-putByteString :: B.ByteString -> Put ()
-putByteString bs = pop >> yield bs
+------------------------------------------------------------------------
 
-putLazyByteString :: L.ByteString -> Put ()
-putLazyByteString bs = pop >> mapM_ yield (L.toChunks bs)
-
+-- | Write a byte into the Put monad's output buffer
 putWord8 :: Word8 -> Put ()
 putWord8 = writeN 1 . flip poke
 {-# INLINE putWord8 #-}
 
+-- | Write a strict ByteString efficiently
+putByteString :: B.ByteString -> Put ()
+putByteString bs     = flush >> yield bs
+
+-- | Write a lazy ByteString efficiently 
+putLazyByteString :: L.ByteString -> Put ()
+putLazyByteString bs = flush >> mapM_ yield (L.toChunks bs)
+
+------------------------------------------------------------------------
+
+-- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Put ()
 putWord16be w16 = do
     let (w1, w2) = divMod w16 0x0100
@@ -171,6 +180,7 @@ putWord16be w16 = do
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
+-- | Write a Word16 in little endian format
 putWord16le :: Word16 -> Put ()
 putWord16le w16 = do
     let (w2, w1) = divMod w16 0x0100
@@ -178,6 +188,7 @@ putWord16le w16 = do
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16le #-}
 
+-- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Put ()
 putWord32be w32 = do
     let (w1, w2) = divMod w32 0x00010000
@@ -185,6 +196,7 @@ putWord32be w32 = do
     putWord16be (fromIntegral w2)
 {-# INLINE putWord32be #-}
 
+-- | Write a Word32 in big endian format
 putWord32le :: Word32 -> Put ()
 putWord32le w32 = do
     let (w2, w1) = divMod w32 0x00010000
@@ -192,6 +204,7 @@ putWord32le w32 = do
     putWord16le (fromIntegral w2)
 {-# INLINE putWord32le #-}
 
+-- | Write a Word64 in big endian format
 putWord64be :: Word64 -> Put ()
 putWord64be w64 = do
     let (w1, w2) = divMod w64 0x0000000100000000
@@ -199,12 +212,16 @@ putWord64be w64 = do
     putWord32be (fromIntegral w2)
 {-# INLINE putWord64be #-}
 
+-- | Write a Word64 in little endian format
 putWord64le :: Word64 -> Put ()
 putWord64le w64 = do
     let (w2, w1) = divMod w64 0x0000000100000000
     putWord32le (fromIntegral w1)
     putWord32le (fromIntegral w2)
 {-# INLINE putWord64le #-}
+
+------------------------------------------------------------------------
+-- Some nice rules for put 
 
 {-# RULES
 
@@ -216,7 +233,7 @@ putWord64le w64 = do
         bindP (ensureFree a) (ensureFree b) =
         ensureFree (max a b)
 
-"pop/combine"
-        bindP pop pop = pop
+"flush/combine"
+        bindP flush flush = flush
 
  #-}

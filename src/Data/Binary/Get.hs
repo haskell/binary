@@ -6,13 +6,19 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : unstable
--- Portability : FFI + (currently) flexible instances
+-- Portability : FFI, flexible instances
+--
+-- The Get monad. A monad for efficiently building structures from
+-- encoded lazy ByteStrings
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary.Get
-    ( Get
+module Data.Binary.Get (
+
+    -- * The Get type
+      Get
     , runGet
+
     , getByteString
     , getLazyByteString
     , getWord8
