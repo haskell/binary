@@ -12,60 +12,78 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary (
-      Binary(..)                -- class Binary
-
-    -- Instances Binary for: () Bool Word8-64 Int8-64 Int
-
+module Data.Binary
+    ( Binary(..)                -- class Binary
     , encode                    -- :: Binary a => a -> ByteString
     , decode                    -- :: Binary a => ByteString -> a
+    ) where
 
-    , module Data.Binary.PutM
-    , module Data.Binary.GetM
-
-  ) where
-
-import Data.Binary.PutM
-import Data.Binary.GetM
+import Data.Binary.Put
+import Data.Binary.Get
 
 import Control.Monad
 import Foreign
 
-import qualified Data.ByteString as B
-
+import Data.Char            (ord, chr)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.IntMap as IntMap
-import qualified Data.IntSet as IntSet
-import Data.Char (ord, chr)
-import Data.Array (Array)
+-- and needed for the instances:
+import qualified Data.ByteString as B
+import qualified Data.Map        as Map
+import qualified Data.Set        as Set
+import qualified Data.IntMap     as IntMap
+import qualified Data.IntSet     as IntSet
+
+import Data.Array           (Array)
 import Data.Array.IArray
-import Data.Array.Unboxed (UArray)
+import Data.Array.Unboxed
 
 ------------------------------------------------------------------------
 -- 
 
+-- | Encode a value using binary serialisation to a lazy ByteString.
+-- 
+-- > encode (1,2)
+--
 encode :: Binary a => a -> ByteString
-encode = runPutM . put
+encode = runPut . put
 
+-- | Decode a value from a lazy ByteString, reconstructing the original structure.
+--
+-- > let (a,b) = decode x
+--
 decode :: Binary a => ByteString -> a
-decode = runGetM get
+decode = runGet get
 
 ------------------------------------------------------------------------
 
+-- | The @Binary@ class provides 'put' and 'get', methods to encode and
+-- decode a value to a lazy bytestring.
+--
+-- New instances for binary should have the following property:
+--
+-- > get . put == id
+--
 class Binary t where
-    put :: t -> PutM ()
-    get :: GetM t
+    -- | Encode a value in the Put monad.
+    put :: t -> Put ()
+    -- | Decode a value in the Get monad
+    get :: Get t
+
+------------------------------------------------------------------------
+-- Simple instances
 
 instance Binary () where
     put ()  = return ()
     get     = return ()
 
+instance Binary Ordering where
+    put = putWord8 . fromIntegral . fromEnum
+    get = liftM (toEnum . fromIntegral) getWord8
+
 ------------------------------------------------------------------------
--- Words
+-- Words and Ints
 
 instance Binary Word8 where
     put     = putWord8
@@ -89,23 +107,23 @@ instance Binary Word64 where
 
 instance Binary Int8 where
     put i   = put (fromIntegral i :: Word8)
-    get     = liftM fromIntegral (get :: GetM Word8)
+    get     = liftM fromIntegral (get :: Get Word8)
 
 instance Binary Int16 where
     put i   = put (fromIntegral i :: Word16)
-    get     = liftM fromIntegral (get :: GetM Word16)
+    get     = liftM fromIntegral (get :: Get Word16)
 
 instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
-    get     = liftM fromIntegral (get :: GetM Word32)
+    get     = liftM fromIntegral (get :: Get Word32)
 
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
-    get     = liftM fromIntegral (get :: GetM Word64)
+    get     = liftM fromIntegral (get :: Get Word64)
 
 instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
-    get     = liftM fromIntegral (get :: GetM Int32)
+    get     = liftM fromIntegral (get :: Get Int32)
 
 {-
 
@@ -178,7 +196,7 @@ instance Binary Char where
         return $! chr r
 
 ------------------------------------------------------------------------
--- Tuples
+-- Instances for the first few tuples
 
 instance (Binary a, Binary b) => Binary (a,b) where
     put (a,b) = put a >> put b
@@ -202,21 +220,40 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e
     put (a,b,c,d,e)     = put (a,(b,c,d,e))
     get                 = do (a,(b,c,d,e)) <- get ; return (a,b,c,d,e)
 
-instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f) => Binary (a,b,c,d,e,f) where
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f) 
+        => Binary (a,b,c,d,e,f) where
     put (a,b,c,d,e,f)   = put (a,(b,c,d,e,f))
     get                 = do (a,(b,c,d,e,f)) <- get ; return (a,b,c,d,e,f)
 
-instance (Binary a, Binary b, Binary c, Binary d
-         , Binary e, Binary f, Binary g) => Binary (a,b,c,d,e,f,g) where
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g)
+        => Binary (a,b,c,d,e,f,g) where
     put (a,b,c,d,e,f,g) = put (a,(b,c,d,e,f,g))
     get                 = do (a,(b,c,d,e,f,g)) <- get ; return (a,b,c,d,e,f,g)
+
+instance (Binary a, Binary b, Binary c, Binary d, Binary e,
+          Binary f, Binary g, Binary h)
+        => Binary (a,b,c,d,e,f,g,h) where
+    put (a,b,c,d,e,f,g,h) = put (a,(b,c,d,e,f,g,h))
+    get                   = do (a,(b,c,d,e,f,g,h)) <- get ; return (a,b,c,d,e,f,g,h)
+
+instance (Binary a, Binary b, Binary c, Binary d, Binary e,
+          Binary f, Binary g, Binary h, Binary i)
+        => Binary (a,b,c,d,e,f,g,h,i) where
+    put (a,b,c,d,e,f,g,h,i) = put (a,(b,c,d,e,f,g,h,i))
+    get                     = do (a,(b,c,d,e,f,g,h,i)) <- get ; return (a,b,c,d,e,f,g,h,i)
+
+instance (Binary a, Binary b, Binary c, Binary d, Binary e,
+          Binary f, Binary g, Binary h, Binary i, Binary j)
+        => Binary (a,b,c,d,e,f,g,h,i,j) where
+    put (a,b,c,d,e,f,g,h,i,j) = put (a,(b,c,d,e,f,g,h,i,j))
+    get                       = do (a,(b,c,d,e,f,g,h,i,j)) <- get ; return (a,b,c,d,e,f,g,h,i,j)
 
 ------------------------------------------------------------------------
 -- Container types
 
 instance Binary a => Binary [a] where
     put l  = put (length l) >> mapM_ put l
-    get    = do n <- get :: GetM Int
+    get    = do n <- get :: Get Int
                 replicateM n get
 
 instance (Binary a) => Binary (Maybe a) where

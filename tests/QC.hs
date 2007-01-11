@@ -13,7 +13,7 @@ import Test.QuickCheck.Batch
 roundTrip :: (Eq a, Binary a) => a -> Bool
 roundTrip a = a == decode (encode a)
 
-roundTripWith put get x = x == runGetM get (runPutM (put x))
+roundTripWith put get x = x == runGet get (runPut (put x))
 
 instance Arbitrary Word8 where
     arbitrary = liftM fromIntegral (choose (0, 2^8-1))
@@ -21,21 +21,27 @@ instance Arbitrary Word8 where
 
 instance Arbitrary Word16 where
     arbitrary = liftM fromIntegral (choose (0, 2^16-1))
+    coarbitrary = undefined
 
 instance Arbitrary Word32 where
     arbitrary = liftM fromIntegral (choose (0, 2^32-1))
+    coarbitrary = undefined
 
 instance Arbitrary Word64 where
     arbitrary = liftM fromIntegral (choose (0, 2^64-1))
+    coarbitrary = undefined
 
 instance Arbitrary Char where
     arbitrary = choose (maxBound, minBound)
+    coarbitrary = undefined
 
 instance Arbitrary a => Arbitrary (Maybe a) where
     arbitrary = oneof [ return Nothing, liftM Just arbitrary]
+    coarbitrary = undefined
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
     arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
+    coarbitrary = undefined
 
 -- low level ones:
 

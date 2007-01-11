@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Data.Binary.PutM
+-- Module      : Data.Binary.Put
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
 -- 
@@ -10,9 +10,10 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary.PutM
-    ( PutM
-    , runPutM
+module Data.Binary.Put
+    ( Put
+    , runPut
+
     , unsafeLiftIO
     , yield
     , pop
@@ -29,7 +30,8 @@ module Data.Binary.PutM
     , putWord16le
     , putWord32le
     , putWord64le
-    ) where
+
+  ) where
 
 import Control.Exception
 import Control.Monad
@@ -47,31 +49,31 @@ import Foreign
 import System.IO.Unsafe
 
 data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
-                     {-# UNPACK #-} !Int                -- ^ offset
-                     {-# UNPACK #-} !Int                -- ^ used bytes
-                     {-# UNPACK #-} !Int                -- ^ length left
+                     {-# UNPACK #-} !Int                -- offset
+                     {-# UNPACK #-} !Int                -- used bytes
+                     {-# UNPACK #-} !Int                -- length left
 
-newtype PutM a = PutM { unPutM :: ContT [B.ByteString] (StateT Buffer IO) a }
+newtype Put a = Put { unPut :: ContT [B.ByteString] (StateT Buffer IO) a }
 
-instance Monad PutM where
-    return a        = PutM (return a)
-    (PutM m) >>= k  = PutM (m >>= unPutM . k)
-    (>>)            = bPutM
-    fail a          = PutM (fail a)
+instance Monad Put where
+    return a        = Put (return a)
+    (Put m) >>= k  = Put (m >>= unPut . k)
+    (>>)            = bPut
+    fail a          = Put (fail a)
 
-instance Functor PutM where
-    fmap f (PutM m) = PutM (fmap f m)
+instance Functor Put where
+    fmap f (Put m) = Put (fmap f m)
 
 --
 -- A bind for which we control the inlining
 --
-bPutM :: PutM a -> PutM b -> PutM b
-bPutM (PutM a) (PutM b) = PutM (a >> b)
-{-# INLINE [1] bPutM #-}
+bPut :: Put a -> Put b -> Put b
+bPut (Put a) (Put b) = Put (a >> b)
+{-# INLINE [1] bPut #-}
 
-instance MonadState Buffer PutM where
-    get     = PutM get
-    put f   = PutM (put f)
+instance MonadState Buffer Put where
+    get     = Put get
+    put f   = Put (put f)
 
 --
 -- copied from Data.ByteString.Lazy
@@ -85,21 +87,21 @@ initS = do
   fp <- B.mallocByteString defaultSize
   return $! Buffer fp 0 0 defaultSize
 
-runPutM :: PutM () -> L.ByteString
-runPutM m = unsafePerformIO $ do
+runPut :: Put () -> L.ByteString
+runPut m = unsafePerformIO $ do
     i <- initS
-    liftM B.LPS $ evalStateT (runContT (unPutM $ m >> pop) (\c -> return [])) i
+    liftM B.LPS $ evalStateT (runContT (unPut $ m >> pop) (\c -> return [])) i
 
-unsafeLiftIO :: IO a -> PutM a
-unsafeLiftIO = PutM . liftIO
+unsafeLiftIO :: IO a -> Put a
+unsafeLiftIO = Put . liftIO
 
 -- | Add a ByteString as output.
 --
 -- Does a 'unsafeInterleaveIO' trick, which will lazely suspend the rest of
 -- the computation till that ByteString has been consumed.
 --
-yield :: B.ByteString -> PutM ()
-yield bs = PutM . ContT $ \c -> do
+yield :: B.ByteString -> Put ()
+yield bs = Put . ContT $ \c -> do
     s@(Buffer _ _ u _) <- get
     assert (u == 0) $ do
 
@@ -109,7 +111,7 @@ yield bs = PutM . ContT $ \c -> do
     return (bs:bss)
 
 -- | Pop the ByteString we have constructed so far, if any.
-pop :: PutM ()
+pop :: Put ()
 pop = do
     Buffer p o u l <- get
     when (u /= 0) $ do
@@ -118,7 +120,7 @@ pop = do
 {-# INLINE [1] pop #-}
 
 -- | Ensure that there are at least @n@ many bytes available.
-ensureFree :: Int -> PutM ()
+ensureFree :: Int -> Put ()
 ensureFree n = do
     Buffer _ _ _ l <- get
     when (n > l) $ do
@@ -130,7 +132,7 @@ ensureFree n = do
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
-writeN :: Int -> (Ptr Word8 -> IO ()) -> PutM ()
+writeN :: Int -> (Ptr Word8 -> IO ()) -> Put ()
 writeN n f = do
     ensureFree n
     Buffer fp o u l <- get
@@ -139,58 +141,58 @@ writeN n f = do
     put $ Buffer fp o (u+n) (l-n)
 {-# INLINE [1] writeN #-}
 
-putByteString :: B.ByteString -> PutM ()
+putByteString :: B.ByteString -> Put ()
 putByteString bs = pop >> yield bs
 
-putLazyByteString :: L.ByteString -> PutM ()
+putLazyByteString :: L.ByteString -> Put ()
 putLazyByteString bs = pop >> mapM_ yield (L.toChunks bs)
 
-putWord8 :: Word8 -> PutM ()
+putWord8 :: Word8 -> Put ()
 putWord8 = writeN 1 . flip poke
 {-# INLINE putWord8 #-}
 
-putWord16be :: Word16 -> PutM ()
+putWord16be :: Word16 -> Put ()
 putWord16be w16 = do
     let (w1, w2) = divMod w16 0x0100
     putWord8 (fromIntegral w1)
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
-putWord16le :: Word16 -> PutM ()
+putWord16le :: Word16 -> Put ()
 putWord16le w16 = do
     let (w2, w1) = divMod w16 0x0100
     putWord8 (fromIntegral w1)
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16le #-}
 
-putWord32be :: Word32 -> PutM ()
+putWord32be :: Word32 -> Put ()
 putWord32be w32 = do
     let (w1, w2) = divMod w32 0x00010000
     putWord16be (fromIntegral w1)
     putWord16be (fromIntegral w2)
 {-# INLINE putWord32be #-}
 
-putWord32le :: Word32 -> PutM ()
+putWord32le :: Word32 -> Put ()
 putWord32le w32 = do
     let (w2, w1) = divMod w32 0x00010000
     putWord16le (fromIntegral w1)
     putWord16le (fromIntegral w2)
 {-# INLINE putWord32le #-}
 
-putWord64be :: Word64 -> PutM ()
+putWord64be :: Word64 -> Put ()
 putWord64be w64 = do
     let (w1, w2) = divMod w64 0x0000000100000000
     putWord32be (fromIntegral w1)
     putWord32be (fromIntegral w2)
 {-# INLINE putWord64be #-}
 
-putWord64le :: Word64 -> PutM ()
+putWord64le :: Word64 -> Put ()
 putWord64le w64 = do
     let (w2, w1) = divMod w64 0x0000000100000000
     putWord32le (fromIntegral w1)
     putWord32le (fromIntegral w2)
 {-# INLINE putWord64le #-}
 
-{-# RULES "writeN/combine" forall s1 s2 f1 f2. bPutM (writeN s1 f1) (writeN s2 f2) = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
-{-# RULES "ensureFree/combine" forall a b. bPutM (ensureFree a) (ensureFree b) = ensureFree (max a b) #-}
-{-# RULES "pop/combine" bPutM pop pop = pop #-}
+{-# RULES "writeN/combine" forall s1 s2 f1 f2. bPut (writeN s1 f1) (writeN s2 f2) = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
+{-# RULES "ensureFree/combine" forall a b. bPut (ensureFree a) (ensureFree b) = ensureFree (max a b) #-}
+{-# RULES "pop/combine" bPut pop pop = pop #-}

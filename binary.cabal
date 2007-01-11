@@ -6,7 +6,7 @@ Author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 Synopsis:        Binary serialization using lazy ByteStrings
 Build-Depends:   base, mtl
 Exposed-Modules: Data.Binary,
-                 Data.Binary.PutM,
-                 Data.Binary.GetM
+                 Data.Binary.Put,
+                 Data.Binary.Get
 Extensions:      ForeignFunctionInterface, FlexibleInstances
 hs-source-dirs:  src
