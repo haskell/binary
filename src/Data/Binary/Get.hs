@@ -83,24 +83,24 @@ failDesc err = do
 -- Helpers
 
 -- Check that there are more bytes left in the input
-ensureLeft :: Int64 -> Get ()
+ensureLeft :: Int -> Get ()
 ensureLeft n = do
     S (B.LPS strs) _ <- get
     worker n strs
   where
-    worker :: Int64 -> [B.ByteString] -> Get ()
+    worker :: Int -> [B.ByteString] -> Get ()
     worker n _ | n <= 0 = return ()
     worker _ []         = fail "not enough bytestring left"
     worker n (x:xs)     = worker (n - fromIntegral (B.length x)) xs
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value
-readN :: Int64 -> (L.ByteString -> a) -> Get a
+readN :: Int -> (L.ByteString -> a) -> Get a
 readN n f = do
     ensureLeft n
     S s bytes <- get
-    let (consuming, rest) = L.splitAt n s
-    put $ S rest (bytes + n)
+    let (consuming, rest) = L.splitAt (fromIntegral n) s
+    put $ S rest (bytes + (fromIntegral n))
     return (f consuming)
 
 ------------------------------------------------------------------------
@@ -110,7 +110,7 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 
 -- | An efficient 'get' method for lazy ByteStrings
-getLazyByteString :: Int64 -> Get L.ByteString
+getLazyByteString :: Int -> Get L.ByteString
 getLazyByteString n = readN n id
 
 ------------------------------------------------------------------------
