@@ -1,0 +1,29 @@
+
+  binary: efficient, pure binary serialisation using lazy ByteStrings
+------------------------------------------------------------------------
+
+The 'binary' package provides Data.Binary, containing the Binary class,
+and associated methods, for serialising values to and from lazy
+ByteStrings. 
+
+A key feature of 'binary' is that the interface is both pure, and efficient.
+
+Building:
+
+    runhaskell Setup.hs configure
+    runhaskell Setup.hs build
+    runhaskell Setup.hs install
+
+Use:
+    import Data.Binary
+
+and then write an instance of Binary for the type you wish to serialise.
+More information in the haddock documentation.
+
+Contributors:
+
+    Lennart Kolmodin
+    Duncan Coutts
+    Don Stewart
+    Spencer Janssen
+
