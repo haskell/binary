@@ -5,6 +5,17 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
+
+import Data.Array (Array)
+import Data.Array.IArray
+import Data.Array.Unboxed (UArray)
+
 import Control.Monad
 import Foreign
 import System.Environment
@@ -56,54 +67,45 @@ prop_Word32le = roundTripWith putWord32le getWord32le
 prop_Word64be = roundTripWith putWord64be getWord64be
 prop_Word64le = roundTripWith putWord64le getWord64le
 
--- higher level ones using the Binary class
-
-prop_Word8 :: Word8 -> Bool
-prop_Word8 = roundTrip
-
-prop_Word16 :: Word16 -> Bool
-prop_Word16 = roundTrip
-
-prop_Word32 :: Word32 -> Bool
-prop_Word32 = roundTrip
-
-prop_Word64 :: Word64 -> Bool
-prop_Word64 = roundTrip
-
-prop_List :: [Word8] -> Bool
-prop_List = roundTrip
-
-prop_Maybe :: Maybe Word8 -> Bool
-prop_Maybe = roundTrip
-
-prop_Either :: Either Word8 Word16 -> Bool
-prop_Either = roundTrip
-
-prop_Char :: Char -> Bool
-prop_Char = roundTrip
-
-prop_String :: String -> Bool
-prop_String = roundTrip
-
 main = do
     hSetBuffering stdout NoBuffering
     runTests "Binary" opts (map (run . uncurry label) tests)
     where
     opts = defOpt { no_of_tests = 1000, length_of_tests = 1000 }
     tests =
-        [ ("Word8",    property prop_Word8)
-        , ("Word16",   property prop_Word16)
-        , ("Word32",   property prop_Word32)
-        , ("Word64",   property prop_Word64)
-        , ("Word16be", property prop_Word16be)
+        [ ("Word16be", property prop_Word16be)
         , ("Word16le", property prop_Word16le)
         , ("Word32be", property prop_Word32be)
         , ("Word32le", property prop_Word32le)
         , ("Word64be", property prop_Word64be)
         , ("Word64le", property prop_Word64le)
-        , ("[Word8]",  property prop_List)
-        , ("Maybe Word8", property prop_Maybe)
-        , ("Either Word8 Word16", property prop_Either)
-        , ("Char",     property prop_Char)
-        , ("String",   property prop_String)
+-- higher level ones using the Binary class
+        ,("()",     property (roundTrip :: () -> Bool))
+        ,("Bool",   property (roundTrip :: Bool -> Bool))
+        ,("Char",   property (roundTrip :: Char -> Bool))
+        ,("Int",    property (roundTrip :: Int -> Bool))
+        ,("Word8",  property (roundTrip :: Word8 -> Bool))
+        ,("Word16", property (roundTrip :: Word16 -> Bool))
+        ,("Word32", property (roundTrip :: Word32 -> Bool))
+        ,("Word64", property (roundTrip :: Word64 -> Bool))
+{-        ,("Int8",   property (roundTrip :: Int8 -> Bool))
+        ,("Int16",  property (roundTrip :: Int16 -> Bool))
+        ,("Int32",  property (roundTrip :: Int32 -> Bool))
+        ,("Int64",  property (roundTrip :: Int64 -> Bool))
+        ,("[Word8]", property (roundTrip :: [Word8] -> Bool))
+        ,("String",  property (roundTrip :: String -> Bool))
+        ,("Maybe Word8", property (roundTrip :: Maybe Word8 -> Bool))
+        ,("Either Word8 Word16", property (roundTrip :: Either Word8 Word16 -> Bool))
+        ,("(Char, [Int])", property (roundTrip :: (Char, [Int]) -> Bool))
+        ,("(Maybe Char, Bool, [Int])", property (roundTrip :: (Maybe Char, Bool, [Int]) -> Bool))
+        ,("(Maybe Char, Bool, [Int], Either Bool Char)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char) -> Bool))
+        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int) -> Bool))
+        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int) -> Bool))
+        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int) -> Bool))
+        ,("B.ByteString",  property (roundTrip :: B.ByteString -> Bool))
+        ,("L.ByteString",  property (roundTrip :: L.ByteString -> Bool))
+        ,("Set Char",      property (roundTrip :: Set.Set Char -> Bool))
+        ,("Map Char Int",  property (roundTrip :: Map.Map Char Int -> Bool))
+        ,("IntSet",        property (roundTrip :: IntSet.IntSet -> Bool))
+        ,("IntMap String", property (roundTrip :: IntMap.IntMap String -> Bool))-}
         ]
