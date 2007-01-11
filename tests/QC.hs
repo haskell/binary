@@ -6,7 +6,9 @@ import Data.Binary
 import Control.Monad
 import Foreign
 import System.Environment
-import Test.QuickCheck.Parallel
+import System.IO
+import Test.QuickCheck
+import Test.QuickCheck.Batch
 
 roundTrip :: (Eq a, Binary a) => a -> Bool
 roundTrip a = a == decode (encode a)
@@ -76,26 +78,24 @@ prop_String :: String -> Bool
 prop_String = roundTrip
 
 main = do
-    args <- getArgs
-    n <- case args of
-            []  -> return 1
-            (s:_) -> readIO s
-    pRun n 1000 $ take (max 100 (length tests)) $ cycle tests
+    hSetBuffering stdout NoBuffering
+    runTests "Binary" opts (map (run . uncurry label) tests)
     where
+    opts = defOpt { no_of_tests = 1000, length_of_tests = 1000 }
     tests =
-        [ ("Word8", pDet prop_Word8)
-        , ("Word16", pDet prop_Word16)
-        , ("Word32", pDet prop_Word32)
-        , ("Word64", pDet prop_Word64)
-        , ("Word16be", pDet prop_Word16be)
-        , ("Word16le", pDet prop_Word16le)
-        , ("Word32be", pDet prop_Word32be)
-        , ("Word32le", pDet prop_Word32le)
-        , ("Word64be", pDet prop_Word64be)
-        , ("Word64le", pDet prop_Word64le)
-        , ("[Word8]",  pDet prop_List)
-        , ("Maybe Word8", pDet prop_Maybe)
-        , ("Either Word8 Word16", pDet prop_Either)
-        , ("Char", pDet prop_Char)
-        , ("String", pDet prop_String)
+        [ ("Word8",    property prop_Word8)
+        , ("Word16",   property prop_Word16)
+        , ("Word32",   property prop_Word32)
+        , ("Word64",   property prop_Word64)
+        , ("Word16be", property prop_Word16be)
+        , ("Word16le", property prop_Word16le)
+        , ("Word32be", property prop_Word32be)
+        , ("Word32le", property prop_Word32le)
+        , ("Word64be", property prop_Word64be)
+        , ("Word64le", property prop_Word64le)
+        , ("[Word8]",  property prop_List)
+        , ("Maybe Word8", property prop_Maybe)
+        , ("Either Word8 Word16", property prop_Either)
+        , ("Char",     property prop_Char)
+        , ("String",   property prop_String)
         ]
