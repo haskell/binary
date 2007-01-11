@@ -6,3 +6,6 @@ layer handling:
     error handling
 
     reading structures from the end of a stream, seek/tell behaviour
+
+seek based protocols are too hard. 
+    hGetContents/ interleaving.
