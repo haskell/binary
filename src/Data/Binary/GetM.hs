@@ -5,8 +5,8 @@
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
--- Stability   : stable
--- Portability : FFI + flexibile instances
+-- Stability   : unstable
+-- Portability : FFI + (currently) flexible instances
 --
 -----------------------------------------------------------------------------
 

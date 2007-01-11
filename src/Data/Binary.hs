@@ -1,21 +1,28 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :
--- Copyright   :  (c)
--- License     :  BSD3-style (see LICENSE)
+-- Module      : Data.Binary
+-- Copyright   : Lennart Kolmodin
+-- License     : BSD3-style (see LICENSE)
 -- 
--- Maintainer  :
--- Stability   :  stable
--- Portability :  portable
+-- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+-- Stability   : unstable
+-- Portability : FFI + (currently) flexible instances
+--
+-- Binary serialisation of values to and from lazy ByteStrings.
 --
 -----------------------------------------------------------------------------
 
 module Data.Binary (
-      module Data.Binary.PutM
+      Binary(..)                -- class Binary
+
+    -- Instances Binary for: () Bool Word8-64 Int8-64 Int
+
+    , encode                    -- :: Binary a => a -> ByteString
+    , decode                    -- :: Binary a => ByteString -> a
+
+    , module Data.Binary.PutM
     , module Data.Binary.GetM
-    , Binary(..)
-    , encode
-    , decode
+
   ) where
 
 import Data.Binary.PutM
@@ -25,6 +32,8 @@ import Control.Monad
 import Foreign
 
 import qualified Data.ByteString as B
+
+import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import qualified Data.Map as Map
@@ -38,10 +47,10 @@ import Data.Array.Unboxed (UArray)
 
 ------------------------------------------------------------------------
 
-encode :: Binary a => a -> L.ByteString
+encode :: Binary a => a -> ByteString
 encode = runPutM . put
 
-decode :: Binary a => L.ByteString -> a
+decode :: Binary a => ByteString -> a
 decode = runGetM get
 
 ------------------------------------------------------------------------
@@ -202,7 +211,7 @@ instance Binary B.ByteString where
 -- 
 -- needs the newtyped' bytestring
 -- 
-instance Binary L.ByteString where
+instance Binary ByteString where
     put bs = do
         put (L.length bs)
         putLazyByteString bs
