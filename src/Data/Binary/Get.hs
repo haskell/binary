@@ -18,6 +18,7 @@ module Data.Binary.Get (
     -- * The Get type
       Get
     , runGet
+    , skip
 
     -- * Primitives
     , getByteString
@@ -78,6 +79,10 @@ failDesc :: String -> Get a
 failDesc err = do
     S _ bytes <- get
     fail ("Failed reading at byte position " ++ show bytes)
+
+-- | Skip ahead @n@ bytes
+skip :: Int -> Get ()
+skip n = readN n (const ())
 
 ------------------------------------------------------------------------
 -- Helpers
