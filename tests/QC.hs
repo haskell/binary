@@ -2,6 +2,8 @@
 module Main where
 
 import Data.Binary
+import Data.Binary.Put
+import Data.Binary.Get
 
 import Control.Monad
 import Foreign
