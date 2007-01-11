@@ -14,12 +14,14 @@
 
 module Data.Binary (
 
-    -- * The Binary class, and the Get and Put monads
-      Binary(..)                -- class Binary
+    -- * The Binary class
+      Binary(..)
+
+    -- * The Get and Put monads
     , Get
     , Put
 
-    -- * Encoding and decoding of values
+    -- * Binary serialisation
     , encode                    -- :: Binary a => a -> ByteString
     , decode                    -- :: Binary a => ByteString -> a
 
@@ -52,7 +54,7 @@ import Data.Array           (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed
 import Data.List (unfoldr)
-import Data.Queue
+-- import Data.Queue
 import qualified Data.Tree as T
 import qualified Data.Sequence as Seq
 
@@ -141,15 +143,11 @@ class Binary t where
 -- Wrappers to run the underlying monad
 
 -- | Encode a value using binary serialisation to a lazy ByteString.
--- 
--- > encode (1,2)
 --
 encode :: Binary a => a -> ByteString
 encode = runPut . put
 
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
---
--- > let (a,b) = decode x
 --
 decode :: Binary a => ByteString -> a
 decode = runGet get
@@ -322,7 +320,7 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e
     put (a,b,c,d,e)     = put (a,(b,c,d,e))
     get                 = do (a,(b,c,d,e)) <- get ; return (a,b,c,d,e)
 
-instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f) 
+instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f)
         => Binary (a,b,c,d,e,f) where
     put (a,b,c,d,e,f)   = put (a,(b,c,d,e,f))
     get                 = do (a,(b,c,d,e,f)) <- get ; return (a,b,c,d,e,f)
@@ -411,9 +409,11 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 ------------------------------------------------------------------------
 -- Queues and Sequences
 
+{-
 instance (Binary e) => Binary (Queue e) where
     put = put . queueToList
     get = fmap listToQueue get
+-}
 
 instance (Binary e) => Binary (Seq.Seq e) where
     -- any better way to do this?
