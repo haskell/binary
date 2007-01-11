@@ -38,6 +38,9 @@ import qualified Data.IntSet     as IntSet
 import Data.Array           (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed
+import Data.List (unfoldr)
+import Data.Queue
+import qualified Data.Sequence as Seq
 
 ------------------------------------------------------------------------
 -- 
@@ -305,6 +308,21 @@ instance Binary IntSet.IntSet where
 instance (Binary e) => Binary (IntMap.IntMap e) where
     put = put . IntMap.toAscList
     get = liftM IntMap.fromDistinctAscList get
+
+------------------------------------------------------------------------
+-- Queues and Sequences
+
+instance (Binary e) => Binary (Queue e) where
+    put = put . queueToList
+    get = fmap listToQueue get
+
+instance (Binary e) => Binary (Seq.Seq e) where
+    -- any better way to do this?
+    put s = put . flip unfoldr s $ \seq ->
+        case Seq.viewl seq of
+            Seq.EmptyL -> Nothing
+            (Seq.:<) e seq' -> Just (e,seq')
+    get = fmap Seq.fromList get
 
 ------------------------------------------------------------------------
 -- Arrays
