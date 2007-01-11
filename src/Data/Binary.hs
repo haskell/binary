@@ -384,7 +384,7 @@ instance Binary B.ByteString where
     get    = get >>= getByteString
 
 instance Binary ByteString where
-    put bs = do put (L.length bs)
+    put bs = do put (fromIntegral (L.length bs) :: Int)
                 putLazyByteString bs
     get    = get >>= getLazyByteString
 
