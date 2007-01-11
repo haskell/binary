@@ -73,6 +73,14 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
     arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
     coarbitrary = undefined
 
+instance Arbitrary IntSet.IntSet where
+    arbitrary = fmap IntSet.fromList arbitrary
+    coarbitrary = undefined
+
+instance (Arbitrary e) => Arbitrary (IntMap.IntMap e) where
+    arbitrary = fmap IntMap.fromList arbitrary
+    coarbitrary = undefined
+
 instance (Arbitrary a, Ord a) => Arbitrary (Set.Set a) where
     arbitrary = fmap Set.fromList arbitrary
     coarbitrary = undefined
@@ -132,9 +140,9 @@ main = do
         ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int) -> Bool))
         ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int) -> Bool))
         ,("B.ByteString",  property (roundTrip :: B.ByteString -> Bool))
-        ,("L.ByteString",  property (roundTrip :: L.ByteString -> Bool))
-       ,("IntSet",        property (roundTrip :: IntSet.IntSet -> Bool))
-        ,("IntMap String", property (roundTrip :: IntMap.IntMap String -> Bool))-}
+        ,("L.ByteString",  property (roundTrip :: L.ByteString -> Bool))-}
+        ,("IntSet",        property (roundTrip :: IntSet.IntSet -> Bool))
+        ,("IntMap String", property (roundTrip :: IntMap.IntMap String -> Bool))
         ,("Set Char",      property (roundTrip :: Set.Set Char -> Bool))
         ,("Map Char Int",  property (roundTrip :: Map.Map Char Int -> Bool))
         ,("Sequence", property (roundTrip :: Seq.Seq Int64 -> Bool))
