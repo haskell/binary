@@ -12,10 +12,23 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary
-    ( Binary(..)                -- class Binary
+module Data.Binary (
+
+    -- * The Binary class, and the Get and Put monads
+      Binary(..)                -- class Binary
+    , Get
+    , Put
+
+    -- * Encoding and decoding of values
     , encode                    -- :: Binary a => a -> ByteString
     , decode                    -- :: Binary a => ByteString -> a
+
+    -- * IO functions for serialisation
+    , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
+    , decodeFile                -- :: Binary a => FilePath -> IO a
+    , hEncode                   -- :: Binary a => Handle -> a -> IO ()
+    , hDecode                   -- :: Binary a => Handle -> IO a
+
     ) where
 
 import Data.Binary.Put
@@ -43,8 +56,89 @@ import Data.Queue
 import qualified Data.Tree as T
 import qualified Data.Sequence as Seq
 
+import System.IO
+
 ------------------------------------------------------------------------
+
+-- | The @Binary@ class provides 'put' and 'get', methods to encode and
+-- decode a value to a lazy bytestring.
+--
+-- New instances for binary should have the following property:
+--
+-- > get . put == id
+--
+-- A range of instances are provided for basic Haskell types. To
+-- serialise a custom type, an instance of Binary for that type is
+-- required. For example, suppose we have a data structure:
+--
+-- > data Exp = IntE Int
+-- >          | OpE  String Exp Exp
+-- >    deriving Show
+--
+-- We can encode values of this type into bytestrings using the
+-- following instance, which proceeds by recursively breaking down the
+-- structure to serialise:
+--
+-- > instance Binary Exp where
+-- >       put (IntE i)          = do put (0 :: Word8)
+-- >                                  put i
+-- >       put (OpE s e1 e2)     = do put (1 :: Word8)
+-- >                                  put s
+-- >                                  put e1
+-- >                                  put e2
+-- > 
+-- >       get = do t <- get :: Get Word8
+-- >                case t of
+-- >                     0 -> do i <- get
+-- >                             return (IntE i)
+-- >                     1 -> do s  <- get
+-- >                             e1 <- get
+-- >                             e2 <- get
+-- >                             return (OpE s e1 e2)
+--
+-- Note how we write an initial tag byte to indicate each variant of the
+-- data type.
+--
+-- To serialise this to a bytestring, we use 'encode', which packs the
+-- data structure into a binary format, in a lazy bytestring
+--
+-- > > let e = OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
+-- > > let v = encode e
+--
+-- Where 'v' is a binary encoded data structure. To reconstruct the
+-- original data, we use 'decode'
+--
+-- > > decode v :: Exp
+-- > OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
+--
+-- The lazy ByteString that results from 'encode' can be written to
+-- disk, and read from disk using Data.ByteString.Lazy IO functions,
+-- such as hPutStr or writeFile:
+--
+-- > > writeFile "/tmp/exp.txt" (encode e)
+--
+-- And read back with:
+--
+-- > > readFile "/tmp/exp.txt" >>= return . decode :: IO Exp
+-- > OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
+--
+-- We can also directly serialise a value to and from a Handle, or a file:
 -- 
+-- > > v <- decodeFile  "/tmp/exp.txt" :: IO Exp
+-- > OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
+--
+-- And write a value to disk
+--
+-- > > encodeFile "/tmp/a.txt" v
+--
+class Binary t where
+    -- | Encode a value in the Put monad.
+    put :: t -> Put ()
+    -- | Decode a value in the Get monad
+    get :: Get t
+
+------------------------------------------------------------------------
+-- Wrappers to run the underlying monad
 
 -- | Encode a value using binary serialisation to a lazy ByteString.
 -- 
@@ -61,19 +155,23 @@ decode :: Binary a => ByteString -> a
 decode = runGet get
 
 ------------------------------------------------------------------------
+-- Convenience IO operations
 
--- | The @Binary@ class provides 'put' and 'get', methods to encode and
--- decode a value to a lazy bytestring.
---
--- New instances for binary should have the following property:
---
--- > get . put == id
---
-class Binary t where
-    -- | Encode a value in the Put monad.
-    put :: t -> Put ()
-    -- | Decode a value in the Get monad
-    get :: Get t
+-- | Serialise a value to a file
+encodeFile :: Binary a => FilePath -> a -> IO ()
+encodeFile f v = L.writeFile f (encode v)
+
+-- | Reconstruct a value previously written to a file
+decodeFile :: Binary a => FilePath -> IO a
+decodeFile f = liftM decode (L.readFile f)
+
+-- | Serialise a value to a Handle
+hEncode :: Binary a => Handle -> a -> IO ()
+hEncode h v = L.hPut h (encode v)
+
+-- | Reconstruct a value from a Handle
+hDecode :: Binary a => Handle -> IO a
+hDecode h = liftM decode (L.hGetContents h)
 
 ------------------------------------------------------------------------
 -- Simple instances
