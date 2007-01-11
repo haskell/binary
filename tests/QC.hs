@@ -93,6 +93,14 @@ instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
     arbitrary = fmap Seq.fromList arbitrary
     coarbitrary = undefined
 
+instance Arbitrary L.ByteString where
+    arbitrary     = arbitrary >>= return . L.LPS . filter (not. P.null) -- maintain the invariant.
+    coarbitrary s = coarbitrary (L.unpack s)
+
+instance Arbitrary P.ByteString where
+  arbitrary = P.pack `fmap` arbitrary
+  coarbitrary s = coarbitrary (P.unpack s)
+
 -- low level ones:
 
 prop_Word16be = roundTripWith putWord16be getWord16be
