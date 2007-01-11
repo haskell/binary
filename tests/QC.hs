@@ -8,8 +8,10 @@ import Foreign
 import System.Environment
 import Test.QuickCheck.Parallel
 
-encdec x = x == runDecM get (runEncM (put x))
-encdec' x fp fg = x == runDecM fg (runEncM (fp x))
+roundTrip :: (Eq a, Binary a) => a -> Bool
+roundTrip a = a == decode (encode a)
+
+roundTripWith put get x = x == runDecM get (runEncM (put x))
 
 instance Arbitrary Word8 where
     arbitrary = liftM fromIntegral (choose (0, 2^8-1))
@@ -33,27 +35,45 @@ instance Arbitrary a => Arbitrary (Maybe a) where
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
     arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
 
-prop_Word8  (w :: Word8 ) = encdec w
-prop_Word16 (w :: Word16) = encdec w
-prop_Word32 (w :: Word32) = encdec w
-prop_Word64 (w :: Word64) = encdec w
+-- low level ones:
 
-prop_Word16be w = encdec' w putWord16be getWord16be
-prop_Word16le w = encdec' w putWord16le getWord16le
+prop_Word16be = roundTripWith putWord16be getWord16be
+prop_Word16le = roundTripWith putWord16le getWord16le
 
-prop_Word32be w = encdec' w putWord32be getWord32be
-prop_Word32le w = encdec' w putWord32le getWord32le
+prop_Word32be = roundTripWith putWord32be getWord32be
+prop_Word32le = roundTripWith putWord32le getWord32le
 
-prop_Word64be w = encdec' w putWord64be getWord64be
-prop_Word64le w = encdec' w putWord64le getWord64le
+prop_Word64be = roundTripWith putWord64be getWord64be
+prop_Word64le = roundTripWith putWord64le getWord64le
 
-prop_list (xs :: [Word8]) = encdec xs
-prop_maybe (ma :: Maybe Word8) = encdec ma
-prop_either (eab :: Either Word8 Word16) = encdec eab
+-- higher level ones using the Binary class
 
-prop_Char   (c :: Char)    = encdec c
-prop_String (xs :: String) = encdec xs
+prop_Word8 :: Word8 -> Bool
+prop_Word8 = roundTrip
 
+prop_Word16 :: Word16 -> Bool
+prop_Word16 = roundTrip
+
+prop_Word32 :: Word32 -> Bool
+prop_Word32 = roundTrip
+
+prop_Word64 :: Word64 -> Bool
+prop_Word64 = roundTrip
+
+prop_List :: [Word8] -> Bool
+prop_List = roundTrip
+
+prop_Maybe :: Maybe Word8 -> Bool
+prop_Maybe = roundTrip
+
+prop_Either :: Either Word8 Word16 -> Bool
+prop_Either = roundTrip
+
+prop_Char :: Char -> Bool
+prop_Char = roundTrip
+
+prop_String :: String -> Bool
+prop_String = roundTrip
 
 main = do
     args <- getArgs
@@ -73,9 +93,9 @@ main = do
         , ("Word32le", pDet prop_Word32le)
         , ("Word64be", pDet prop_Word64be)
         , ("Word64le", pDet prop_Word64le)
-        , ("[Word8]",  pDet prop_list)
-        , ("Maybe Word8", pDet prop_maybe)
-        , ("Either Word8 Word16", pDet prop_either)
+        , ("[Word8]",  pDet prop_List)
+        , ("Maybe Word8", pDet prop_Maybe)
+        , ("Either Word8 Word16", pDet prop_Either)
         , ("Char", pDet prop_Char)
         , ("String", pDet prop_String)
         ]
