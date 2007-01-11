@@ -79,9 +79,9 @@ readN :: Int64 -> (L.ByteString -> a) -> DecM a
 readN n f = do
     ensureLeft n
     s <- get
-    let (s',s'') = L.splitAt n s
-    put s'
-    return (f s'')
+    let (consuming, rest) = L.splitAt n s
+    put rest
+    return (f consuming)
 
 getByteString :: Int -> DecM B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
