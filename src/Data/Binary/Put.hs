@@ -172,6 +172,8 @@ putLazyByteString bs = flush >> mapM_ yield (L.toChunks bs)
 
 ------------------------------------------------------------------------
 
+-- TODO use shifts instead of divMod
+
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Put ()
 putWord16be w16 = do
