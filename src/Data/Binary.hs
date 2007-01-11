@@ -293,7 +293,7 @@ instance Binary Char where
                                 y <- liftM (xor 0x80) getByte
                                 z <- liftM (xor 0x80) getByte
                                 return (z .|. shiftL6 (y .|. shiftL6
-                                        (x .|. shiftL6 (xor 0x80 w))))
+                                        (x .|. shiftL6 (xor 0xf0 w))))
         return $! chr r
 
 ------------------------------------------------------------------------
