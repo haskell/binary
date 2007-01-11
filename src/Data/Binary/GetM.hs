@@ -1,18 +1,18 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :
--- Copyright   : 
--- License     :  BSD3-style (see LICENSE)
+-- Module      : Data.Binary.GetM
+-- Copyright   : Lennart Kolmodin
+-- License     : BSD3-style (see LICENSE)
 -- 
--- Maintainer  :
--- Stability   :  stable
--- Portability :  portable
+-- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+-- Stability   : stable
+-- Portability : FFI + flexibile instances
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary.DecM
-    ( DecM
-    , runDecM
+module Data.Binary.GetM
+    ( GetM
+    , runGetM
     , getByteString
     , getLazyByteString
     , getWord8
@@ -39,43 +39,41 @@ import Foreign
 
 import System.IO.Unsafe
 
--- import Data.ByteString.Binary.Shift
 import GHC.Prim
 import GHC.Base
 import GHC.Word
 import GHC.Int
 
-
 type S = L.ByteString
 
-newtype DecM a = DecM { unDecM :: State S a }
+newtype GetM a = GetM { unGetM :: State S a }
 
-instance Monad DecM where
-    return a        = DecM (return a)
-    (DecM m) >>= k  = DecM (m >>= unDecM . k)
-    fail a          = DecM (fail a)
+instance Monad GetM where
+    return a        = GetM (return a)
+    (GetM m) >>= k  = GetM (m >>= unGetM . k)
+    fail a          = GetM (fail a)
 
-instance MonadState S DecM where
-    get         = DecM get
-    put f       = DecM (put f)
+instance MonadState S GetM where
+    get         = GetM get
+    put f       = GetM (put f)
 
-instance Functor DecM where
-    fmap f (DecM m) = DecM (fmap f m)
+instance Functor GetM where
+    fmap f (GetM m) = GetM (fmap f m)
 
-runDecM :: DecM a -> L.ByteString -> a
-runDecM (DecM m) str = evalState m str
+runGetM :: GetM a -> L.ByteString -> a
+runGetM (GetM m) str = evalState m str
 
-ensureLeft :: Int64 -> DecM ()
+ensureLeft :: Int64 -> GetM ()
 ensureLeft n = do
     (B.LPS strs) <- get
     worker n strs
   where
-    worker :: Int64 -> [B.ByteString] -> DecM ()
+    worker :: Int64 -> [B.ByteString] -> GetM ()
     worker n _ | n <= 0 = return ()
     worker _ []         = fail "not enough bytestring left"
     worker n (x:xs)     = worker (n - fromIntegral (B.length x)) xs
 
-readN :: Int64 -> (L.ByteString -> a) -> DecM a
+readN :: Int64 -> (L.ByteString -> a) -> GetM a
 readN n f = do
     ensureLeft n
     s <- get
@@ -83,55 +81,55 @@ readN n f = do
     put rest
     return (f consuming)
 
-getByteString :: Int -> DecM B.ByteString
+getByteString :: Int -> GetM B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 
-getLazyByteString :: Int64 -> DecM L.ByteString
+getLazyByteString :: Int64 -> GetM L.ByteString
 getLazyByteString n = readN n id
 
 {-# INLINE getWord8 #-}
-getWord8 :: DecM Word8
+getWord8 :: GetM Word8
 getWord8 = readN 1 L.head
 
 {-# INLINE getWord16be #-}
-getWord16be :: DecM Word16
+getWord16be :: GetM Word16
 getWord16be = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
     return $! w1 `unsafeShiftL_Word16` 8 .|. w2
 
 {-# INLINE getWord16le #-}
-getWord16le :: DecM Word16
+getWord16le :: GetM Word16
 getWord16le = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w2 `unsafeShiftL_Word16` 8 .|. w1 
+    return $! w2 `unsafeShiftL_Word16` 8 .|. w1
 
 unsafeShiftL_Word16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
 
 {-# INLINE getWord32be #-}
-getWord32be :: DecM Word32
+getWord32be :: GetM Word32
 getWord32be = do
     w1 <- liftM fromIntegral getWord16be
     w2 <- liftM fromIntegral getWord16be
     return $! w1 `shiftL` 16 .|. w2
 
 {-# INLINE getWord32le #-}
-getWord32le :: DecM Word32
+getWord32le :: GetM Word32
 getWord32le = do
     w1 <- liftM fromIntegral getWord16le
     w2 <- liftM fromIntegral getWord16le
     return $! w2 `shiftL` 16 .|. w1
 
 {-# INLINE getWord64be #-}
-getWord64be :: DecM Word64
+getWord64be :: GetM Word64
 getWord64be = do
     w1 <- liftM fromIntegral getWord32be
     w2 <- liftM fromIntegral getWord32be
     return $! w1 `shiftL` 32 .|. w2
 
 {-# INLINE getWord64le #-}
-getWord64le :: DecM Word64
+getWord64le :: GetM Word64
 getWord64le = do
     w1 <- liftM fromIntegral getWord32le
     w2 <- liftM fromIntegral getWord32le

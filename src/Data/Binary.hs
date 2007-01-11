@@ -11,15 +11,15 @@
 -----------------------------------------------------------------------------
 
 module Data.Binary (
-      module Data.Binary.EncM
-    , module Data.Binary.DecM
+      module Data.Binary.PutM
+    , module Data.Binary.GetM
     , Binary(..)
     , encode
     , decode
   ) where
 
-import Data.Binary.EncM
-import Data.Binary.DecM
+import Data.Binary.PutM
+import Data.Binary.GetM
 
 import Control.Monad
 import Foreign
@@ -39,16 +39,16 @@ import Data.Array.Unboxed (UArray)
 ------------------------------------------------------------------------
 
 encode :: Binary a => a -> L.ByteString
-encode = runEncM . put
+encode = runPutM . put
 
 decode :: Binary a => L.ByteString -> a
-decode = runDecM get
+decode = runGetM get
 
 ------------------------------------------------------------------------
 
 class Binary t where
-    put :: t -> EncM ()
-    get :: DecM t
+    put :: t -> PutM ()
+    get :: GetM t
 
 instance Binary () where
     put ()  = return ()
@@ -79,41 +79,38 @@ instance Binary Word64 where
 
 instance Binary Int8 where
     put i   = put (fromIntegral i :: Word8)
-    get     = fromIntegral `fmap` (get :: DecM Word8)
+    get     = fromIntegral `fmap` (get :: GetM Word8)
 
 instance Binary Int16 where
     put i   = put (fromIntegral i :: Word16)
-    get     = fromIntegral `fmap` (get :: DecM Word16)
+    get     = fromIntegral `fmap` (get :: GetM Word16)
 
 instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
-    get     = fromIntegral `fmap` (get :: DecM Word32)
+    get     = fromIntegral `fmap` (get :: GetM Word32)
 
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
-    get     = fromIntegral `fmap` (get :: DecM Word64)
+    get     = fromIntegral `fmap` (get :: GetM Word64)
 
 instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
-    get     = fromIntegral `fmap` (get :: DecM Int32)
+    get     = fromIntegral `fmap` (get :: GetM Int32)
 
 -- TODO Integer
 
 -- TODO profile, benchmark and test this instance
 instance Binary Char where
     put a | c <= 0x7f     = put (fromIntegral c :: Word8)
-          | c <= 0x7ff    = do
-                                put (0xc0 .|. y)
-                                put (0x80 .|. z)
-          | c <= 0xffff   = do
-                                put (0xe0 .|. x)
-                                put (0x80 .|. y)
-                                put (0x80 .|. z)
-          | c <= 0x10ffff = do
-                                put (0xf0 .|. w)
-                                put (0x80 .|. x)
-                                put (0x80 .|. y)
-                                put (0x80 .|. z)
+          | c <= 0x7ff    = do put (0xc0 .|. y)
+                               put (0x80 .|. z)
+          | c <= 0xffff   = do put (0xe0 .|. x)
+                               put (0x80 .|. y)
+                               put (0x80 .|. z)
+          | c <= 0x10ffff = do put (0xf0 .|. w)
+                               put (0x80 .|. x)
+                               put (0x80 .|. y)
+                               put (0x80 .|. z)
           | otherwise     = error "Not a valid Unicode code point"
      where
         c = ord a
@@ -150,7 +147,7 @@ instance Binary a => Binary [a] where
         put (length l)
         mapM_ put l
     get    = do
-        (n :: Int) <- get
+        n <- get :: GetM Int
         replicateM n get
 
 instance (Binary a, Binary b) => Binary (Either a b) where
@@ -202,6 +199,9 @@ instance Binary B.ByteString where
         len <- get
         getByteString len
 
+-- 
+-- needs the newtyped' bytestring
+-- 
 instance Binary L.ByteString where
     put bs = do
         put (L.length bs)
@@ -236,6 +236,12 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
         return (listArray bs es)
 
 -- todo handle UArray i Bool specially?
+--
+-- N.B.
+--
+--  Non type-variable argument in the constraint: IArray UArray e
+--  (Use -fglasgow-exts to permit this)
+--
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
     put a = do
         put (bounds a)
