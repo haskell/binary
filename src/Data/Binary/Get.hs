@@ -52,8 +52,8 @@ import GHC.Base
 import GHC.Word
 import GHC.Int
 
-data S = S L.ByteString -- the rest of the input
-           Int64        -- bytes read
+data S = S L.ByteString  -- the rest of the input
+           !Int64        -- bytes read
 
 -- | The Get monad is just a State monad carrying around the input ByteString
 newtype Get a = Get { unGet :: State S a }
