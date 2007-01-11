@@ -40,6 +40,7 @@ import Data.Array.IArray
 import Data.Array.Unboxed
 import Data.List (unfoldr)
 import Data.Queue
+import qualified Data.Tree as T
 import qualified Data.Sequence as Seq
 
 ------------------------------------------------------------------------
@@ -323,6 +324,13 @@ instance (Binary e) => Binary (Seq.Seq e) where
             Seq.EmptyL -> Nothing
             (Seq.:<) e seq' -> Just (e,seq')
     get = fmap Seq.fromList get
+
+------------------------------------------------------------------------
+-- Trees
+
+instance (Binary e) => Binary (T.Tree e) where
+    put (T.Node r s) = put r >> put s
+    get = liftM2 T.Node get get
 
 ------------------------------------------------------------------------
 -- Arrays
