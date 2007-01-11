@@ -8,17 +8,22 @@
 -- Stability   : stable
 -- Portability : FFI + flexibile instances
 --
+-- The Put monad. A monad for efficiently constructing lazy bytestrings.
+--
 -----------------------------------------------------------------------------
 
-module Data.Binary.Put
-    ( Put
+module Data.Binary.Put (
+
+    -- * The Put type
+      Put
     , runPut
 
-    , unsafeLiftIO
     , yield
     , pop
+
     , ensureFree
     , writeN
+    , unsafeLiftIO
 
     , putByteString
     , putLazyByteString
@@ -53,23 +58,30 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
                      {-# UNPACK #-} !Int                -- used bytes
                      {-# UNPACK #-} !Int                -- length left
 
+-- | The Put monad abstracts over the construction of a lazy bytestring
+-- by filling byte arrays piece by piece. The 'put' method of class
+-- Binary implicitly fills a buffer, threaded through the Put monad. As
+-- each buffer is filled, it is 'popped' off, to become a new chunk of the
+-- resulting lazy ByteString. All this is hidden from the user of class
+-- Binary.
+--
 newtype Put a = Put { unPut :: ContT [B.ByteString] (StateT Buffer IO) a }
 
 instance Monad Put where
-    return a        = Put (return a)
-    (Put m) >>= k  = Put (m >>= unPut . k)
-    (>>)            = bPut
-    fail a          = Put (fail a)
-
-instance Functor Put where
-    fmap f (Put m) = Put (fmap f m)
+    return a      = Put (return a)
+    (Put m) >>= k = Put (m >>= unPut . k)
+    (>>)          = bindP
+    fail a        = Put (fail a)
 
 --
 -- A bind for which we control the inlining
 --
-bPut :: Put a -> Put b -> Put b
-bPut (Put a) (Put b) = Put (a >> b)
-{-# INLINE [1] bPut #-}
+bindP :: Put a -> Put b -> Put b
+bindP (Put a) (Put b) = Put (a >> b)
+{-# INLINE [1] bindP #-}
+
+instance Functor Put where
+    fmap f (Put m) = Put (fmap f m)
 
 instance MonadState Buffer Put where
     get     = Put get
@@ -95,7 +107,8 @@ runPut m = unsafePerformIO $ do
 unsafeLiftIO :: IO a -> Put a
 unsafeLiftIO = Put . liftIO
 
--- | Add a ByteString as output.
+-- | Take a strict bytestring, and add it to the list of chunks in the
+-- monad's lazy bytestring state.
 --
 -- Does a 'unsafeInterleaveIO' trick, which will lazely suspend the rest of
 -- the computation till that ByteString has been consumed.
@@ -107,10 +120,10 @@ yield bs = Put . ContT $ \c -> do
 
     -- this truly is a beautiful piece of magic
     bss <- liftIO $ unsafeInterleaveIO $ evalStateT (c ()) s
-
     return (bs:bss)
 
--- | Pop the ByteString we have constructed so far, if any.
+-- | Pop the ByteString we have constructed so far, if any, yielding a
+-- new chunk in the result ByteString.
 pop :: Put ()
 pop = do
     Buffer p o u l <- get
@@ -193,6 +206,17 @@ putWord64le w64 = do
     putWord32le (fromIntegral w2)
 {-# INLINE putWord64le #-}
 
-{-# RULES "writeN/combine" forall s1 s2 f1 f2. bPut (writeN s1 f1) (writeN s2 f2) = writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1)) #-}
-{-# RULES "ensureFree/combine" forall a b. bPut (ensureFree a) (ensureFree b) = ensureFree (max a b) #-}
-{-# RULES "pop/combine" bPut pop pop = pop #-}
+{-# RULES
+
+"writeN/combine" forall s1 s2 f1 f2 .
+        bindP (writeN s1 f1) (writeN s2 f2) =
+        writeN (s1+s2) (\p -> f1 p >> f2 (p `plusPtr` s1))
+
+"ensureFree/combine" forall a b .
+        bindP (ensureFree a) (ensureFree b) =
+        ensureFree (max a b)
+
+"pop/combine"
+        bindP pop pop = pop
+
+ #-}
