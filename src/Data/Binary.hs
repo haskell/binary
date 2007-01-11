@@ -287,6 +287,7 @@ instance Binary Char where
                                     y <- liftM (xor 0x80) getByte
                                     return (y .|. shiftL6 (x .|. shiftL6
                                             (xor 0xe0 w)))
+                  -- BUG: This fails for encodings of chars >= 0x10000
                   | otherwise -> do
                                 x <- liftM (xor 0x80) getByte
                                 y <- liftM (xor 0x80) getByte
