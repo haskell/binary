@@ -6,6 +6,7 @@ import Data.Binary.Put
 import Data.Binary.Get
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Base as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -94,12 +95,12 @@ instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
     coarbitrary = undefined
 
 instance Arbitrary L.ByteString where
-    arbitrary     = arbitrary >>= return . L.LPS . filter (not. P.null) -- maintain the invariant.
+    arbitrary     = arbitrary >>= return . B.LPS . filter (not. B.null) -- maintain the invariant.
     coarbitrary s = coarbitrary (L.unpack s)
 
-instance Arbitrary P.ByteString where
-  arbitrary = P.pack `fmap` arbitrary
-  coarbitrary s = coarbitrary (P.unpack s)
+instance Arbitrary B.ByteString where
+  arbitrary = B.pack `fmap` arbitrary
+  coarbitrary s = coarbitrary (B.unpack s)
 
 -- low level ones:
 
@@ -146,9 +147,9 @@ main = do
         ,("(Maybe Char, Bool, [Int], Either Bool Char)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char) -> Bool))
 {-        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int) -> Bool))
         ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int) -> Bool))
-        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int) -> Bool))
+        ,("(Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int)", property (roundTrip :: (Maybe Char, Bool, [Int], Either Bool Char, Int, Int, Int) -> Bool))-}
         ,("B.ByteString",  property (roundTrip :: B.ByteString -> Bool))
-        ,("L.ByteString",  property (roundTrip :: L.ByteString -> Bool))-}
+        ,("L.ByteString",  property (roundTrip :: L.ByteString -> Bool))
         ,("IntSet",        property (roundTrip :: IntSet.IntSet -> Bool))
         ,("IntMap String", property (roundTrip :: IntMap.IntMap String -> Bool))
         ,("Set Char",      property (roundTrip :: Set.Set Char -> Bool))
