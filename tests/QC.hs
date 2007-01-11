@@ -11,6 +11,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
+import qualified Data.Sequence as Seq
 
 import Data.Array (Array)
 import Data.Array.IArray
@@ -72,6 +73,10 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
     arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
     coarbitrary = undefined
 
+instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
+    arbitrary = fmap Seq.fromList arbitrary
+    coarbitrary = undefined
+
 -- low level ones:
 
 prop_Word16be = roundTripWith putWord16be getWord16be
@@ -124,4 +129,5 @@ main = do
         ,("Map Char Int",  property (roundTrip :: Map.Map Char Int -> Bool))
         ,("IntSet",        property (roundTrip :: IntSet.IntSet -> Bool))
         ,("IntMap String", property (roundTrip :: IntMap.IntMap String -> Bool))-}
+        ,("Sequence", property (roundTrip :: Seq.Seq Int64 -> Bool))
         ]
