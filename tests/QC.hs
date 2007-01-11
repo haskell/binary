@@ -44,6 +44,22 @@ instance Arbitrary Word64 where
     arbitrary = liftM fromIntegral (choose (0, 2^64-1))
     coarbitrary = undefined
 
+instance Arbitrary Int8 where
+    arbitrary = liftM fromIntegral (choose (0, 2^8-1))
+    coarbitrary w = variant 0
+
+instance Arbitrary Int16 where
+    arbitrary = liftM fromIntegral (choose (0, 2^16-1))
+    coarbitrary = undefined
+
+instance Arbitrary Int32 where
+    arbitrary = liftM fromIntegral (choose (0, 2^32-1))
+    coarbitrary = undefined
+
+instance Arbitrary Int64 where
+    arbitrary = liftM fromIntegral (choose (0, 2^64-1))
+    coarbitrary = undefined
+
 instance Arbitrary Char where
     arbitrary = choose (maxBound, minBound)
     coarbitrary = undefined
@@ -88,11 +104,11 @@ main = do
         ,("Word16", property (roundTrip :: Word16 -> Bool))
         ,("Word32", property (roundTrip :: Word32 -> Bool))
         ,("Word64", property (roundTrip :: Word64 -> Bool))
-{-        ,("Int8",   property (roundTrip :: Int8 -> Bool))
+        ,("Int8",   property (roundTrip :: Int8 -> Bool))
         ,("Int16",  property (roundTrip :: Int16 -> Bool))
         ,("Int32",  property (roundTrip :: Int32 -> Bool))
         ,("Int64",  property (roundTrip :: Int64 -> Bool))
-        ,("[Word8]", property (roundTrip :: [Word8] -> Bool))
+{-        ,("[Word8]", property (roundTrip :: [Word8] -> Bool))
         ,("String",  property (roundTrip :: String -> Bool))
         ,("Maybe Word8", property (roundTrip :: Maybe Word8 -> Bool))
         ,("Either Word8 Word16", property (roundTrip :: Either Word8 Word16 -> Bool))
