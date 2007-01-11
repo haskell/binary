@@ -50,14 +50,15 @@ import GHC.Base
 import GHC.Word
 import GHC.Int
 
-type S = L.ByteString
+data S = S L.ByteString -- the rest of the input
+           Int64        -- bytes read
 
 newtype Get a = Get { unGet :: State S a }
 
 instance Monad Get where
     return a      = Get (return a)
     (Get m) >>= k = Get (m >>= unGet . k)
-    fail a        = Get (fail a)
+    fail          = failDesc
 
 instance MonadState S Get where
     get         = Get get
@@ -67,11 +68,16 @@ instance Functor Get where
     fmap f (Get m) = Get (fmap f m)
 
 runGet :: Get a -> L.ByteString -> a
-runGet (Get m) str = evalState m str
+runGet (Get m) str = evalState m (S str 0)
+
+failDesc :: String -> Get a
+failDesc err = do
+    S _ bytes <- get
+    fail ("Failed reading at byte position " ++ show bytes)
 
 ensureLeft :: Int64 -> Get ()
 ensureLeft n = do
-    (B.LPS strs) <- get
+    S (B.LPS strs) _ <- get
     worker n strs
   where
     worker :: Int64 -> [B.ByteString] -> Get ()
@@ -82,9 +88,9 @@ ensureLeft n = do
 readN :: Int64 -> (L.ByteString -> a) -> Get a
 readN n f = do
     ensureLeft n
-    s <- get
+    S s bytes <- get
     let (consuming, rest) = L.splitAt n s
-    put rest
+    put $ S rest (bytes + n)
     return (f consuming)
 
 getByteString :: Int -> Get B.ByteString
