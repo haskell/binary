@@ -170,8 +170,6 @@ putLazyByteString bs = flush >> mapM_ yield (L.toChunks bs)
 
 ------------------------------------------------------------------------
 
--- TODO use shifts instead of divMod
-
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Put ()
 putWord16be w16 = do
@@ -193,19 +191,27 @@ putWord16le w16 = do
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Put ()
 putWord32be w32 = do
-    let w1 = shiftR w32 16
-        w2 = w32 .&. 0xffff
-    putWord16be (fromIntegral w1)
-    putWord16be (fromIntegral w2)
+    let w1 = (w32 `shiftR` 24)
+        w2 = (w32 `shiftR` 16) .&. 0xff
+        w3 = (w32 `shiftR`  8) .&. 0xff
+        w4 =  w32              .&. 0xff
+    putWord8 (fromIntegral w1)
+    putWord8 (fromIntegral w2)
+    putWord8 (fromIntegral w3)
+    putWord8 (fromIntegral w4)
 {-# INLINE putWord32be #-}
 
 -- | Write a Word32 in big endian format
 putWord32le :: Word32 -> Put ()
 putWord32le w32 = do
-    let w2 = shiftR w32 16
-        w1 = w32 .&. 0xffff
-    putWord16le (fromIntegral w1)
-    putWord16le (fromIntegral w2)
+    let w4 = (w32 `shiftR` 24)
+        w3 = (w32 `shiftR` 16) .&. 0xff
+        w2 = (w32 `shiftR`  8) .&. 0xff
+        w1 =  w32              .&. 0xff
+    putWord8 (fromIntegral w1)
+    putWord8 (fromIntegral w2)
+    putWord8 (fromIntegral w3)
+    putWord8 (fromIntegral w4)
 {-# INLINE putWord32le #-}
 
 -- | Write a Word64 in big endian format
