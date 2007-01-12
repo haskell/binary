@@ -10,4 +10,4 @@ exposed-modules: Data.Binary,
                  Data.Binary.Get
 extensions:      ForeignFunctionInterface,CPP,MultiParamTypeClasses
 hs-source-dirs:  src
-ghc-options:     -O -Wall -Werror
+ghc-options:     -O -funbox-strict-fields -Wall -Werror
