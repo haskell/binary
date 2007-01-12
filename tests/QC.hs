@@ -123,7 +123,7 @@ main = do
 run :: [(String, Int -> IO ())] -> IO ()
 run tests = do
     x <- getArgs
-    let n = if null x then 100 else read . head $ x
+    let n = if null x then 200 else read . head $ x
     mapM_ (\(s,a) -> printf "%-25s: " s >> a n) tests
 
 tests =
@@ -163,4 +163,5 @@ tests =
         ,("Set Word32",      mytest (roundTrip :: Set.Set Word32 -> Bool))
         ,("Map Word16 Int",  mytest (roundTrip :: Map.Map Word16 Int -> Bool))
         ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
+        ,("Integer" , mytest (roundTrip :: Integer -> Bool))
         ]
