@@ -3,7 +3,6 @@ layer handling:
     bit packing
     state parameters
     string pools
-    error handling
 
     reading structures from the end of a stream, seek/tell behaviour
 
