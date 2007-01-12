@@ -175,7 +175,8 @@ putLazyByteString bs = flush >> mapM_ yield (L.toChunks bs)
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Put ()
 putWord16be w16 = do
-    let (w1, w2) = divMod w16 0x0100
+    let w1 = shiftR w16 8
+        w2 = w16 .&. 0xff
     putWord8 (fromIntegral w1)
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16be #-}
@@ -183,7 +184,8 @@ putWord16be w16 = do
 -- | Write a Word16 in little endian format
 putWord16le :: Word16 -> Put ()
 putWord16le w16 = do
-    let (w2, w1) = divMod w16 0x0100
+    let w2 = shiftR w16 8
+        w1 = w16 .&. 0xff
     putWord8 (fromIntegral w1)
     putWord8 (fromIntegral w2)
 {-# INLINE putWord16le #-}
@@ -191,7 +193,8 @@ putWord16le w16 = do
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Put ()
 putWord32be w32 = do
-    let (w1, w2) = divMod w32 0x00010000
+    let w1 = shiftR w32 16
+        w2 = w32 .&. 0xffff
     putWord16be (fromIntegral w1)
     putWord16be (fromIntegral w2)
 {-# INLINE putWord32be #-}
@@ -199,7 +202,8 @@ putWord32be w32 = do
 -- | Write a Word32 in big endian format
 putWord32le :: Word32 -> Put ()
 putWord32le w32 = do
-    let (w2, w1) = divMod w32 0x00010000
+    let w2 = shiftR w32 16
+        w1 = w32 .&. 0xffff
     putWord16le (fromIntegral w1)
     putWord16le (fromIntegral w2)
 {-# INLINE putWord32le #-}
@@ -207,7 +211,8 @@ putWord32le w32 = do
 -- | Write a Word64 in big endian format
 putWord64be :: Word64 -> Put ()
 putWord64be w64 = do
-    let (w1, w2) = divMod w64 0x0000000100000000
+    let w1 = shiftR w64 32
+        w2 = w64 .&. 0xffffffff
     putWord32be (fromIntegral w1)
     putWord32be (fromIntegral w2)
 {-# INLINE putWord64be #-}
@@ -215,7 +220,8 @@ putWord64be w64 = do
 -- | Write a Word64 in little endian format
 putWord64le :: Word64 -> Put ()
 putWord64le w64 = do
-    let (w2, w1) = divMod w64 0x0000000100000000
+    let w2 = shiftR w64 32
+        w1 = w64 .&. 0xffffffff
     putWord32le (fromIntegral w1)
     putWord32le (fromIntegral w2)
 {-# INLINE putWord64le #-}
