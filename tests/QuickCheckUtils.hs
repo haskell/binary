@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
-import qualified Data.Sequence as Seq
+
 
 import Control.Monad        ( liftM2 )
 import Data.Char
@@ -30,6 +30,8 @@ import System.IO
 import qualified Data.ByteString      as P
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base as L (LazyByteString(..))
+
+-- import qualified Data.Sequence as Seq
 
 -- Enable this to get verbose test output. Including the actual tests.
 debug = False
@@ -92,37 +94,80 @@ done mesg ntest stamps =
 
 ------------------------------------------------------------------------
 
+instance Random Word8 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Int8 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Word16 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Int16 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Word32 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Int32 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Word64 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+instance Random Int64 where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
+------------------------------------------------------------------------
+
+integralRandomR :: (Integral a, RandomGen g) => (a,a) -> g -> (a,g)
+integralRandomR  (a,b) g = case randomR (fromIntegral a :: Integer,
+                                         fromIntegral b :: Integer) g of
+                            (x,g) -> (fromIntegral x, g)
+
+------------------------------------------------------------------------
+
 instance Arbitrary Word8 where
-    arbitrary = liftM fromIntegral (choose (0, 2^8-1))
-    coarbitrary w = variant 0
+    arbitrary       = choose (0, 2^8-1)
+    coarbitrary w   = variant 0
 
 instance Arbitrary Word16 where
-    arbitrary = liftM fromIntegral (choose (0, 2^16-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^16-1)
+    coarbitrary     = undefined
 
 instance Arbitrary Word32 where
-    arbitrary = liftM fromIntegral (choose (0, 2^32-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^32-1)
+    coarbitrary     = undefined
 
 instance Arbitrary Word64 where
-    arbitrary = liftM fromIntegral (choose (0, 2^64-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^64-1)
+    coarbitrary     = undefined
 
 instance Arbitrary Int8 where
-    arbitrary = liftM fromIntegral (choose (0, 2^8-1))
-    coarbitrary w = variant 0
+    arbitrary       = choose (0, 2^8-1)
+    coarbitrary w   = variant 0
 
 instance Arbitrary Int16 where
-    arbitrary = liftM fromIntegral (choose (0, 2^16-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^16-1)
+    coarbitrary     = undefined
 
 instance Arbitrary Int32 where
-    arbitrary = liftM fromIntegral (choose (0, 2^32-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^32-1)
+    coarbitrary     = undefined
 
 instance Arbitrary Int64 where
-    arbitrary = liftM fromIntegral (choose (0, 2^64-1))
-    coarbitrary = undefined
+    arbitrary       = choose (0, 2^64-1)
+    coarbitrary     = undefined
+
+------------------------------------------------------------------------
 
 instance Arbitrary Char where
     arbitrary = choose (maxBound, minBound)
@@ -152,9 +197,11 @@ instance (Arbitrary a, Ord a, Arbitrary b) => Arbitrary (Map.Map a b) where
     arbitrary = fmap Map.fromList arbitrary
     coarbitrary = undefined
 
+{-
 instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
     arbitrary = fmap Seq.fromList arbitrary
     coarbitrary = undefined
+-}
 
 instance Arbitrary L.ByteString where
     arbitrary     = arbitrary >>= return . B.LPS . filter (not. B.null) -- maintain the invariant.

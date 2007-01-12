@@ -41,9 +41,11 @@ import qualified Data.ByteString.Lazy as L
 
 import Foreign
 
+#if defined(__GLASGOW_HASKELL__)
 import GHC.Base
 import GHC.Word
 import GHC.Int
+#endif
 
 data S = S L.ByteString  -- the rest of the input
            !Int64        -- bytes read
@@ -209,16 +211,23 @@ getWord64le = do
 -- further? check the core first.
 --
 unsafeShiftL_W16 :: Word16 -> Int -> Word16
-unsafeShiftL_W16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
 {-# INLINE unsafeShiftL_W16 #-}
 
 unsafeShiftL_W32 :: Word32 -> Int -> Word32
-unsafeShiftL_W32 (W32# x#) (I# i#) = W32# (narrow32Word# (x# `shiftL#` i#))
 {-# INLINE unsafeShiftL_W32 #-}
+
+#if defined(__GLASGOW_HASKELL__)
+unsafeShiftL_W16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
+unsafeShiftL_W32 (W32# x#) (I# i#) = W32# (narrow32Word# (x# `shiftL#` i#))
+#else
+unsafeShiftL_W16 = shiftL
+unsafeShiftL_W32 = shiftL
+#endif
+
 
 ------------------------------------------------------------------------
 
-{-# RULES
+{-# RULESAREEVIL
  "ensureLeft/combine" forall a b.
         ensureLeft a >> ensureLeft b = ensureLeft (max a b)
  #-}

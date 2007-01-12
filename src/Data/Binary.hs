@@ -48,6 +48,8 @@ import Foreign
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
+import Data.Char    (ord, chr)
+
 -- and needed for the instances:
 import qualified Data.ByteString as B
 import qualified Data.Map        as Map
@@ -58,19 +60,27 @@ import qualified Data.IntSet     as IntSet
 import Data.Array.Unboxed
 import Data.List (unfoldr)
 import qualified Data.Tree as T
-import qualified Data.Sequence as Seq
 
 import System.IO
 
 --
+-- GHC only instances for now
+--
+#if defined(__GLASGOW_HASKELL__)
+import qualified Data.Sequence as Seq
+#endif
+
+--
 -- For the Integer instance
 --
+#if defined(__GLASGOW_HASKELL__)
 import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
 import GHC.Num
-import GHC.Base
+import GHC.Base     hiding (ord, chr)
 import GHC.Prim
 import GHC.Ptr (Ptr(..))
 import GHC.IOBase (IO(..))
+#endif
 
 ------------------------------------------------------------------------
 
@@ -264,6 +274,8 @@ instance Binary Int where
 -- Bogus instance. Rewrite tomorrow.
 --
 
+#if defined(__GLASGOW_HASKELL__)
+
 instance Binary Integer where
     put (S# i)    = putWord8 0 >> put (I# i)
     put (J# s ba) = do
@@ -311,6 +323,8 @@ freezeByteArray :: MutableByteArray# RealWorld -> IO ByteArray
 freezeByteArray arr = IO $ \s ->
   case unsafeFreezeByteArray# arr s of { (# s', arr' #) ->
   (# s', BA arr' #) }
+
+#endif
 
 ------------------------------------------------------------------------
 -- Char
@@ -471,12 +485,7 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 ------------------------------------------------------------------------
 -- Queues and Sequences
 
-{-
-instance (Binary e) => Binary (Queue e) where
-    put = put . queueToList
-    get = fmap listToQueue get
--}
-
+#if defined(__GLASGOW_HASKELL__)
 instance (Binary e) => Binary (Seq.Seq e) where
     -- any better way to do this?
     put s = put . flip unfoldr s $ \sq ->
@@ -484,6 +493,7 @@ instance (Binary e) => Binary (Seq.Seq e) where
             Seq.EmptyL -> Nothing
             (Seq.:<) e sq' -> Just (e,sq')
     get = fmap Seq.fromList get
+#endif
 
 ------------------------------------------------------------------------
 -- Trees

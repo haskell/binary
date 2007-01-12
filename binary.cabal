@@ -8,7 +8,6 @@ build-depends:   base, mtl
 exposed-modules: Data.Binary,
                  Data.Binary.Put,
                  Data.Binary.Get
-extensions:      ForeignFunctionInterface, FlexibleInstances
+extensions:      ForeignFunctionInterface,CPP
 hs-source-dirs:  src
-ghc-options:     -frules-off -O -Wall -Werror
-                 -- the rules breaks stuff, can't see how?!
+ghc-options:     -O -Wall -Werror -fglasgow-exts

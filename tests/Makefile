@@ -4,5 +4,8 @@ all:
 #do without the rules as they break stuff atm
 	time ./qc
 
+hugs:
+	runhugs -98 QC.hs  
+
 clean:
 	rm -f *.o *.hi qc *~
