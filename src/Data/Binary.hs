@@ -16,6 +16,7 @@ module Data.Binary (
 
     -- * The Binary class
       Binary(..)
+    , ParseError(..)
 
     -- * The Get and Put monads
     , Get
@@ -43,6 +44,7 @@ import Data.Binary.Put
 import Data.Binary.Get
 
 import Control.Monad
+import Control.Monad.Error (throwError)
 import Foreign
 
 import Data.ByteString.Lazy (ByteString)
@@ -171,7 +173,7 @@ encode = runPut . put
 
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
 --
-decode :: Binary a => ByteString -> a
+decode :: Binary a => ByteString -> Either ParseError a
 decode = runGet get
 
 ------------------------------------------------------------------------
@@ -200,7 +202,7 @@ encodeFile f v = L.writeFile f (encode v)
 --
 -- > return . decode . decompress =<< B.readFile f
 --
-decodeFile :: Binary a => FilePath -> IO a
+decodeFile :: Binary a => FilePath -> IO (Either ParseError a)
 decodeFile f = liftM decode (L.readFile f)
 
 ------------------------------------------------------------------------
@@ -209,8 +211,12 @@ decodeFile f = liftM decode (L.readFile f)
 lazyPut :: (Binary a) => a -> Put ()
 lazyPut a = put (encode a)
 
+-- Lemmih: (after error handling) I'm not sure this is still as lazy as it should be.
 lazyGet :: (Binary a) => Get a
-lazyGet = fmap decode get
+lazyGet = do a <- get
+             case decode a of
+               Left err -> throwError err
+               Right val -> return val
 
 ------------------------------------------------------------------------
 -- Simple instances

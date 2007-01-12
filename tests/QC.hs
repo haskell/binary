@@ -31,9 +31,13 @@ import Text.Printf
 ------------------------------------------------------------------------
 
 roundTrip :: (Eq a, Binary a) => a -> Bool
-roundTrip a = a == decode (encode a)
+roundTrip a = Right a == decode (encode a)
 
-roundTripWith put get x = x == runGet get (runPut (put x))
+roundTripWith put get x = Right x == runGet get (runPut (put x))
+
+isLeft :: Either a b -> Bool
+isLeft (Left _) = True
+isLeft _ = False
 
 -- low level ones:
 
@@ -52,7 +56,7 @@ prop_Word64le = roundTripWith putWord64le getWord64le
 -- tons of untested cases
 
 lazyTrip :: (Binary a, Eq a) => a -> Bool
-lazyTrip a = a == (runGet lazyGet . runPut . lazyPut $ a)
+lazyTrip a = Right a == (runGet lazyGet . runPut . lazyPut $ a)
 
 main :: IO ()
 main = do
