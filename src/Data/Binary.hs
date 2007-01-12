@@ -166,28 +166,10 @@ decode = runGet get
 -- Convenience IO operations
 
 -- | Serialise a value to a file
---
--- This is just a convenience function, it's defined simply as:
---
--- > encodeFile f = B.writeFile f . encode
---
--- So for example if you wanted to compress as well, you could use:
---
--- > B.writeFile f . compress . encode
---
 encodeFile :: Binary a => FilePath -> a -> IO ()
 encodeFile f v = L.writeFile f (encode v)
 
 -- | Reconstruct a value previously written to a file
---
--- This is just a convenience function, it's defined simply as:
---
--- > decodeFile f = return . decode =<< B.readFile f
---
--- So for example if you wanted to decompress as well, you could use:
---
--- > return . decode . decompress =<< B.readFile f
---
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = liftM decode (L.readFile f)
 
