@@ -39,16 +39,13 @@ module Data.Binary.Put (
   ) where
 
 import Control.Exception
-import Control.Monad
 import Control.Monad.Cont
 import Control.Monad.State
 import Control.Monad.Trans
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Base as B
 import qualified Data.ByteString.Lazy as L
 
-import Foreign.ForeignPtr
 import Foreign
 
 import System.IO.Unsafe
@@ -90,6 +87,7 @@ instance MonadState Buffer Put where
 --
 -- copied from Data.ByteString.Lazy
 --
+defaultSize :: Int
 defaultSize = 32 * k - overhead
     where k = 1024
           overhead = 2 * sizeOf (undefined :: Int)
@@ -102,7 +100,7 @@ initS = do
 runPut :: Put () -> L.ByteString
 runPut m = unsafePerformIO $ do
     i <- initS
-    liftM B.LPS $ evalStateT (runContT (unPut $ m >> flush) (\c -> return [])) i
+    liftM B.LPS $ evalStateT (runContT (unPut $ m >> flush) (const $ return [])) i
 
 -- Lift an IO action
 unsafeLiftIO :: IO a -> Put a
