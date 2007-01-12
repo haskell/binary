@@ -10,4 +10,5 @@ exposed-modules: Data.Binary,
                  Data.Binary.Get
 extensions:      ForeignFunctionInterface, FlexibleInstances
 hs-source-dirs:  src
-ghc-options:     -O -Wall -Werror
+ghc-options:     -frules-off -O -Wall -Werror
+                 -- the rules breaks stuff, can't see how?!
