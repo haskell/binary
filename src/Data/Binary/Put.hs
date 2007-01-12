@@ -58,7 +58,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- | The Put monad abstracts over the construction of a lazy bytestring
 -- by filling byte arrays piece by piece. The 'put' method of class
 -- Binary implicitly fills a buffer, threaded through the Put monad. As
--- each buffer is filled, it is 'popped' off, to become a new chunk of the
+-- each buffer is filled, it is \'popped\' off, to become a new chunk of the
 -- resulting lazy ByteString. All this is hidden from the user of class
 -- Binary.
 --
