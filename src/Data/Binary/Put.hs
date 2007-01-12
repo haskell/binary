@@ -6,7 +6,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : stable
--- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
+-- Portability : Portable to Hugs and GHC. Requires MPTCs
 --
 -- The Put monad. A monad for efficiently constructing lazy bytestrings.
 --
@@ -80,6 +80,9 @@ bindP (Put a) (Put b) = Put (a >> b)
 instance Functor Put where
     fmap f (Put m) = Put (fmap f m)
 
+--
+-- Requires MPTCs. Using our own monad here might remove this non-portability.
+--
 instance MonadState Buffer Put where
     get     = Put get
     put f   = Put (put f)
@@ -201,7 +204,7 @@ putWord32be w32 = do
     putWord8 (fromIntegral w4)
 {-# INLINE putWord32be #-}
 
--- | Write a Word32 in big endian format
+-- | Write a Word32 in little endian format
 putWord32le :: Word32 -> Put ()
 putWord32le w32 = do
     let w4 = (w32 `shiftR` 24)

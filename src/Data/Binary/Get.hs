@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fglasgow-exts #-}
+-- ^ for unboxed shifts
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Get
@@ -6,7 +9,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : unstable
--- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
+-- Portability : Portable. Requires MPTCs
 --
 -- The Get monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings
