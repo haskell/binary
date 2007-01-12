@@ -59,11 +59,12 @@ import System.IO
 --
 -- For the Integer instance
 --
-import Data.ByteString.Base (toForeignPtr,unsafePackAddress)
+import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
 import GHC.Num
 import GHC.Base
 import GHC.Prim
-import GHC.ForeignPtr (ForeignPtr(..))
+import GHC.Ptr (Ptr(..))
+import GHC.IOBase (IO(..))
 
 ------------------------------------------------------------------------
 
@@ -256,18 +257,36 @@ instance Binary Integer where
                     return (J# s# a#)
 
 instance Binary ByteArray where
+
+    -- Pretty safe.
     put (BA ba) =
         let sz   = sizeofByteArray# ba   -- (primitive) in *bytes*
             addr = byteArrayContents# ba
             bs   = unsafePackAddress (I# sz) addr
         in put bs   -- write as a ByteString. easy, yay!
 
+    -- Pretty scary
     get = do
-        ((ForeignPtr addr# _), _s, _l) <- liftM toForeignPtr get
-        return (unsafeCoerce# addr#) -- but will the sizeofByteArray# be correct?
+        (fp, off, n@(I# sz)) <- liftM toForeignPtr get      -- so decode a ByteString
+        assert (off == 0) $ return $ unsafePerformIO $ do
+            (MBA arr) <- newByteArray sz                    -- and copy it into a ByteArray#
+            let to = byteArrayContents# (unsafeCoerce# arr) -- urk, is this safe?
+            withForeignPtr fp $ \from -> memcpy (Ptr to) from (fromIntegral n)
+            freezeByteArray arr
 
 -- wrapper for ByteArray#
 data ByteArray = BA ByteArray#
+data MBA       = MBA (MutableByteArray# RealWorld)
+
+newByteArray :: Int# -> IO MBA
+newByteArray sz = IO $ \s ->
+  case newPinnedByteArray# sz s of { (# s', arr #) ->
+  (# s', MBA arr #) }
+
+freezeByteArray :: MutableByteArray# RealWorld -> IO ByteArray
+freezeByteArray arr = IO $ \s ->
+  case unsafeFreezeByteArray# arr s of { (# s', arr' #) ->
+  (# s', BA arr' #) }
 
 ------------------------------------------------------------------------
 -- Char
