@@ -35,9 +35,9 @@ roundTrip a = Right a == decode (encode a)
 
 roundTripWith put get x = Right x == runGet get (runPut (put x))
 
-isLeft :: Either a b -> Bool
-isLeft (Left _) = True
-isLeft _ = False
+shouldFail :: Either a b -> Bool
+shouldFail (Left _) = True
+shouldFail _ = False
 
 -- low level ones:
 
@@ -120,4 +120,5 @@ tests =
 -- GHC only:
 --      ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
 
+        ,("ensureLeft/Fail", mytest (shouldFail (decode L.empty :: Either ParseError Int)))
         ]
