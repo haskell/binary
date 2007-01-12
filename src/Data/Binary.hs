@@ -30,8 +30,6 @@ module Data.Binary (
     , decode                    -- :: Binary a => ByteString -> a
 
     -- * IO functions for serialisation
-    , hEncode                   -- :: Binary a => Handle -> a -> IO ()
-    , hDecode                   -- :: Binary a => Handle -> IO a
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
 
