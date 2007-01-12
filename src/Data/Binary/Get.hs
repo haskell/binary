@@ -123,7 +123,7 @@ getWord16be :: Get Word16
 getWord16be = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w1 `unsafeShiftL_Word16` 8 .|. w2
+    return $! w1 `unsafeShiftL_W16` 8 .|. w2
 {-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
@@ -131,7 +131,7 @@ getWord16le :: Get Word16
 getWord16le = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w2 `unsafeShiftL_Word16` 8 .|. w1
+    return $! w2 `unsafeShiftL_W16` 8 .|. w1
 {-# INLINE getWord16le #-}
 
 -- | Read a Word32 in big endian format
@@ -141,9 +141,9 @@ getWord32be = do
     w2 <- liftM fromIntegral getWord8
     w3 <- liftM fromIntegral getWord8
     w4 <- liftM fromIntegral getWord8
-    return $! (w1 `shiftL` 24) .|.
-              (w2 `shiftL` 16) .|.
-              (w3 `shiftL`  8) .|.
+    return $! (w1 `unsafeShiftL_W32` 24) .|.
+              (w2 `unsafeShiftL_W32` 16) .|.
+              (w3 `unsafeShiftL_W32`  8) .|.
               (w4)
 {-# INLINE getWord32be #-}
 
@@ -154,9 +154,9 @@ getWord32le = do
     w2 <- liftM fromIntegral getWord8
     w3 <- liftM fromIntegral getWord8
     w4 <- liftM fromIntegral getWord8
-    return $! (w4 `shiftL` 24) .|.
-              (w3 `shiftL` 16) .|.
-              (w2 `shiftL`  8) .|.
+    return $! (w4 `unsafeShiftL_W32` 24) .|.
+              (w3 `unsafeShiftL_W32` 16) .|.
+              (w2 `unsafeShiftL_W32`  8) .|.
               (w1)
 {-# INLINE getWord32le #-}
 
@@ -205,11 +205,16 @@ getWord64le = do
 {-# INLINE getWord64le #-}
 
 --
--- Helper
+-- Helpers. Should save a bounds check each time (could we inline these
+-- further? check the core first.
 --
-unsafeShiftL_Word16 :: Word16 -> Int -> Word16
-unsafeShiftL_Word16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
-{-# INLINE unsafeShiftL_Word16 #-}
+unsafeShiftL_W16 :: Word16 -> Int -> Word16
+unsafeShiftL_W16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
+{-# INLINE unsafeShiftL_W16 #-}
+
+unsafeShiftL_W32 :: Word32 -> Int -> Word32
+unsafeShiftL_W32 (W32# x#) (I# i#) = W32# (narrow32Word# (x# `shiftL#` i#))
+{-# INLINE unsafeShiftL_W32 #-}
 
 ------------------------------------------------------------------------
 
