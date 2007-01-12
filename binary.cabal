@@ -1,12 +1,13 @@
-Name:            binary
-Version:         0.2
-License:         BSD3
-License-file:    LICENSE
-Author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
-Synopsis:        Binary serialization using lazy ByteStrings
-Build-Depends:   base, mtl
-Exposed-Modules: Data.Binary,
+name:            binary
+version:         0.2
+license:         BSD3
+license-file:    LICENSE
+author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+synopsis:        Binary serialization using lazy ByteStrings
+build-depends:   base, mtl
+exposed-modules: Data.Binary,
                  Data.Binary.Put,
                  Data.Binary.Get
-Extensions:      ForeignFunctionInterface, FlexibleInstances
+extensions:      ForeignFunctionInterface, FlexibleInstances
 hs-source-dirs:  src
+ghc-options:     -O -Wall -Werror
