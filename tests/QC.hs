@@ -91,23 +91,28 @@ tests =
         ,("(Int32, [Int])", mytest (roundTrip :: (Int32, [Int]) -> Bool))
         ,("(Maybe Word8, Bool, [Int], Either Bool Word8)", mytest (roundTrip :: (Maybe Word8, Bool, [Int], Either Bool Word8) -> Bool))
         ,("lazy IntMap", mytest (lazyTrip :: IntSet.IntSet -> Bool))
-{-        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", mytest (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
-        ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", mytest (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
-        ,("B.ByteString",  mytest (roundTrip :: B.ByteString -> Bool))
-        ,("L.ByteString",  mytest (roundTrip :: L.ByteString -> Bool))
         ,("IntSet",        mytest (roundTrip :: IntSet.IntSet -> Bool))
         ,("IntMap String", mytest (roundTrip :: IntMap.IntMap String -> Bool))
+        ,("B.ByteString",  mytest (roundTrip :: B.ByteString -> Bool))
+        ,("L.ByteString",  mytest (roundTrip :: L.ByteString -> Bool))
+
+{-
+        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", mytest (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
+        ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", mytest (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
         ,("Set Word32",      mytest (roundTrip :: Set.Set Word32 -> Bool))
         ,("Map Word16 Int",  mytest (roundTrip :: Map.Map Word16 Int -> Bool))
+
+        ,("(Maybe Int64, Bool, [Int])", mytest (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
+        ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", mytest (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
+-}
 
 -- Will be a problem in Hugs currently
         , ("Word64be", mytest prop_Word64be)
         , ("Word64le", mytest prop_Word64le)
         , ("Word64", mytest (roundTrip :: Word64 -> Bool))
         , ("Int64",  mytest (roundTrip :: Int64 -> Bool))
-        ,("(Maybe Int64, Bool, [Int])", mytest (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
-        ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", mytest (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))-}
 
+-- GHC only:
 --      ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
 --      ,("Integer" , mytest (roundTrip :: Integer -> Bool))
 
