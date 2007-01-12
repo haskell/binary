@@ -72,7 +72,7 @@ runGet (Get m) str = evalState m (S str 0)
 failDesc :: String -> Get a
 failDesc err = do
     S _ bytes <- get
-    fail (err ++ ". Failed reading at byte position " ++ show bytes)
+    Get (fail (err ++ ". Failed reading at byte position " ++ show bytes))
 
 -- | Skip ahead @n@ bytes
 skip :: Int -> Get ()
