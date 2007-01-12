@@ -281,6 +281,9 @@ instance Binary Int where
 
 #if defined(__GLASGOW_HASKELL__)
 
+-- TODO  This instance is not architecture portable.  GMP stores numbers as
+-- arrays of machine sized words, so the byte format is not portable across
+-- architectures with different endianess and word size.
 instance Binary Integer where
     put (S# i)    = putWord8 0 >> put (I# i)
     put (J# s ba) = do
