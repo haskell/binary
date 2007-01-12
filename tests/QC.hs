@@ -32,78 +32,6 @@ roundTrip a = a == decode (encode a)
 
 roundTripWith put get x = x == runGet get (runPut (put x))
 
-instance Arbitrary Word8 where
-    arbitrary = liftM fromIntegral (choose (0, 2^8-1))
-    coarbitrary w = variant 0
-
-instance Arbitrary Word16 where
-    arbitrary = liftM fromIntegral (choose (0, 2^16-1))
-    coarbitrary = undefined
-
-instance Arbitrary Word32 where
-    arbitrary = liftM fromIntegral (choose (0, 2^32-1))
-    coarbitrary = undefined
-
-instance Arbitrary Word64 where
-    arbitrary = liftM fromIntegral (choose (0, 2^64-1))
-    coarbitrary = undefined
-
-instance Arbitrary Int8 where
-    arbitrary = liftM fromIntegral (choose (0, 2^8-1))
-    coarbitrary w = variant 0
-
-instance Arbitrary Int16 where
-    arbitrary = liftM fromIntegral (choose (0, 2^16-1))
-    coarbitrary = undefined
-
-instance Arbitrary Int32 where
-    arbitrary = liftM fromIntegral (choose (0, 2^32-1))
-    coarbitrary = undefined
-
-instance Arbitrary Int64 where
-    arbitrary = liftM fromIntegral (choose (0, 2^64-1))
-    coarbitrary = undefined
-
-instance Arbitrary Char where
-    arbitrary = choose (maxBound, minBound)
-    coarbitrary = undefined
-
-instance Arbitrary a => Arbitrary (Maybe a) where
-    arbitrary = oneof [ return Nothing, liftM Just arbitrary]
-    coarbitrary = undefined
-
-instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
-    arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
-    coarbitrary = undefined
-
-instance Arbitrary IntSet.IntSet where
-    arbitrary = fmap IntSet.fromList arbitrary
-    coarbitrary = undefined
-
-instance (Arbitrary e) => Arbitrary (IntMap.IntMap e) where
-    arbitrary = fmap IntMap.fromList arbitrary
-    coarbitrary = undefined
-
-instance (Arbitrary a, Ord a) => Arbitrary (Set.Set a) where
-    arbitrary = fmap Set.fromList arbitrary
-    coarbitrary = undefined
-
-instance (Arbitrary a, Ord a, Arbitrary b) => Arbitrary (Map.Map a b) where
-    arbitrary = fmap Map.fromList arbitrary
-    coarbitrary = undefined
-
-instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
-    arbitrary = fmap Seq.fromList arbitrary
-    coarbitrary = undefined
-
-instance Arbitrary L.ByteString where
-    arbitrary     = arbitrary >>= return . B.LPS . filter (not. B.null) -- maintain the invariant.
-    coarbitrary s = coarbitrary (L.unpack s)
-
-instance Arbitrary B.ByteString where
-  arbitrary = B.pack `fmap` arbitrary
-  coarbitrary s = coarbitrary (B.unpack s)
-
 -- low level ones:
 
 prop_Word16be = roundTripWith putWord16be getWord16be
@@ -131,8 +59,8 @@ main = do
 run :: [(String, Int -> IO ())] -> IO ()
 run tests = do
     x <- getArgs
-    let n = if null x then 200 else read . head $ x
-    mapM_ (\(s,a) -> printf "%-25s: " s >> a n) tests
+    let n = if null x then 300 else read . head $ x
+    mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
 
 tests =
         [ ("Word16be", mytest prop_Word16be)
