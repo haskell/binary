@@ -134,42 +134,82 @@ getWord16le = do
     return $! w2 `unsafeShiftL_Word16` 8 .|. w1
 {-# INLINE getWord16le #-}
 
--- helper
-unsafeShiftL_Word16 :: Word16 -> Int -> Word16
-unsafeShiftL_Word16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
-{-# INLINE unsafeShiftL_Word16 #-}
-
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
-    w1 <- liftM fromIntegral getWord16be
-    w2 <- liftM fromIntegral getWord16be
-    return $! w1 `shiftL` 16 .|. w2
+    w1 <- liftM fromIntegral getWord8
+    w2 <- liftM fromIntegral getWord8
+    w3 <- liftM fromIntegral getWord8
+    w4 <- liftM fromIntegral getWord8
+    return $! (w1 `shiftL` 24) .|.
+              (w2 `shiftL` 16) .|.
+              (w3 `shiftL`  8) .|.
+              (w4)
 {-# INLINE getWord32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
 getWord32le = do
-    w1 <- liftM fromIntegral getWord16le
-    w2 <- liftM fromIntegral getWord16le
-    return $! w2 `shiftL` 16 .|. w1
+    w1 <- liftM fromIntegral getWord8
+    w2 <- liftM fromIntegral getWord8
+    w3 <- liftM fromIntegral getWord8
+    w4 <- liftM fromIntegral getWord8
+    return $! (w4 `shiftL` 24) .|.
+              (w3 `shiftL` 16) .|.
+              (w2 `shiftL`  8) .|.
+              (w1)
 {-# INLINE getWord32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-    w1 <- liftM fromIntegral getWord32be
-    w2 <- liftM fromIntegral getWord32be
-    return $! w1 `shiftL` 32 .|. w2
+
+    w1 <- liftM fromIntegral getWord8
+    w2 <- liftM fromIntegral getWord8
+    w3 <- liftM fromIntegral getWord8
+    w4 <- liftM fromIntegral getWord8
+    w5 <- liftM fromIntegral getWord8
+    w6 <- liftM fromIntegral getWord8
+    w7 <- liftM fromIntegral getWord8
+    w8 <- liftM fromIntegral getWord8
+    return $! (w1 `shiftL` 56) .|.
+              (w2 `shiftL` 48) .|.
+              (w3 `shiftL` 40) .|.
+              (w4 `shiftL` 32) .|.
+              (w5 `shiftL` 24) .|.
+              (w6 `shiftL` 16) .|.
+              (w7 `shiftL`  8) .|.
+              (w8)
+
 {-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
 getWord64le = do
-    w1 <- liftM fromIntegral getWord32le
-    w2 <- liftM fromIntegral getWord32le
-    return $! w2 `shiftL` 32 .|. w1
+    w1 <- liftM fromIntegral getWord8
+    w2 <- liftM fromIntegral getWord8
+    w3 <- liftM fromIntegral getWord8
+    w4 <- liftM fromIntegral getWord8
+    w5 <- liftM fromIntegral getWord8
+    w6 <- liftM fromIntegral getWord8
+    w7 <- liftM fromIntegral getWord8
+    w8 <- liftM fromIntegral getWord8
+    return $! (w8 `shiftL` 56) .|.
+              (w7 `shiftL` 48) .|.
+              (w6 `shiftL` 40) .|.
+              (w5 `shiftL` 32) .|.
+              (w4 `shiftL` 24) .|.
+              (w3 `shiftL` 16) .|.
+              (w2 `shiftL`  8) .|.
+              (w1)
 {-# INLINE getWord64le #-}
+
+--
+-- Helper
+--
+unsafeShiftL_Word16 :: Word16 -> Int -> Word16
+unsafeShiftL_Word16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
+{-# INLINE unsafeShiftL_Word16 #-}
 
 ------------------------------------------------------------------------
 
