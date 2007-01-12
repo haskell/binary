@@ -33,22 +33,14 @@ module Data.Binary.Get (
     , getWord64le
     ) where
 
-import Control.Exception
-import Control.Monad
-import Control.Monad.Cont
 import Control.Monad.State
-import Control.Monad.Trans
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base as B
 import qualified Data.ByteString.Lazy as L
 
-import Foreign.ForeignPtr
 import Foreign
 
-import System.IO.Unsafe
-
-import GHC.Prim
 import GHC.Base
 import GHC.Word
 import GHC.Int
@@ -78,7 +70,7 @@ runGet (Get m) str = evalState m (S str 0)
 failDesc :: String -> Get a
 failDesc err = do
     S _ bytes <- get
-    fail ("Failed reading at byte position " ++ show bytes)
+    fail (err ++ ". Failed reading at byte position " ++ show bytes)
 
 -- | Skip ahead @n@ bytes
 skip :: Int -> Get ()
@@ -94,9 +86,9 @@ ensureLeft n = do
     worker n strs
   where
     worker :: Int -> [B.ByteString] -> Get ()
-    worker n _ | n <= 0 = return ()
-    worker _ []         = fail "not enough bytestring left"
-    worker n (x:xs)     = worker (n - fromIntegral (B.length x)) xs
+    worker i _ | i <= 0 = return ()
+    worker _ []         = fail "Data.Binary.Get.ensureLeft: Not enough ByteString left."
+    worker i (x:xs)     = worker (i - fromIntegral (B.length x)) xs
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value
@@ -143,7 +135,9 @@ getWord16le = do
 {-# INLINE getWord16le #-}
 
 -- helper
+unsafeShiftL_Word16 :: Word16 -> Int -> Word16
 unsafeShiftL_Word16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
+{-# INLINE unsafeShiftL_Word16 #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
