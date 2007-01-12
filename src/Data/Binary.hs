@@ -6,7 +6,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : unstable
--- Portability : FFI + (currently) flexible instances
+-- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
 -- Binary serialisation of values to and from lazy ByteStrings.
 --

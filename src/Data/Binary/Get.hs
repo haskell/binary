@@ -6,7 +6,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : unstable
--- Portability : FFI, flexible instances
+-- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
 -- The Get monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings

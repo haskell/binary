@@ -6,7 +6,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : stable
--- Portability : FFI, flexible instances
+-- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
 -- The Put monad. A monad for efficiently constructing lazy bytestrings.
 --

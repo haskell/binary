@@ -62,7 +62,7 @@ main = do
 run :: [(String, Int -> IO ())] -> IO ()
 run tests = do
     x <- getArgs
-    let n = if null x then 300 else read . head $ x
+    let n = if null x then 100 else read . head $ x
     mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
 
 tests =
