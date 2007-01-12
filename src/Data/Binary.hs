@@ -252,6 +252,7 @@ instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
     get     = liftM fromIntegral (get :: Get Word64)
 
+-- XXX Not portable to 64 bit machine yet.
 instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
     get     = liftM fromIntegral (get :: Get Int32)
@@ -288,7 +289,7 @@ instance Binary ByteArray where
             bs   = unsafePackAddress (I# sz) addr
         in put bs   -- write as a ByteString. easy, yay!
 
-    -- Pretty scary
+    -- Pretty scary. Should be quick though
     get = do
         (fp, off, n@(I# sz)) <- liftM toForeignPtr get      -- so decode a ByteString
         assert (off == 0) $ return $ unsafePerformIO $ do
