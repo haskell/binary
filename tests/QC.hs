@@ -111,9 +111,9 @@ tests =
         , ("Word64le", mytest prop_Word64le)
         , ("Word64", mytest (roundTrip :: Word64 -> Bool))
         , ("Int64",  mytest (roundTrip :: Int64 -> Bool))
+        ,("Integer" , mytest (roundTrip :: Integer -> Bool))
 
 -- GHC only:
 --      ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
---      ,("Integer" , mytest (roundTrip :: Integer -> Bool))
 
         ]

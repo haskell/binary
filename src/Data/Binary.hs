@@ -64,7 +64,7 @@ import qualified Data.Tree as T
 import System.IO
 
 --
--- GHC only instances for now
+-- This isn't available in older Hugs
 --
 #if defined(__GLASGOW_HASKELL__)
 import qualified Data.Sequence as Seq
@@ -268,10 +268,9 @@ instance Binary Int where
     get     = liftM fromIntegral (get :: Get Int32)
 
 ------------------------------------------------------------------------
--- Old style Integer instance
-
---
--- Bogus instance. Rewrite tomorrow.
+-- 
+-- Integer. We try to do this efficiently on GHC, and on Hugs we'll have
+-- to serialise to a list of Word8 plus a length.
 --
 
 #if defined(__GLASGOW_HASKELL__)
@@ -324,10 +323,16 @@ freezeByteArray arr = IO $ \s ->
   case unsafeFreezeByteArray# arr s of { (# s', arr' #) ->
   (# s', BA arr' #) }
 
+#else
+
+instance Binary Integer where
+    put n = error "No instance for Binary Integer in Hugs"
+    get   = error "No instance for Binary Integer in Hugs"
+
 #endif
 
 ------------------------------------------------------------------------
--- Char
+-- Char is serialised as UTF-8
 
 instance Binary Char where
     put a | c <= 0x7f     = put (fromIntegral c :: Word8)
@@ -486,6 +491,10 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 -- Queues and Sequences
 
 #if defined(__GLASGOW_HASKELL__)
+--
+-- This is valid Hugs, but you need the most recent Hugs
+--
+
 instance (Binary e) => Binary (Seq.Seq e) where
     -- any better way to do this?
     put s = put . flip unfoldr s $ \sq ->
@@ -493,6 +502,7 @@ instance (Binary e) => Binary (Seq.Seq e) where
             Seq.EmptyL -> Nothing
             (Seq.:<) e sq' -> Just (e,sq')
     get = fmap Seq.fromList get
+
 #endif
 
 ------------------------------------------------------------------------
@@ -514,13 +524,6 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
         es <- get
         return (listArray bs es)
 
--- todo handle UArray i Bool specially?
---
--- N.B.
---
---  Non type-variable argument in the constraint: IArray UArray e
---  (Use -fglasgow-exts to permit this)
---
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
     put a = do
         put (bounds a)

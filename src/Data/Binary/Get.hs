@@ -42,6 +42,7 @@ import qualified Data.ByteString.Lazy as L
 import Foreign
 
 #if defined(__GLASGOW_HASKELL__)
+-- Needed for some low level unboxed shifts
 import GHC.Base
 import GHC.Word
 import GHC.Int
