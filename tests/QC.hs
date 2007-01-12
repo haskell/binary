@@ -115,6 +115,14 @@ prop_Word32le = roundTripWith putWord32le getWord32le
 prop_Word64be = roundTripWith putWord64be getWord64be
 prop_Word64le = roundTripWith putWord64le getWord64le
 
+-- be lazy!
+
+-- doesn't do fair testing of lazy put/get.
+-- tons of untested cases
+
+lazyTrip :: (Binary a, Eq a) => a -> Bool
+lazyTrip a = a == (runGet lazyGet . runPut . lazyPut $ a)
+
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
@@ -153,6 +161,7 @@ tests =
         ,("(Int32, [Int])", mytest (roundTrip :: (Int32, [Int]) -> Bool))
         ,("(Maybe Int64, Bool, [Int])", mytest (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
         ,("(Maybe Word8, Bool, [Int], Either Bool Word8)", mytest (roundTrip :: (Maybe Word8, Bool, [Int], Either Bool Word8) -> Bool))
+        ,("lazy IntMap", mytest (lazyTrip :: IntSet.IntSet -> Bool))
 {-        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", mytest (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
         ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", mytest (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
         ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", mytest (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))-}
