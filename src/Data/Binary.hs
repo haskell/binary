@@ -33,6 +33,10 @@ module Data.Binary (
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
 
+    -- * Lazy put and get
+    , lazyPut
+    , lazyGet
+
     ) where
 
 import Data.Binary.Put
@@ -188,6 +192,15 @@ encodeFile f v = L.writeFile f (encode v)
 --
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = liftM decode (L.readFile f)
+
+------------------------------------------------------------------------
+-- Lazy put and get
+
+lazyPut :: (Binary a) => a -> Put ()
+lazyPut a = put (encode a)
+
+lazyGet :: (Binary a) => Get a
+lazyGet = fmap decode get
 
 ------------------------------------------------------------------------
 -- Simple instances
