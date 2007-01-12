@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -fglasgow-exts #-}
--- ^ for unboxed shifts
+-- for unboxed shifts
 
 -----------------------------------------------------------------------------
 -- |
