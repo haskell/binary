@@ -39,7 +39,6 @@ import Data.Binary.Get
 import Control.Monad
 import Foreign
 
-import Data.Char            (ord, chr)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
@@ -50,15 +49,21 @@ import qualified Data.Set        as Set
 import qualified Data.IntMap     as IntMap
 import qualified Data.IntSet     as IntSet
 
-import Data.Array           (Array)
-import Data.Array.IArray
 import Data.Array.Unboxed
 import Data.List (unfoldr)
--- import Data.Queue
 import qualified Data.Tree as T
 import qualified Data.Sequence as Seq
 
 import System.IO
+
+--
+-- For the Integer instance
+--
+import Data.ByteString.Base (toForeignPtr,unsafePackAddress)
+import GHC.Num
+import GHC.Base
+import GHC.Prim
+import GHC.ForeignPtr (ForeignPtr(..))
 
 ------------------------------------------------------------------------
 
@@ -168,6 +173,8 @@ hEncode :: Binary a => Handle -> a -> IO ()
 hEncode h v = L.hPut h (encode v)
 
 -- | Reconstruct a value from a Handle
+-- XXX this won't let us do multiple reads.
+-- can we use an interleaved hGetContents here? or a strict read
 hDecode :: Binary a => Handle -> IO a
 hDecode h = liftM decode (L.hGetContents h)
 
@@ -225,34 +232,46 @@ instance Binary Int where
     put i   = put (fromIntegral i :: Int32)
     get     = liftM fromIntegral (get :: Get Int32)
 
-{-
+------------------------------------------------------------------------
+-- Old style Integer instance
+
+--
+-- Bogus instance. Rewrite tomorrow.
+--
 
 instance Binary Integer where
     put (S# i)    = putWord8 0 >> put (I# i)
     put (J# s ba) = do
         putWord8 1
         put (I# s)
-        let sz = sizeofByteArray# ba   -- in *bytes*
-        put (I# sz)                    -- in *bytes*
-        putByteArray a# sz#
+        put (BA ba)
 
     get = do
         b <- getWord8
         case b of
-          0 -> do (I# i) <- get
-                  return (S# i)
-          _ -> do (I# s) <- get
-                  sz     <- get
-                  (BA a) <- getByteArray sz
-                  return (J# s a)
+            0 -> do (I# i#) <- get
+                    return (S# i#)
+            _ -> do (I# s#) <- get
+                    (BA a#) <- get
+                    return (J# s# a#)
 
+instance Binary ByteArray where
+    put (BA ba) =
+        let sz   = sizeofByteArray# ba   -- (primitive) in *bytes*
+            addr = byteArrayContents# ba
+            bs   = unsafePackAddress (I# sz) addr
+        in put bs   -- write as a ByteString. easy, yay!
+
+    get = do
+        ((ForeignPtr addr# _), _s, _l) <- liftM toForeignPtr get
+        return (unsafeCoerce# addr#) -- but will the sizeofByteArray# be correct?
+
+-- wrapper for ByteArray#
 data ByteArray = BA ByteArray#
--}
 
 ------------------------------------------------------------------------
 -- Char
 
--- TODO profile, benchmark and test this instance
 instance Binary Char where
     put a | c <= 0x7f     = put (fromIntegral c :: Word8)
           | c <= 0x7ff    = do put (0xc0 .|. y)
@@ -417,10 +436,10 @@ instance (Binary e) => Binary (Queue e) where
 
 instance (Binary e) => Binary (Seq.Seq e) where
     -- any better way to do this?
-    put s = put . flip unfoldr s $ \seq ->
-        case Seq.viewl seq of
+    put s = put . flip unfoldr s $ \sq ->
+        case Seq.viewl sq of
             Seq.EmptyL -> Nothing
-            (Seq.:<) e seq' -> Just (e,seq')
+            (Seq.:<) e sq' -> Just (e,sq')
     get = fmap Seq.fromList get
 
 ------------------------------------------------------------------------
