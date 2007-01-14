@@ -238,7 +238,7 @@ putWord64le w64 = do
 ------------------------------------------------------------------------
 -- Some nice rules for put 
 
-{-# RULESAREEVIL
+{-# TRICKY RULES
 
 "writeN/combine" forall s1 s2 f1 f2 .
         bindP (writeN s1 f1) (writeN s2 f2) =

@@ -246,9 +246,9 @@ unsafeShiftL_W32 = shiftL
 
 ------------------------------------------------------------------------
 
-{-# RULESAREEVIL
+{-# TRICKY RULES
  "ensureLeft/combine" forall a b.
         ensureLeft a >> ensureLeft b = ensureLeft (max a b)
  #-}
 
-{-# *IGNORE* RULES "readN/combine" forall s1 s2 f1 f2 k.  readN s1 f1 >>= \w1 -> readN s2 f2 >>= \w2 -> k = readN (s1+s2) (\s -> f1 s >>= \w1 -> f2 (L.drop s1 s)) #-}
+{-# TRICKY RULES "readN/combine" forall s1 s2 f1 f2 k.  readN s1 f1 >>= \w1 -> readN s2 f2 >>= \w2 -> k = readN (s1+s2) (\s -> f1 s >>= \w1 -> f2 (L.drop s1 s)) #-}
