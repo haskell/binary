@@ -89,7 +89,7 @@ tests =
 -- higher level ones using the Binary class
         ,("()",         p (test :: T ()                     ))
         ,("Bool",       p (test :: T Bool                   ))
-        ,("Bool",       p (test :: T Ordering               ))
+        ,("Ordering",   p (test :: T Ordering               ))
 
         ,("Word8",      p (test :: T Word8                  ))
         ,("Word16",     p (test :: T Word16                 ))
