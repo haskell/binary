@@ -110,6 +110,10 @@ instance Random Int16 where
   randomR = integralRandomR
   random = randomR (minBound,maxBound)
 
+instance Random Word where
+  randomR = integralRandomR
+  random = randomR (minBound,maxBound)
+
 instance Random Word32 where
   randomR = integralRandomR
   random = randomR (minBound,maxBound)
@@ -144,28 +148,38 @@ instance Arbitrary Word16 where
     coarbitrary     = undefined
 
 instance Arbitrary Word32 where
-    arbitrary       = choose (0, 2^32-1)
+--  arbitrary       = choose (0, 2^32-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary     = undefined
 
 instance Arbitrary Word64 where
-    arbitrary       = choose (0, 2^64-1)
+--  arbitrary       = choose (0, 2^64-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary     = undefined
 
 instance Arbitrary Int8 where
-    arbitrary       = choose (0, 2^8-1)
+--  arbitrary       = choose (0, 2^8-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary w   = variant 0
 
 instance Arbitrary Int16 where
-    arbitrary       = choose (0, 2^16-1)
+--  arbitrary       = choose (0, 2^16-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary     = undefined
 
 instance Arbitrary Int32 where
-    arbitrary       = choose (0, 2^32-1)
+--  arbitrary       = choose (0, 2^32-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary     = undefined
 
 instance Arbitrary Int64 where
-    arbitrary       = choose (0, 2^64-1)
+--  arbitrary       = choose (0, 2^64-1)
+    arbitrary       = choose (minBound, maxBound)
     coarbitrary     = undefined
+
+instance Arbitrary Word where
+    arbitrary       = choose (minBound, maxBound)
+    coarbitrary w   = variant 0
 
 ------------------------------------------------------------------------
 
@@ -175,6 +189,10 @@ instance Arbitrary Char where
 
 instance Arbitrary a => Arbitrary (Maybe a) where
     arbitrary = oneof [ return Nothing, liftM Just arbitrary]
+    coarbitrary = undefined
+
+instance Arbitrary Ordering where
+    arbitrary = oneof [ return LT,return  GT,return  EQ ]
     coarbitrary = undefined
 
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where

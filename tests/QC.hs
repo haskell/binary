@@ -22,7 +22,7 @@ import Foreign
 import System.Environment
 import System.IO
 
-import Test.QuickCheck
+import Test.QuickCheck hiding (test)
 import QuickCheckUtils
 import Text.Printf
 
@@ -69,56 +69,84 @@ run tests = do
     let n = if null x then 100 else read . head $ x
     mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
 
+type T a = a -> Bool
+
+p       :: Testable a => a -> Int -> IO ()
+p       = mytest
+
+test    :: (Eq a, Binary a) => a -> Bool
+test    = roundTrip
+
 tests =
-        [ ("Word16be", mytest prop_Word16be)
-        , ("Word16le", mytest prop_Word16le)
-        , ("Word32be", mytest prop_Word32be)
-        , ("Word32le", mytest prop_Word32le)
+        [ ("Word16be", p prop_Word16be)
+        , ("Word16le", p prop_Word16le)
+        , ("Word32be", p prop_Word32be)
+        , ("Word32le", p prop_Word32le)
 
 -- higher level ones using the Binary class
-        ,("()",     mytest (roundTrip :: () -> Bool))
-        ,("Bool",   mytest (roundTrip :: Bool -> Bool))
-        ,("Char",   mytest (roundTrip :: Char -> Bool))
-        ,("Int",    mytest (roundTrip :: Int -> Bool))
-        ,("Word8",  mytest (roundTrip :: Word8 -> Bool))
-        ,("Word16", mytest (roundTrip :: Word16 -> Bool))
-        ,("Word32", mytest (roundTrip :: Word32 -> Bool))
+        ,("()",         p (test :: T ()                     ))
+        ,("Bool",       p (test :: T Bool                   ))
+        ,("Bool",       p (test :: T Ordering               ))
 
-        ,("Integer" , mytest (roundTrip :: Integer -> Bool))
+        ,("Word8",      p (test :: T Word8                  ))
+        ,("Word16",     p (test :: T Word16                 ))
+        ,("Word32",     p (test :: T Word32                 ))
 
-        ,("Int8",   mytest (roundTrip :: Int8 -> Bool))
-        ,("Int16",  mytest (roundTrip :: Int16 -> Bool))
-        ,("Int32",  mytest (roundTrip :: Int32 -> Bool))
-        ,("[Word8]", mytest (roundTrip :: [Word8] -> Bool))
-        ,("String",  mytest (roundTrip :: String -> Bool))
-        ,("Maybe Int8", mytest (roundTrip :: Maybe Int8 -> Bool))
-        ,("Either Int8 Int16", mytest (roundTrip :: Either Int8 Int16 -> Bool))
-        ,("(Int32, [Int])", mytest (roundTrip :: (Int32, [Int]) -> Bool))
-        ,("(Maybe Word8, Bool, [Int], Either Bool Word8)", mytest (roundTrip :: (Maybe Word8, Bool, [Int], Either Bool Word8) -> Bool))
-        ,("lazy IntMap", mytest (lazyTrip :: IntSet.IntSet -> Bool))
-        ,("IntSet",        mytest (roundTrip :: IntSet.IntSet -> Bool))
-        ,("IntMap String", mytest (roundTrip :: IntMap.IntMap String -> Bool))
-        ,("B.ByteString",  mytest (roundTrip :: B.ByteString -> Bool))
-        ,("L.ByteString",  mytest (roundTrip :: L.ByteString -> Bool))
+        ,("Int8",       p (test :: T Int8                   ))
+        ,("Int16",      p (test :: T Int16                  ))
+        ,("Int32",      p (test :: T Int32                  ))
+
+        ,("Word",       p (test :: T Word                   ))
+        ,("Int",        p (test :: T Int                    ))
+        ,("Integer",    p (test :: T Integer                ))
+
+        ,("Char",       p (test :: T Char                   ))
+
+        ,("[()]",       p (test :: T [()]                  ))
+        ,("[Word8]",    p (test :: T [Word8]               ))
+        ,("[Word32]",   p (test :: T [Word32]              ))
+        ,("[Word]",     p (test :: T [Word]                ))
+        ,("[Int]",      p (test :: T [Int]                 ))
+        ,("[Integer]",  p (test :: T [Integer]             ))
+        ,("String",     p (test :: T String                ))
+
+        ,("((), ())",           p (test :: T ((), ())        ))
+        ,("(Word8, Word32)",    p (test :: T (Word8, Word32) ))
+        ,("(Int8, Int32)",      p (test :: T (Int8,  Int32)  ))
+        ,("(Int32, [Int])",     p (test :: T (Int32, [Int])  ))
+
+        ,("Maybe Int8",         p (test :: T (Maybe Int8)        ))
+        ,("Either Int8 Int16",  p (test :: T (Either Int8 Int16) ))
+
+        ,("(Maybe Word8, Bool, [Int], Either Bool Word8)",
+                p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
+
+        ,("Lazy IntMap",   p (lazyTrip  :: T IntSet.IntSet          ))
+        ,("IntSet",        p (test      :: T IntSet.IntSet          ))
+        ,("IntMap String", p (test      :: T (IntMap.IntMap String) ))
+
+        ,("B.ByteString",  p (test :: T B.ByteString        ))
+        ,("L.ByteString",  p (test :: T L.ByteString        ))
+
+        ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
+        ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
 
 {-
-        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", mytest (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
-        ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", mytest (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
-        ,("Set Word32",      mytest (roundTrip :: Set.Set Word32 -> Bool))
-        ,("Map Word16 Int",  mytest (roundTrip :: Map.Map Word16 Int -> Bool))
+        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", p (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
+        ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", p (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
 
-        ,("(Maybe Int64, Bool, [Int])", mytest (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
-        ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", mytest (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
+        ,("(Maybe Int64, Bool, [Int])", p (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
+        ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", p (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
 -}
 
 -- Will be a problem in Hugs currently
-        , ("Word64be", mytest prop_Word64be)
-        , ("Word64le", mytest prop_Word64le)
-        , ("Word64", mytest (roundTrip :: Word64 -> Bool))
-        , ("Int64",  mytest (roundTrip :: Int64 -> Bool))
+        , ("Word64be", p prop_Word64be)
+        , ("Word64le", p prop_Word64le)
+        , ("Word64", p (roundTrip :: Word64 -> Bool))
+        , ("Int64",  p (roundTrip :: Int64 -> Bool))
 
 -- GHC only:
---      ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
+--      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))
 
         ,("ensureLeft/Fail", mytest (shouldFail (decode L.empty :: Either ParseError Int)))
         ]
