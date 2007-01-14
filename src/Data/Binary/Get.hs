@@ -117,7 +117,9 @@ ensureLeft n = do
   where
     worker :: Int -> [B.ByteString] -> Get ()
     worker i _ | i <= 0 = return ()
-    worker _ []         = fail "Data.Binary.Get.ensureLeft: Not enough ByteString left."
+    worker i []         = 
+        fail $ "Data.Binary.Get.ensureLeft: End of input. Wanted "
+                 ++ show n ++ " bytes, found " ++ show (n - i) ++ "."
     worker i (x:xs)     = worker (i - fromIntegral (B.length x)) xs
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
