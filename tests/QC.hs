@@ -129,7 +129,7 @@ tests =
 
         ,("Lazy IntMap",   p (lazyTrip  :: T IntSet.IntSet          ))
         ,("IntSet",        p (test      :: T IntSet.IntSet          ))
-        ,("IntMap String", p (test      :: T (IntMap.IntMap String) ))
+        ,("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
 
         ,("B.ByteString",  p (test :: T B.ByteString        ))
         ,("L.ByteString",  p (test :: T L.ByteString        ))

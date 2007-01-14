@@ -1,8 +1,11 @@
-all:
-	runhaskell QC.hs
-	ghc --make -O -frules-off -funbox-strict-fields QC.hs -o qc -no-recomp
-#do without the rules as they break stuff atm
-	time ./qc
+all: interpreted compiled
+     
+interpreted:
+	runhaskell QC.hs 1000
+
+compiled:
+	ghc --make -O QC.hs -o qc -no-recomp
+	time ./qc 1000
 
 hugs:
 	runhugs -98 QC.hs  
