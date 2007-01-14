@@ -52,7 +52,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import Data.Char    (chr,ord)
-import Data.List    (unfoldr)
+import Data.List (unfoldr)
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
@@ -61,16 +61,19 @@ import qualified Data.Set        as Set
 import qualified Data.IntMap     as IntMap
 import qualified Data.IntSet     as IntSet
 
-import Data.Array.Unboxed
-import Data.List (unfoldr)
 import qualified Data.Tree as T
 
 import Data.Array.Unboxed
 
---
--- This isn't available in older Hugs
---
 #if defined(__GLASGOW_HASKELL__)
+import GHC.Num      (Integer(..))
+import GHC.Base     (Int(..))
+#endif
+
+--
+-- This isn't available in older Hugs or older GHC
+--
+#if __GLASGOW_HASKELL__ >= 606
 import qualified Data.Sequence as Seq
 #endif
 
@@ -345,6 +348,16 @@ roll   = foldr (\b a -> a `shiftL` 8 .|. fromIntegral b) 0
 --
 -- An efficient, raw serialisation for Integer (GHC only)
 --
+
+-- TODO  This instance is not architecture portable.  GMP stores numbers as
+-- arrays of machine sized words, so the byte format is not portable across
+-- architectures with different endianess and word size.
+
+import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
+import GHC.Base     hiding (ord, chr)
+import GHC.Prim
+import GHC.Ptr (Ptr(..))
+import GHC.IOBase (IO(..))
 
 instance Binary Integer where
     put (S# i)    = putWord8 0 >> put (I# i)
