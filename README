@@ -14,7 +14,7 @@ Building:
     runhaskell Setup.hs build
     runhaskell Setup.hs install
 
-Use:
+First:
     import Data.Binary
 
 and then write an instance of Binary for the type you wish to serialise.
