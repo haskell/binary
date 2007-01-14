@@ -84,6 +84,7 @@ tests =
         ,("Word16", mytest (roundTrip :: Word16 -> Bool))
         ,("Word32", mytest (roundTrip :: Word32 -> Bool))
 
+        ,("Integer" , mytest (roundTrip :: Integer -> Bool))
 
         ,("Int8",   mytest (roundTrip :: Int8 -> Bool))
         ,("Int16",  mytest (roundTrip :: Int16 -> Bool))
@@ -115,7 +116,6 @@ tests =
         , ("Word64le", mytest prop_Word64le)
         , ("Word64", mytest (roundTrip :: Word64 -> Bool))
         , ("Int64",  mytest (roundTrip :: Int64 -> Bool))
-        ,("Integer" , mytest (roundTrip :: Integer -> Bool))
 
 -- GHC only:
 --      ,("Sequence", mytest (roundTrip :: Seq.Seq Int64 -> Bool))
