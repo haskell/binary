@@ -51,6 +51,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import Data.Char    (ord, chr)
+import Data.List    (foldl')
 
 -- and needed for the instances:
 import qualified Data.ByteString as B
@@ -75,14 +76,14 @@ import qualified Data.Sequence as Seq
 --
 -- For the Integer instance
 --
-#if defined(__GLASGOW_HASKELL__)
+{-
 import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
 import GHC.Num
 import GHC.Base     hiding (ord, chr)
 import GHC.Prim
 import GHC.Ptr (Ptr(..))
 import GHC.IOBase (IO(..))
-#endif
+-}
 
 ------------------------------------------------------------------------
 
@@ -278,8 +279,34 @@ instance Binary Int where
 -- Integer. We try to do this efficiently on GHC, and on Hugs we'll have
 -- to serialise to a list of Word8 plus a length.
 --
+-- Portable serialisation of Integer
+--
 
-#if defined(__GLASGOW_HASKELL__)
+instance Binary Integer where
+    put i' = do
+          put sign
+          put (unfoldr shuffle i :: [Word8])
+        where
+          sign = fromIntegral (signum i') :: Word8
+          i    = abs i'
+          shuffle 0 = Nothing
+          shuffle n = Just (fromIntegral (n .&. 0xff), v)
+                where v = n `shiftR` 8
+
+    get  = do
+        sign  <- get
+        bytes <- get :: Get [Word8]
+        let v = foldl' (\a b -> a `shiftL` 8 .|. fromIntegral b) 0 bytes
+        return $ case sign :: Word8 of
+            1 ->   v
+            _ -> - v
+
+
+{-
+
+--
+-- An efficient serialisation for Integer (GHC only)
+--
 
 -- TODO  This instance is not architecture portable.  GMP stores numbers as
 -- arrays of machine sized words, so the byte format is not portable across
@@ -332,13 +359,7 @@ freezeByteArray arr = IO $ \s ->
   case unsafeFreezeByteArray# arr s of { (# s', arr' #) ->
   (# s', BA arr' #) }
 
-#else
-
-instance Binary Integer where
-    put n = error "No instance for Binary Integer in Hugs"
-    get   = error "No instance for Binary Integer in Hugs"
-
-#endif
+-}
 
 ------------------------------------------------------------------------
 -- Char is serialised as UTF-8
