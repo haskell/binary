@@ -52,7 +52,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import Data.Char    (chr,ord)
-import Data.List    (foldl',unfoldr)
+import Data.List    (unfoldr)
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
@@ -325,14 +325,20 @@ instance Binary Integer where
                     let v = roll bytes
                     return $! if sign == (1 :: Word8) then v else - v
 
+--
+-- Unfold an Integer to a list of its bytes
+--
 unroll :: Integer -> [Word8]
 unroll = unfoldr step
   where
     step 0 = Nothing
     step i = Just (fromIntegral (i .&. 0xff), i `shiftR` 8)
 
+-- 
+-- Fold a list of bytes back in to an Integer
+--
 roll :: [Word8] -> Integer
-roll     = foldl' (\a b -> a `shiftL` 8 .|. fromIntegral b) 0
+roll   = foldr (\b a -> a `shiftL` 8 .|. fromIntegral b) 0
 
 {-
 
