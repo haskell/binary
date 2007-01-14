@@ -54,8 +54,8 @@ import GHC.Word
 import GHC.Int
 #endif
 
-data S = S L.ByteString  -- the rest of the input
-           !Int64        -- bytes read
+data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
+           {-# UNPACK #-} !Int64        -- bytes read
 
 type SourcePos = Int64
 data ParseError = ParseError !SourcePos ErrorMessage deriving (Eq, Ord, Show)

@@ -381,8 +381,8 @@ instance Binary ByteArray where
             freezeByteArray arr
 
 -- wrapper for ByteArray#
-data ByteArray = BA ByteArray#
-data MBA       = MBA (MutableByteArray# RealWorld)
+data ByteArray = BA  {-# UNPACK #-} !ByteArray#
+data MBA       = MBA {-# UNPACK #-} !(MutableByteArray# RealWorld)
 
 newByteArray :: Int# -> IO MBA
 newByteArray sz = IO $ \s ->

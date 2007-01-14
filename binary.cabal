@@ -12,4 +12,3 @@ exposed-modules: Data.Binary,
 extensions:      ForeignFunctionInterface,CPP,MultiParamTypeClasses
 hs-source-dirs:  src
 ghc-options:     -O -funbox-strict-fields -Wall -Werror
--- ghc 6.4 also needs -fallow-undecidable-instances
