@@ -60,15 +60,15 @@ import qualified Data.IntMap     as IntMap
 import qualified Data.IntSet     as IntSet
 
 import Data.Array.Unboxed
-import Data.List (unfoldr)
 import qualified Data.Tree as T
 
 import System.IO
 
 --
--- This isn't available in older Hugs
+-- This isn't available in older Hugs or older GHC
 --
-#if defined(__GLASGOW_HASKELL__)
+#if __GLASGOW_HASKELL__ >= 606
+import Data.List (unfoldr)
 import qualified Data.Sequence as Seq
 #endif
 
@@ -500,7 +500,7 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 ------------------------------------------------------------------------
 -- Queues and Sequences
 
-#if defined(__GLASGOW_HASKELL__)
+#if __GLASGOW_HASKELL__ >= 606
 --
 -- This is valid Hugs, but you need the most recent Hugs
 --
