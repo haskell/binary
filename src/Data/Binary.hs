@@ -211,10 +211,18 @@ lazyGet = do a <- get
 ------------------------------------------------------------------------
 -- Simple instances
 
+-- The () type need never be written to disk: values of singleton type
+-- can be reconstructed from the type alone
 instance Binary () where
     put ()  = return ()
     get     = return ()
 
+-- Bools are encoded as a byte in the range 0 .. 1
+instance Binary Bool where
+    put     = putWord8 . fromIntegral . fromEnum
+    get     = liftM (toEnum . fromIntegral) getWord8
+
+-- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
     put = putWord8 . fromIntegral . fromEnum
     get = liftM (toEnum . fromIntegral) getWord8
@@ -222,46 +230,57 @@ instance Binary Ordering where
 ------------------------------------------------------------------------
 -- Words and Ints
 
+-- Words8s are written as bytes
 instance Binary Word8 where
     put     = putWord8
     get     = getWord8
 
-instance Binary Bool where
-    put     = putWord8 . fromIntegral . fromEnum
-    get     = liftM (toEnum . fromIntegral) getWord8
-
+-- Words16s are written as 2 bytes in big-endian (network) order
 instance Binary Word16 where
     put     = putWord16be
     get     = getWord16be
 
+-- Words32s are written as 4 bytes in big-endian (network) order
 instance Binary Word32 where
     put     = putWord32be
     get     = getWord32be
 
+-- Words64s are written as 8 bytes in big-endian (network) order
 instance Binary Word64 where
     put     = putWord64be
     get     = getWord64be
 
+-- Int8s are written as a single byte.
 instance Binary Int8 where
     put i   = put (fromIntegral i :: Word8)
     get     = liftM fromIntegral (get :: Get Word8)
 
+-- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
     put i   = put (fromIntegral i :: Word16)
     get     = liftM fromIntegral (get :: Get Word16)
 
+-- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
     get     = liftM fromIntegral (get :: Get Word32)
 
+-- Int64s are written as a 4 bytes in big endian format
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
     get     = liftM fromIntegral (get :: Get Word64)
 
--- XXX Not portable to 64 bit machine yet.
+------------------------------------------------------------------------
+
+-- Words are are written as Word64s, that is, 8 bytes in big endian format
+instance Binary Word where
+    put i   = put (fromIntegral i :: Word64)
+    get     = liftM fromIntegral (get :: Get Word64)
+
+-- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
-    put i   = put (fromIntegral i :: Int32)
-    get     = liftM fromIntegral (get :: Get Int32)
+    put i   = put (fromIntegral i :: Int64)
+    get     = liftM fromIntegral (get :: Get Int64)
 
 ------------------------------------------------------------------------
 -- 
@@ -270,6 +289,11 @@ instance Binary Int where
 --
 -- Portable, and pretty efficient, serialisation of Integer
 --
+
+-- Integers are encoded in two ways: if they fit inside a machine word,
+-- they're written as a byte tag, and that word. If the Integer value is
+-- too large to fit in a word, it is written as a byte array, along with
+-- a sign and length field.
 
 instance Binary Integer where
 
@@ -367,8 +391,8 @@ freezeByteArray arr = IO $ \s ->
 -}
 
 ------------------------------------------------------------------------
--- Char is serialised as UTF-8
 
+-- Char is serialised as UTF-8
 instance Binary Char where
     put a | c <= 0x7f     = put (fromIntegral c :: Word8)
           | c <= 0x7ff    = do put (0xc0 .|. y)
