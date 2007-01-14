@@ -23,6 +23,7 @@ module Data.Binary.Get (
     , ParseError(..)
     , runGet
     , skip
+    , lookAhead
 
     -- * Primitives
     , getByteString
@@ -96,6 +97,14 @@ failDesc err = do
 -- | Skip ahead @n@ bytes
 skip :: Int -> Get ()
 skip n = readN n (const ())
+
+-- | Get the next @n@ bytes as a lazy ByteString, without consuming them. 
+-- Fails if not enough bytes are available.
+lookAhead :: Int -> Get L.ByteString
+lookAhead n = do
+    ensureLeft n
+    S s _ <- get
+    return (L.take (fromIntegral n) s)
 
 ------------------------------------------------------------------------
 -- Helpers
