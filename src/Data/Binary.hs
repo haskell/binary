@@ -46,14 +46,15 @@ import Data.Binary.Get
 import Control.Monad
 import Control.Monad.Error (throwError)
 import Foreign
+import System.IO
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Char    (ord, chr)
-import Data.List    (foldl')
+import Data.Char    (chr,ord)
+import Data.List    (foldl',unfoldr)
 
--- and needed for the instances:
+-- And needed for the instances:
 import qualified Data.ByteString as B
 import qualified Data.Map        as Map
 import qualified Data.Set        as Set
@@ -61,29 +62,17 @@ import qualified Data.IntMap     as IntMap
 import qualified Data.IntSet     as IntSet
 
 import Data.Array.Unboxed
+import Data.List (unfoldr)
 import qualified Data.Tree as T
 
-import System.IO
+import Data.Array.Unboxed
 
 --
--- This isn't available in older Hugs or older GHC
+-- This isn't available in older Hugs
 --
-#if __GLASGOW_HASKELL__ >= 606
-import Data.List (unfoldr)
+#if defined(__GLASGOW_HASKELL__)
 import qualified Data.Sequence as Seq
 #endif
-
---
--- For the Integer instance
---
-{-
-import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
-import GHC.Num
-import GHC.Base     hiding (ord, chr)
-import GHC.Prim
-import GHC.Ptr (Ptr(..))
-import GHC.IOBase (IO(..))
--}
 
 ------------------------------------------------------------------------
 
@@ -279,38 +268,54 @@ instance Binary Int where
 -- Integer. We try to do this efficiently on GHC, and on Hugs we'll have
 -- to serialise to a list of Word8 plus a length.
 --
--- Portable serialisation of Integer
+-- Portable, and pretty efficient, serialisation of Integer
 --
 
 instance Binary Integer where
-    put i' = do
-          put sign
-          put (unfoldr shuffle i :: [Word8])
-        where
-          sign = fromIntegral (signum i') :: Word8
-          i    = abs i'
-          shuffle 0 = Nothing
-          shuffle n = Just (fromIntegral (n .&. 0xff), v)
-                where v = n `shiftR` 8
 
-    get  = do
-        sign  <- get
-        bytes <- get :: Get [Word8]
-        let v = foldl' (\a b -> a `shiftL` 8 .|. fromIntegral b) 0 bytes
-        return $ case sign :: Word8 of
-            1 ->   v
-            _ -> - v
+#if defined(__GLASGOW_HASKELL__)
+    put (S# n#) = do
+        let n = I# n#
+#else
+    put n | n >= _lo && n <= _hi = do
+#endif
+        putWord8 0
+        put (fromIntegral n :: Int)  -- fast path
+     where
+        _hi   = fromIntegral (maxBound :: Int) :: Integer
+        _lo   = fromIntegral (minBound :: Int) :: Integer
 
+    put n = do
+        putWord8 1
+        put sign
+        put (unroll (abs n))         -- unroll the bytes
+     where
+        sign = fromIntegral (signum n) :: Word8
+
+    get = do
+        tag <- get :: Get Word8
+        case tag of
+            0 -> liftM fromIntegral (get :: Get Int)
+            _ -> do sign  <- get
+                    bytes <- get
+                    let v = roll bytes
+                    return $! if sign == (1 :: Word8) then v else - v
+
+unroll :: Integer -> [Word8]
+unroll = unfoldr step
+  where
+    step 0 = Nothing
+    step i = Just (fromIntegral (i .&. 0xff), i `shiftR` 8)
+
+roll :: [Word8] -> Integer
+roll     = foldl' (\a b -> a `shiftL` 8 .|. fromIntegral b) 0
 
 {-
 
 --
--- An efficient serialisation for Integer (GHC only)
+-- An efficient, raw serialisation for Integer (GHC only)
 --
 
--- TODO  This instance is not architecture portable.  GMP stores numbers as
--- arrays of machine sized words, so the byte format is not portable across
--- architectures with different endianess and word size.
 instance Binary Integer where
     put (S# i)    = putWord8 0 >> put (I# i)
     put (J# s ba) = do
