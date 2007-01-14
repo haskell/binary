@@ -78,10 +78,13 @@ test    :: (Eq a, Binary a) => a -> Bool
 test    = roundTrip
 
 tests =
-        [ ("Word16be", p prop_Word16be)
-        , ("Word16le", p prop_Word16le)
-        , ("Word32be", p prop_Word32be)
-        , ("Word32le", p prop_Word32le)
+-- Primitives
+        [ ("Word16be",      p prop_Word16be)
+        , ("Word16le",      p prop_Word16le)
+        , ("Word32be",      p prop_Word32be)
+        , ("Word32le",      p prop_Word32le)
+        , ("Word64be",      p prop_Word64be)
+        , ("Word64le",      p prop_Word64le)
 
 -- higher level ones using the Binary class
         ,("()",         p (test :: T ()                     ))
@@ -91,10 +94,12 @@ tests =
         ,("Word8",      p (test :: T Word8                  ))
         ,("Word16",     p (test :: T Word16                 ))
         ,("Word32",     p (test :: T Word32                 ))
+        ,("Word64",     p (test :: T Word64                 ))
 
         ,("Int8",       p (test :: T Int8                   ))
         ,("Int16",      p (test :: T Int16                  ))
         ,("Int32",      p (test :: T Int32                  ))
+        ,("Int64",      p (test :: T Int64                  ))
 
         ,("Word",       p (test :: T Word                   ))
         ,("Int",        p (test :: T Int                    ))
@@ -105,6 +110,7 @@ tests =
         ,("[()]",       p (test :: T [()]                  ))
         ,("[Word8]",    p (test :: T [Word8]               ))
         ,("[Word32]",   p (test :: T [Word32]              ))
+        ,("[Word64]",   p (test :: T [Word64]              ))
         ,("[Word]",     p (test :: T [Word]                ))
         ,("[Int]",      p (test :: T [Int]                 ))
         ,("[Integer]",  p (test :: T [Integer]             ))
@@ -131,19 +137,20 @@ tests =
         ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
         ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
 
+        ,("(Maybe Int64, Bool, [Int])", p (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
+
 {-
-        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", p (roundTrip :: (Maybe Word16, Bool, [Int], Either Bool Word16, Int) -> Bool))
+--
+-- Big tuples lack an Arbitrary instance in Hugs/QuickCheck
+--
+
+        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)",
+            p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
+
         ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", p (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
 
-        ,("(Maybe Int64, Bool, [Int])", p (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
         ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", p (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
 -}
-
--- Will be a problem in Hugs currently
-        , ("Word64be", p prop_Word64be)
-        , ("Word64le", p prop_Word64le)
-        , ("Word64", p (roundTrip :: Word64 -> Bool))
-        , ("Int64",  p (roundTrip :: Int64 -> Bool))
 
 -- GHC only:
 --      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))
