@@ -107,7 +107,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- hidden from the user of class Binary.
 --
 newtype Builder = Builder {
-        unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString] 
+        unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
     }
 
 instance Monoid Builder where
