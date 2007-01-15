@@ -38,54 +38,89 @@ module Data.Binary.Put (
 
   ) where
 
-import Control.Exception
-import Control.Monad.Cont
-import Control.Monad.State
-import Control.Monad.Trans
-
-import qualified Data.ByteString.Base as B
-import qualified Data.ByteString.Lazy as L
+import Control.Monad.Writer
 
 import Foreign
-
 import System.IO.Unsafe
+
+import Data.Monoid
+import Data.Word
+import qualified Data.ByteString.Base as S
+import qualified Data.ByteString.Lazy as L
+
+type Put = Writer Builder ()
+
+runPut              :: Put -> L.ByteString
+runPut              = runBuilder . execWriter
+
+flush               :: Put
+flush               = tell flushB
+
+putWord8            :: Word8 -> Put
+putWord8            = tell . putWord8B
+
+putByteString       :: S.ByteString -> Put
+putByteString       = tell . putByteStringB
+
+putLazyByteString   :: L.ByteString -> Put
+putLazyByteString   = tell . putLazyByteStringB
+
+-- | Write a Word16 in big endian format
+putWord16be         :: Word16 -> Put
+putWord16be         = tell . putWord16beB
+
+-- | Write a Word16 in little endian format
+putWord16le         :: Word16 -> Put
+putWord16le         = tell . putWord16leB
+
+-- | Write a Word32 in big endian format
+putWord32be         :: Word32 -> Put
+putWord32be         = tell . putWord32beB
+
+-- | Write a Word32 in little endian format
+putWord32le         :: Word32 -> Put
+putWord32le         = tell . putWord32leB
+
+-- | Write a Word64 in big endian format
+putWord64be         :: Word64 -> Put
+putWord64be         = tell . putWord64beB
+
+-- | Write a Word64 in little endian format
+putWord64le         :: Word64 -> Put
+putWord64le         = tell . putWord64leB
+
+-- ---------------------------------------------------------------------
+--
+-- | The Builder monoid for efficiently constructing lazy bytestrings.
+--
 
 data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
                      {-# UNPACK #-} !Int                -- offset
                      {-# UNPACK #-} !Int                -- used bytes
                      {-# UNPACK #-} !Int                -- length left
 
--- | The Put monad abstracts over the construction of a lazy bytestring
--- by filling byte arrays piece by piece. The 'put' method of class
--- Binary implicitly fills a buffer, threaded through the Put monad. As
--- each buffer is filled, it is \'popped\' off, to become a new chunk of the
--- resulting lazy ByteString. All this is hidden from the user of class
--- Binary.
+-- | The Builder monoid abstracts over the construction of a lazy
+-- bytestring by filling byte arrays piece by piece.  The 'put' method
+-- of class Binary implicitly fills a buffer, threaded through the
+-- Builder monoid.  As each buffer is filled, it is \'popped\' off,
+-- to become a new chunk of the resulting lazy ByteString.  All this is
+-- hidden from the user of class Binary.
 --
-newtype Put a = Put { unPut :: ContT [B.ByteString] (StateT Buffer IO) a }
+newtype Builder = Builder {
+        unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString] 
+    }
 
-instance Monad Put where
-    return a      = Put (return a)
-    (Put m) >>= k = Put (m >>= unPut . k)
-    (>>)          = bindP
-    fail a        = Put (fail a)
+instance Monoid Builder where
+    mempty = empty
+    Builder f `mappend` Builder g = Builder (f . g)
 
---
--- A bind for which we control the inlining
---
-bindP :: Put a -> Put b -> Put b
-bindP (Put a) (Put b) = Put (a >> b)
-{-# INLINE [1] bindP #-}
+empty :: Builder
+empty = Builder id
+{-# INLINE [1] empty #-}
 
-instance Functor Put where
-    fmap f (Put m) = Put (fmap f m)
-
---
--- Requires MPTCs. Using our own monad here might remove this non-portability.
---
-instance MonadState Buffer Put where
-    get     = Put get
-    put f   = Put (put f)
+append :: Builder -> Builder -> Builder
+append (Builder f) (Builder g) = Builder (f . g)
+{-# INLINE [1] append #-}
 
 --
 -- copied from Data.ByteString.Lazy
@@ -95,148 +130,148 @@ defaultSize = 32 * k - overhead
     where k = 1024
           overhead = 2 * sizeOf (undefined :: Int)
 
-initS :: IO Buffer
-initS = do
-  fp <- B.mallocByteString defaultSize
-  return $! Buffer fp 0 0 defaultSize
-
-runPut :: Put () -> L.ByteString
-runPut m = unsafePerformIO $ do
-    i <- initS
-    liftM B.LPS $ evalStateT (runContT (unPut $ m >> flush) (const $ return [])) i
-
--- Lift an IO action
-unsafeLiftIO :: IO a -> Put a
-unsafeLiftIO = Put . liftIO
-
--- | Take a strict bytestring, and add it to the list of chunks in the
--- monad's lazy bytestring state.
 --
--- Does a 'unsafeInterleaveIO' trick, which will lazely suspend the rest of
--- the computation till that ByteString has been consumed.
+-- Run the builder monoid
 --
-yield :: B.ByteString -> Put ()
-yield bs = Put . ContT $ \c -> do
-    s@(Buffer _ _ u _) <- get
-    assert (u == 0) $ do
+runBuilder :: Builder -> L.ByteString
+runBuilder m = S.LPS $ unsafePerformIO $ do
+    buf <- newBuffer defaultSize
+    return (unBuilder (m `append` flushB) (const []) buf)
 
-    -- this truly is a beautiful piece of magic
-    bss <- liftIO $ unsafeInterleaveIO $ evalStateT (c ()) s
-    return (bs:bss)
+-- | Sequence an IO operation on the buffer
+unsafeLiftIO :: (Buffer -> IO Buffer) -> Builder
+unsafeLiftIO f =  Builder $ \ k buf -> unsafePerformIO $ do
+    buf' <- f buf
+    return (k buf')
+
+-- | Get the size of the buffer
+withSize :: (Int -> Builder) -> Builder
+withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
+    unBuilder (f l) k buf
+
+-- | Map the resulting list of bytestrings.
+mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
+mapBuilder f = Builder (f .)
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a
 -- new chunk in the result ByteString.
-flush :: Put ()
-flush = do
-    Buffer p o u l <- get
-    when (u /= 0) $ do
-        put $ Buffer p (o+u) 0 l
-        yield $ B.PS p o u
+flushB :: Builder
+flushB = Builder $ \ k buf@(Buffer p o u l) ->
+    if u == 0
+      then k buf
+      else S.PS p o u : k (Buffer p (o+u) 0 l)
 {-# INLINE [1] flush #-}
 
 -- | Ensure that there are at least @n@ many bytes available.
-ensureFree :: Int -> Put ()
-ensureFree n = do
-    Buffer _ _ _ l <- get
-    when (n > l) $ do
-        flush
-        let newsize = max n defaultSize
-        fp <- unsafeLiftIO $ B.mallocByteString newsize
-        put $ Buffer fp 0 0 newsize
+ensureFree :: Int -> Builder
+ensureFree n = withSize $ \ l ->
+    if n <= l then empty else
+        flushB `append` unsafeLiftIO (const (newBuffer (max n defaultSize)))
 {-# INLINE [1] ensureFree #-}
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
-writeN :: Int -> (Ptr Word8 -> IO ()) -> Put ()
-writeN n f = do
-    ensureFree n
-    Buffer fp o u l <- get
-    unsafeLiftIO $
-        withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
-    put $ Buffer fp o (u+n) (l-n)
+writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
+writeN n f = ensureFree n `append` unsafeLiftIO (writeNBuffer n f)
 {-# INLINE [1] writeN #-}
+
+writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
+writeNBuffer n f (Buffer fp o u l) = do
+    withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
+    return (Buffer fp o (u+n) (l-n))
+
+newBuffer :: Int -> IO Buffer
+newBuffer size = do
+    fp <- S.mallocByteString size
+    return $! Buffer fp 0 0 size
 
 ------------------------------------------------------------------------
 
--- | Write a byte into the Put monad's output buffer
-putWord8 :: Word8 -> Put ()
-putWord8 = writeN 1 . flip poke
+-- | Write a byte into the Builder's output buffer
+putWord8B :: Word8 -> Builder
+putWord8B = writeN 1 . flip poke
 {-# INLINE putWord8 #-}
 
 -- | Write a strict ByteString efficiently
-putByteString :: B.ByteString -> Put ()
-putByteString bs     = flush >> yield bs
+putByteStringB :: S.ByteString -> Builder
+putByteStringB bs = flushB `append` mapBuilder (bs :)
 
 -- | Write a lazy ByteString efficiently 
-putLazyByteString :: L.ByteString -> Put ()
-putLazyByteString bs = flush >> mapM_ yield (L.toChunks bs)
+putLazyByteStringB :: L.ByteString -> Builder
+putLazyByteStringB bs = flushB `append` mapBuilder (L.toChunks bs ++)
 
 ------------------------------------------------------------------------
 
 -- | Write a Word16 in big endian format
-putWord16be :: Word16 -> Put ()
-putWord16be w16 = do
+putWord16beB :: Word16 -> Builder
+putWord16beB w16 =
     let w1 = shiftR w16 8
         w2 = w16 .&. 0xff
-    putWord8 (fromIntegral w1)
-    putWord8 (fromIntegral w2)
+    in
+    putWord8B (fromIntegral w1) `append`
+    putWord8B (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
-putWord16le :: Word16 -> Put ()
-putWord16le w16 = do
+putWord16leB :: Word16 -> Builder
+putWord16leB w16 =
     let w2 = shiftR w16 8
         w1 = w16 .&. 0xff
-    putWord8 (fromIntegral w1)
-    putWord8 (fromIntegral w2)
+    in
+    putWord8B (fromIntegral w1) `append`
+    putWord8B (fromIntegral w2)
 {-# INLINE putWord16le #-}
 
 -- | Write a Word32 in big endian format
-putWord32be :: Word32 -> Put ()
-putWord32be w32 = do
+putWord32beB :: Word32 -> Builder
+putWord32beB w32 =
     let w1 = (w32 `shiftR` 24)
         w2 = (w32 `shiftR` 16) .&. 0xff
         w3 = (w32 `shiftR`  8) .&. 0xff
         w4 =  w32              .&. 0xff
-    putWord8 (fromIntegral w1)
-    putWord8 (fromIntegral w2)
-    putWord8 (fromIntegral w3)
-    putWord8 (fromIntegral w4)
+    in
+    putWord8B (fromIntegral w1) `append`
+    putWord8B (fromIntegral w2) `append`
+    putWord8B (fromIntegral w3) `append`
+    putWord8B (fromIntegral w4)
 {-# INLINE putWord32be #-}
 
 -- | Write a Word32 in little endian format
-putWord32le :: Word32 -> Put ()
-putWord32le w32 = do
+putWord32leB :: Word32 -> Builder
+putWord32leB w32 =
     let w4 = (w32 `shiftR` 24)
         w3 = (w32 `shiftR` 16) .&. 0xff
         w2 = (w32 `shiftR`  8) .&. 0xff
         w1 =  w32              .&. 0xff
-    putWord8 (fromIntegral w1)
-    putWord8 (fromIntegral w2)
-    putWord8 (fromIntegral w3)
-    putWord8 (fromIntegral w4)
+    in
+    putWord8B (fromIntegral w1) `append`
+    putWord8B (fromIntegral w2) `append`
+    putWord8B (fromIntegral w3) `append`
+    putWord8B (fromIntegral w4)
 {-# INLINE putWord32le #-}
 
 -- | Write a Word64 in big endian format
-putWord64be :: Word64 -> Put ()
-putWord64be w64 = do
+putWord64beB :: Word64 -> Builder
+putWord64beB w64 =
     let w1 = shiftR w64 32
         w2 = w64 .&. 0xffffffff
-    putWord32be (fromIntegral w1)
-    putWord32be (fromIntegral w2)
+    in
+    putWord32beB (fromIntegral w1) `append`
+    putWord32beB (fromIntegral w2)
 {-# INLINE putWord64be #-}
 
 -- | Write a Word64 in little endian format
-putWord64le :: Word64 -> Put ()
-putWord64le w64 = do
+putWord64leB :: Word64 -> Builder
+putWord64leB w64 =
     let w2 = shiftR w64 32
         w1 = w64 .&. 0xffffffff
-    putWord32le (fromIntegral w1)
-    putWord32le (fromIntegral w2)
+    in
+    putWord32leB (fromIntegral w1) `append`
+    putWord32leB (fromIntegral w2)
 {-# INLINE putWord64le #-}
 
 ------------------------------------------------------------------------
--- Some nice rules for put 
+-- Some nice rules for Builder
 
 {-# TRICKY RULES
 

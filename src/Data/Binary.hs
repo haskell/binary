@@ -65,11 +65,6 @@ import qualified Data.Tree as T
 
 import Data.Array.Unboxed
 
-#if defined(__GLASGOW_HASKELL__)
-import GHC.Num      (Integer(..))
-import GHC.Base     (Int(..))
-#endif
-
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -152,7 +147,7 @@ import qualified Data.Sequence as Seq
 --
 class Binary t where
     -- | Encode a value in the Put monad.
-    put :: t -> Put ()
+    put :: t -> Put
     -- | Decode a value in the Get monad
     get :: Get t
 
@@ -201,7 +196,7 @@ decodeFile f = liftM decode (L.readFile f)
 ------------------------------------------------------------------------
 -- Lazy put and get
 
-lazyPut :: (Binary a) => a -> Put ()
+lazyPut :: (Binary a) => a -> Put
 lazyPut a = put (encode a)
 
 -- Lemmih: (after error handling) I'm not sure this is still as lazy as it should be.
@@ -300,12 +295,7 @@ instance Binary Int where
 
 instance Binary Integer where
 
-#if defined(__GLASGOW_HASKELL__)
-    put (S# n#) = do
-        let n = I# n#
-#else
     put n | n >= _lo && n <= _hi = do
-#endif
         putWord8 0
         put (fromIntegral n :: Int)  -- fast path
      where

@@ -9,7 +9,6 @@ build-depends:   base, mtl
 exposed-modules: Data.Binary,
                  Data.Binary.Put,
                  Data.Binary.Get
-extensions:      ForeignFunctionInterface,CPP,MultiParamTypeClasses
+extensions:      ForeignFunctionInterface,CPP,FlexibleInstances
 hs-source-dirs:  src
 ghc-options:     -O -Wall -Werror
--- ghc 6.4 also needs -fallow-undecidable-instances
