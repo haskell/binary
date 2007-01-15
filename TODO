@@ -22,3 +22,5 @@ user requests:
       (which could be implemented with readN on 64bit machines)
       reference: bringerts tar archive decoder would be limitid to 0.5GB
                  files, alt. 2GB in GHC
+
+SYB-deriving
