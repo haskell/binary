@@ -27,7 +27,7 @@ import Data.Int
 import System.Random
 import System.IO
 
-import Control.Concurrent
+-- import Control.Concurrent
 import System.Mem
 import System.CPUTime
 import Text.Printf
@@ -49,7 +49,7 @@ mytest a n = mycheck defaultConfig
 mycheck :: Testable a => Config -> a -> IO ()
 mycheck config a = do
      rnd <- newStdGen
-     performGC >> threadDelay 100
+     performGC -- >> threadDelay 100
      time (mytests config (evaluate a) rnd 0 0 [])
 
 time :: IO () -> IO ()
