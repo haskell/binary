@@ -16,7 +16,6 @@ module Data.Binary (
 
     -- * The Binary class
       Binary(..)
-    , ParseError(..)
 
     -- * The Get and Put monads
     , Get
@@ -44,7 +43,6 @@ import Data.Binary.Put
 import Data.Binary.Get
 
 import Control.Monad
-import Control.Monad.Error (throwError)
 import Foreign
 import System.IO
 
@@ -52,7 +50,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import Data.Char    (chr,ord)
-import Data.List (unfoldr)
+import Data.List    (unfoldr)
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
@@ -161,7 +159,7 @@ encode = runPut . put
 
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
 --
-decode :: Binary a => ByteString -> Either ParseError a
+decode :: Binary a => ByteString -> a
 decode = runGet get
 
 ------------------------------------------------------------------------
@@ -190,7 +188,7 @@ encodeFile f v = L.writeFile f (encode v)
 --
 -- > return . decode . decompress =<< B.readFile f
 --
-decodeFile :: Binary a => FilePath -> IO (Either ParseError a)
+decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = liftM decode (L.readFile f)
 
 ------------------------------------------------------------------------
@@ -199,12 +197,8 @@ decodeFile f = liftM decode (L.readFile f)
 lazyPut :: (Binary a) => a -> Put
 lazyPut a = put (encode a)
 
--- Lemmih: (after error handling) I'm not sure this is still as lazy as it should be.
 lazyGet :: (Binary a) => Get a
-lazyGet = do a <- get
-             case decode a of
-               Left err -> throwError err
-               Right val -> return val
+lazyGet = fmap decode get
 
 ------------------------------------------------------------------------
 -- Simple instances
@@ -295,12 +289,12 @@ instance Binary Int where
 
 instance Binary Integer where
 
-    put n | n >= _lo && n <= _hi = do
+    put n | n >= lo && n <= hi = do
         putWord8 0
         put (fromIntegral n :: Int)  -- fast path
      where
-        _hi   = fromIntegral (maxBound :: Int) :: Integer
-        _lo   = fromIntegral (minBound :: Int) :: Integer
+        hi = fromIntegral (maxBound :: Int) :: Integer
+        lo = fromIntegral (minBound :: Int) :: Integer
 
     put n = do
         putWord8 1

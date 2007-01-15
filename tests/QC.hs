@@ -31,13 +31,9 @@ import Text.Printf
 ------------------------------------------------------------------------
 
 roundTrip :: (Eq a, Binary a) => a -> Bool
-roundTrip a = Right a == decode (encode a)
+roundTrip a = a == decode (encode a)
 
-roundTripWith put get x = Right x == runGet get (runPut (put x))
-
-shouldFail :: Either a b -> Bool
-shouldFail (Left _) = True
-shouldFail _ = False
+roundTripWith put get x = x == runGet get (runPut (put x))
 
 -- low level ones:
 
@@ -56,7 +52,7 @@ prop_Word64le = roundTripWith putWord64le getWord64le
 -- tons of untested cases
 
 lazyTrip :: (Binary a, Eq a) => a -> Bool
-lazyTrip a = Right a == (runGet lazyGet . runPut . lazyPut $ a)
+lazyTrip a = a == (runGet lazyGet . runPut . lazyPut $ a)
 
 main :: IO ()
 main = do
@@ -157,5 +153,6 @@ tests =
 -- GHC only:
 --      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))
 
-        ,("ensureLeft/Fail", mytest (shouldFail (decode L.empty :: Either ParseError Int)))
+-- Obsolete
+--      ,("ensureLeft/Fail", mytest (shouldFail (decode L.empty :: Either ParseError Int)))
         ]

@@ -20,7 +20,6 @@ module Data.Binary.Get (
 
     -- * The Get type
       Get
-    , ParseError(..)
     , runGet
     , skip
     , lookAhead
@@ -39,7 +38,6 @@ module Data.Binary.Get (
     ) where
 
 import Control.Monad.State
-import Control.Monad.Error
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base as B
@@ -57,20 +55,8 @@ import GHC.Int
 data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
            {-# UNPACK #-} !Int64        -- bytes read
 
-type SourcePos = Int64
-data ParseError = ParseError !SourcePos ErrorMessage deriving (Eq, Ord, Show)
-type ErrorMessage = String
-
-instance Error ParseError where
-    noMsg = ParseError 0 noMsg
-    strMsg = ParseError 0 . strMsg
-instance MonadError ParseError Get where
-    throwError e = Get (throwError e)
-    catchError (Get fn) handle = Get (catchError fn (unGet . handle))
-
-
 -- | The Get monad is just a State monad carrying around the input ByteString
-newtype Get a = Get { unGet :: ErrorT ParseError (State S) a }
+newtype Get a = Get { unGet :: State S a }
 
 instance Monad Get where
     return a      = Get (return a)
@@ -86,13 +72,13 @@ instance Functor Get where
     fmap f (Get m) = Get (fmap f m)
 
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
-runGet :: Get a -> L.ByteString -> Either ParseError a
-runGet (Get m) str = evalState (runErrorT m) (S str 0)
+runGet :: Get a -> L.ByteString -> a
+runGet (Get m) str = evalState m (S str 0)
 
 failDesc :: String -> Get a
 failDesc err = do
     S _ bytes <- get
-    Get (throwError (ParseError bytes err))
+    Get (fail (err ++ ". Failed reading at byte position " ++ show bytes))
 
 -- | Skip ahead @n@ bytes
 skip :: Int -> Get ()
