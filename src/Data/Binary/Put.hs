@@ -57,7 +57,7 @@ flush               :: Put
 flush               = tell flushB
 
 putWord8            :: Word8 -> Put
-putWord8            = tell . putWord8B
+putWord8            = tell . singleton
 
 putByteString       :: S.ByteString -> Put
 putByteString       = tell . putByteStringB
@@ -99,12 +99,23 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
                      {-# UNPACK #-} !Int                -- used bytes
                      {-# UNPACK #-} !Int                -- length left
 
--- | The Builder monoid abstracts over the construction of a lazy
--- bytestring by filling byte arrays piece by piece.  The 'put' method
--- of class Binary implicitly fills a buffer, threaded through the
--- Builder monoid.  As each buffer is filled, it is \'popped\' off,
--- to become a new chunk of the resulting lazy ByteString.  All this is
--- hidden from the user of class Binary.
+-- | The 'Builder' monoid abstracts over the construction of a lazy
+-- bytestring by filling byte arrays piece by piece.  As each buffer is
+-- filled, it is \'popped\' off, to become a new chunk of the resulting
+-- lazy 'L.ByteString'.  All this is hidden from the user of the
+-- 'Builder'.
+--
+-- Properties:
+--
+--  * @'runBuilder' 'empty' = 'L.empty'@
+--
+--  * @'runBuilder' ('append' x y) = 'L.append' ('runBuilder' x) ('runBuilder' y)@
+--
+--  * @'runBuilder' ('singleton' b) = 'L.singleton' b@
+--
+--  * @'runBuilder' ('putByteStringB' bs) = 'L.fromChunks' [bs]@
+--
+--  * @'runBuilder' ('putLazyByteStringB' bs) = bs@
 --
 newtype Builder = Builder {
         unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
@@ -112,7 +123,7 @@ newtype Builder = Builder {
 
 instance Monoid Builder where
     mempty = empty
-    Builder f `mappend` Builder g = Builder (f . g)
+    mappend = append
 
 empty :: Builder
 empty = Builder id
@@ -188,8 +199,8 @@ newBuffer size = do
 ------------------------------------------------------------------------
 
 -- | Write a byte into the Builder's output buffer
-putWord8B :: Word8 -> Builder
-putWord8B = writeN 1 . flip poke
+singleton :: Word8 -> Builder
+singleton = writeN 1 . flip poke
 {-# INLINE putWord8 #-}
 
 -- | Write a strict ByteString efficiently
@@ -208,8 +219,8 @@ putWord16beB w16 =
     let w1 = shiftR w16 8
         w2 = w16 .&. 0xff
     in
-    putWord8B (fromIntegral w1) `append`
-    putWord8B (fromIntegral w2)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
@@ -220,8 +231,8 @@ putWord16leB w16 =
     let w2 = shiftR w16 8
         w1 = w16 .&. 0xff
     in
-    putWord8B (fromIntegral w1) `append`
-    putWord8B (fromIntegral w2)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2)
 {-# INLINE putWord16le #-}
 
 -- | Write a Word32 in big endian format
@@ -232,10 +243,10 @@ putWord32beB w32 =
         w3 = (w32 `shiftR`  8) .&. 0xff
         w4 =  w32              .&. 0xff
     in
-    putWord8B (fromIntegral w1) `append`
-    putWord8B (fromIntegral w2) `append`
-    putWord8B (fromIntegral w3) `append`
-    putWord8B (fromIntegral w4)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2) `append`
+    singleton (fromIntegral w3) `append`
+    singleton (fromIntegral w4)
 {-# INLINE putWord32be #-}
 
 -- | Write a Word32 in little endian format
@@ -250,10 +261,10 @@ putWord32leB w32 =
         w2 = (w32 `shiftR`  8) .&. 0xff
         w1 =  w32              .&. 0xff
     in
-    putWord8B (fromIntegral w1) `append`
-    putWord8B (fromIntegral w2) `append`
-    putWord8B (fromIntegral w3) `append`
-    putWord8B (fromIntegral w4)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2) `append`
+    singleton (fromIntegral w3) `append`
+    singleton (fromIntegral w4)
 {-# INLINE putWord32le #-}
 
 -- | Write a Word64 in big endian format
