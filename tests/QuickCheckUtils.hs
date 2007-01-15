@@ -27,6 +27,11 @@ import Data.Int
 import System.Random
 import System.IO
 
+import Control.Concurrent
+import System.Mem
+import System.CPUTime
+import Text.Printf
+
 import qualified Data.ByteString      as P
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base as L (LazyByteString(..))
@@ -42,9 +47,19 @@ mytest a n = mycheck defaultConfig
     , configEvery= \n args -> if debug then show n ++ ":\n" ++ unlines args else [] } a
 
 mycheck :: Testable a => Config -> a -> IO ()
-mycheck config a =
-  do rnd <- newStdGen
-     mytests config (evaluate a) rnd 0 0 []
+mycheck config a = do
+     rnd <- newStdGen
+     performGC >> threadDelay 100
+     time (mytests config (evaluate a) rnd 0 0 [])
+
+time :: IO () -> IO ()
+time a = do
+    start <- getCPUTime
+    a
+    end   <- getCPUTime
+    let diff = (fromIntegral (end - start)) / (10^12)
+    printf " %0.3f seconds\n" (diff :: Double)
+    hFlush stdout
 
 mytests :: Config -> Gen Result -> StdGen -> Int -> Int -> [[String]] -> IO ()
 mytests config gen rnd0 ntest nfail stamps
@@ -52,6 +67,7 @@ mytests config gen rnd0 ntest nfail stamps
   | nfail == configMaxFail config = do done "Arguments exhausted after" ntest stamps
   | otherwise               =
       do putStr (configEvery config ntest (arguments result)) >> hFlush stdout
+
          case ok result of
            Nothing    ->
              mytests config gen rnd1 ntest (nfail+1) stamps
@@ -63,13 +79,13 @@ mytests config gen rnd0 ntest nfail stamps
                    ++ " tests:\n"
                    ++ unlines (arguments result)
                     ) >> hFlush stdout
+
      where
       result      = generate (configSize config ntest) rnd2 gen
       (rnd1,rnd2) = split rnd0
 
 done :: String -> Int -> [[String]] -> IO ()
-done mesg ntest stamps =
-  do putStr ( mesg ++ " " ++ show ntest ++ " tests" ++ table )
+done mesg ntest stamps = putStr ( mesg ++ " " ++ show ntest ++ " tests" ++ table )
  where
   table = display
         . map entry
@@ -81,8 +97,8 @@ done mesg ntest stamps =
         . filter (not . null)
         $ stamps
 
-  display []  = ".\n"
-  display [x] = " (" ++ x ++ ").\n"
+  display []  = ". "
+  display [x] = " (" ++ x ++ "). "
   display xs  = ".\n" ++ unlines (map (++ ".") xs)
 
   pairLength xss@(xs:_) = (length xss, xs)

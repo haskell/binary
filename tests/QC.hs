@@ -69,6 +69,8 @@ run tests = do
     let n = if null x then 100 else read . head $ x
     mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
 
+------------------------------------------------------------------------
+
 type T a = a -> Bool
 
 p       :: Testable a => a -> Int -> IO ()
