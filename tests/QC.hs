@@ -31,7 +31,8 @@ import Text.Printf
 ------------------------------------------------------------------------
 
 roundTrip :: (Eq a, Binary a) => a -> Bool
-roundTrip a = a == decode (encode a)
+roundTrip a = a ==
+    {-# SCC "decode.encode" #-} decode (encode a)
 
 roundTripWith put get x = x == runGet get (runPut (put x))
 
