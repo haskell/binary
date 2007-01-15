@@ -9,8 +9,6 @@ layer handling:
 seek based protocols are too hard. 
     hGetContents/ interleaving.
 
-write an Integer instance that is architecture and compiler portable
-
 user requests:
 
     get remaining bytestring after a runGet
