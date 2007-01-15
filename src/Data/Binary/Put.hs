@@ -214,6 +214,8 @@ putWord16beB w16 =
 
 -- | Write a Word16 in little endian format
 putWord16leB :: Word16 -> Builder
+-- putWord16leB w16 = writeN 2 (\p -> poke (castPtr p) w16)
+
 putWord16leB w16 =
     let w2 = shiftR w16 8
         w1 = w16 .&. 0xff
@@ -239,6 +241,10 @@ putWord32beB w32 =
 -- | Write a Word32 in little endian format
 putWord32leB :: Word32 -> Builder
 putWord32leB w32 =
+
+-- on a little endian machine:
+-- putWord32leB w32 = writeN 4 (\p -> poke (castPtr p) w32)
+
     let w4 = (w32 `shiftR` 24)
         w3 = (w32 `shiftR` 16) .&. 0xff
         w2 = (w32 `shiftR`  8) .&. 0xff
@@ -262,6 +268,10 @@ putWord64beB w64 =
 
 -- | Write a Word64 in little endian format
 putWord64leB :: Word64 -> Builder
+
+-- on a little endian machine:
+-- putWord64leB w64 = writeN 8 (\p -> poke (castPtr p) w64)
+
 putWord64leB w64 =
     let w2 = shiftR w64 32
         w1 = w64 .&. 0xffffffff
