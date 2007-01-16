@@ -224,8 +224,8 @@ putWord16beB w16 =
     let w1 = shiftR w16 8
         w2 = w16 .&. 0xff
     in
-    putWord8B (fromIntegral w1) `append`
-    putWord8B (fromIntegral w2)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
