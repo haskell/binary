@@ -24,6 +24,7 @@ module Data.Binary.Get (
     , skip
     , lookAhead
     , remaining
+    , isEmpty
 
     -- * Primitives
     , getByteString
@@ -100,6 +101,13 @@ remaining :: Get Int64
 remaining = do
     S s _ <- get
     return (L.length s)
+
+-- | Test whether all input has been consumed,
+-- i.e. there are no remaining unparsed bytes.
+isEmpty :: Get Bool
+isEmpty = do
+    S s _ <- get
+    return (L.null s)
 
 ------------------------------------------------------------------------
 -- Helpers
