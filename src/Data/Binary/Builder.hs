@@ -1,14 +1,14 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Data.Binary.Put
+-- Module      : Data.Binary.Builder
 -- Copyright   : Ross Paterson
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
--- Stability   : stable
--- Portability : Portable to Hugs and GHC. Requires MPTCs
+-- Stability   : experimental
+-- Portability : portable to Hugs and GHC
 --
--- The Builder monoid for efficiently constructing lazy bytestrings.
+-- Efficient construction of lazy bytestrings.
 --
 -----------------------------------------------------------------------------
 
@@ -18,27 +18,26 @@ module Data.Binary.Builder (
       Builder
     , runBuilder
 
-    -- * Builder operations
+    -- * Constructing Builders
     , empty
     , singleton
     , append
+    , fromByteString        -- :: S.ByteString -> Builder
+    , fromLazyByteString    -- :: L.ByteString -> Builder
 
-    -- * Support for ByteStrings
-    , putByteString         -- :: S.ByteString -> Builder
-    , putLazyByteString     -- :: L.ByteString -> Builder
+    -- * Flushing the buffer state
+    , flush
 
-    -- * Big-endian primitive writes
+    -- * Derived Builders
+    -- ** Big-endian writes
     , putWord16be           -- :: Word16 -> Builder
     , putWord32be           -- :: Word32 -> Builder
     , putWord64be           -- :: Word64 -> Builder
 
-    -- * Little-endian primitive writes
+    -- ** Little-endian writes
     , putWord16le           -- :: Word16 -> Builder
     , putWord32le           -- :: Word32 -> Builder
     , putWord64le           -- :: Word64 -> Builder
-
-    -- * Flushing the buffer state
-    , flush
 
   ) where
 
@@ -51,24 +50,16 @@ import qualified Data.ByteString.Lazy as L
 
 ------------------------------------------------------------------------
 
--- | The 'Builder' monoid abstracts over the construction of a lazy
--- bytestring by filling byte arrays piece by piece.  As each buffer is
--- filled, it is \'popped\' off, to become a new chunk of the resulting
--- lazy 'L.ByteString'.  All this is hidden from the user of the
--- 'Builder'.
+-- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
+-- There are several functions for constructing 'Builder's, but only one
+-- to inspect them: to extract any data, you have to turn them into lazy
+-- 'L.ByteString's using 'runBuilder'.
 --
--- Properties:
---
---  * @'runBuilder' 'empty'                  = 'L.empty'@
---
---  * @'runBuilder' ('append' x y)           = 'L.append' ('runBuilder' x) ('runBuilder' y)@
---
---  * @'runBuilder' ('singleton' b)          = 'L.singleton' b@
---
---  * @'runBuilder' ('putByteString' bs)     = 'L.fromChunks' [bs]@
---
---  * @'runBuilder' ('putLazyByteString' bs) = bs@
---
+-- Internally, a 'Builder' constructs a lazy 'L.Bytestring' by filling byte
+-- arrays piece by piece.  As each buffer is filled, it is \'popped\'
+-- off, to become a new chunk of the resulting lazy 'L.ByteString'.
+-- All this is hidden from the user of the 'Builder'.
+
 newtype Builder = Builder {
         unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
     }
@@ -77,17 +68,42 @@ instance Monoid Builder where
     mempty = empty
     mappend = append
 
--- | The empty Builder
+------------------------------------------------------------------------
+
+-- | /O(1)./ The empty Builder, satisfying
+--
+--  * @'runBuilder' 'empty' = 'L.empty'@
+--
 empty :: Builder
 empty = Builder id
 
--- | Write a byte into the Builder's output buffer
+-- | /O(1)./ A Builder taking a single byte, satisfying
+--
+--  * @'runBuilder' ('singleton' b) = 'L.singleton' b@
+--
 singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
 
--- | Append two Builders
+-- | /O(1)./ The concatenation of two Builders, satisfying
+--
+--  * @'runBuilder' ('append' x y) = 'L.append' ('runBuilder' x) ('runBuilder' y)@
+--
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
+
+-- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
+--
+--  * @'runBuilder' ('fromByteString' bs) = 'L.fromChunks' [bs]@
+--
+fromByteString :: S.ByteString -> Builder
+fromByteString bs = flush `append` mapBuilder (bs :)
+
+-- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
+--
+--  * @'runBuilder' ('fromLazyByteString' bs) = bs@
+--
+fromLazyByteString :: L.ByteString -> Builder
+fromLazyByteString (S.LPS bss) = flush `append` mapBuilder (bss ++)
 
 ------------------------------------------------------------------------
 
@@ -99,16 +115,17 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 
 ------------------------------------------------------------------------
 
---
--- | Run the builder monoid
+-- | /O(n)./ Extract a lazy 'L.ByteString' from a 'Builder'.
+-- The construction work takes place if and when the relevant part of
+-- the lazy 'L.ByteString' is demanded.
 --
 runBuilder :: Builder -> L.ByteString
 runBuilder m = S.LPS $ inlinePerformIO $ do
     buf <- newBuffer defaultSize
     return (unBuilder (m `append` flush) (const []) buf)
 
--- | Pop the ByteString we have constructed so far, if any, yielding a
--- new chunk in the result ByteString.
+-- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
+-- yielding a new chunk in the result lazy 'L.ByteString'.
 flush :: Builder
 flush = Builder $ \ k buf@(Buffer p o u l) ->
     if u == 0
@@ -167,16 +184,6 @@ newBuffer :: Int -> IO Buffer
 newBuffer size = do
     fp <- S.mallocByteString size
     return $! Buffer fp 0 0 size
-
-------------------------------------------------------------------------
-
--- | Write a strict ByteString efficiently
-putByteString :: S.ByteString -> Builder
-putByteString bs = flush `append` mapBuilder (bs :)
-
--- | Write a lazy ByteString efficiently 
-putLazyByteString :: L.ByteString -> Builder
-putLazyByteString bs = flush `append` mapBuilder (L.toChunks bs ++)
 
 ------------------------------------------------------------------------
 

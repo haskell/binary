@@ -69,12 +69,12 @@ putWord8            = tell . B.singleton
 -- | An efficient primitive to write a strict ByteString into the output buffer.
 -- It flushes the current buffer, and writes the argument into a new chunk.
 putByteString       :: S.ByteString -> Put
-putByteString       = tell . B.putByteString
+putByteString       = tell . B.fromByteString
 
 -- | Write a lazy ByteString efficiently, simply appending the lazy
 -- ByteString chunks to the output buffer
 putLazyByteString   :: L.ByteString -> Put
-putLazyByteString   = tell . B.putLazyByteString
+putLazyByteString   = tell . B.fromLazyByteString
 
 -- | Write a Word16 in big endian format
 putWord16be         :: Word16 -> Put
