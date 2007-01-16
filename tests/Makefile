@@ -8,11 +8,11 @@ compiled:
 	time ./qc 1000
 
 bench::
-	ghc --make -O Benchmark.hs -o benchmark -no-recomp
-	time ./benchmark
+	ghc --make -O Benchmark.hs -o bench -no-recomp
+	time ./bench
 
 bench-nb::
-	ghc -fbang-patterns --make -O NewBenchmark.hs -o bench-nb -no-recomp
+	ghc --make -O NewBenchmark.hs -o bench-nb -no-recomp
 	time ./bench-nb
 
 hugs:
