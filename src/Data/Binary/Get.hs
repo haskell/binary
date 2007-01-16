@@ -23,6 +23,7 @@ module Data.Binary.Get (
     , runGet
     , skip
     , lookAhead
+    , remaining
 
     -- * Primitives
     , getByteString
@@ -91,6 +92,13 @@ lookAhead n = do
     ensureLeft n
     S s _ <- get
     return (L.take (fromIntegral n) s)
+
+-- | Get the number of remaining unparsed bytes.
+-- Useful for checking whether all input has been consumed.
+remaining :: Get Int64
+remaining = do
+    S s _ <- get
+    return (L.length s)
 
 ------------------------------------------------------------------------
 -- Helpers
