@@ -95,6 +95,7 @@ lookAhead n = do
 
 -- | Get the number of remaining unparsed bytes.
 -- Useful for checking whether all input has been consumed.
+-- Note that this forces the rest of the input.
 remaining :: Get Int64
 remaining = do
     S s _ <- get
