@@ -8,7 +8,7 @@
 -- Stability   : unstable
 -- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
--- Binary serialisation of values to and from lazy ByteStrings.
+-- Binary serialisation of Haskell values to and from lazy ByteStrings.
 --
 -----------------------------------------------------------------------------
 
@@ -16,6 +16,8 @@ module Data.Binary (
 
     -- * The Binary class
       Binary(..)
+
+    -- $example
 
     -- * The Get and Put monads
     , Get
@@ -37,7 +39,11 @@ module Data.Binary (
     , lazyPut
     , lazyGet
 
+    , module Data.Word -- useful
+
     ) where
+
+import Data.Word
 
 import Data.Binary.Put
 import Data.Binary.Get
@@ -73,14 +79,29 @@ import qualified Data.Sequence as Seq
 ------------------------------------------------------------------------
 
 -- | The @Binary@ class provides 'put' and 'get', methods to encode and
--- decode a value to a lazy bytestring.
+-- decode a Haskell value to a lazy ByteString. It mirrors the Read and
+-- Show classes for textual representation of Haskell types, and is
+-- suitable for serialising Haskell values to disk, over the network.
 --
--- New instances for binary should have the following property:
+-- For parsing and generating simple external binary formats (e.g. C
+-- structures), Binary may be used, but in general is not suitable
+-- for complex protocols. Instead use the Put and Get primitives
+-- directly.
+--
+-- Instances of Binary should satisfy the following property:
 --
 -- > get . put == id
 --
--- A range of instances are provided for basic Haskell types. To
--- serialise a custom type, an instance of Binary for that type is
+-- A range of instances are provided for basic Haskell types. 
+--
+class Binary t where
+    -- | Encode a value in the Put monad.
+    put :: t -> Put
+    -- | Decode a value in the Get monad
+    get :: Get t
+
+-- $example
+-- To serialise a custom type, an instance of Binary for that type is
 -- required. For example, suppose we have a data structure:
 --
 -- > data Exp = IntE Int
@@ -143,11 +164,6 @@ import qualified Data.Sequence as Seq
 --
 -- > > encodeFile "/tmp/a.txt" v
 --
-class Binary t where
-    -- | Encode a value in the Put monad.
-    put :: t -> Put
-    -- | Decode a value in the Get monad
-    get :: Get t
 
 ------------------------------------------------------------------------
 -- Wrappers to run the underlying monad

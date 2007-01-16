@@ -41,33 +41,41 @@ module Data.Binary.Put (
 import Control.Monad.Writer
 
 import Foreign
-import System.IO.Unsafe
 
 import Data.Monoid
 import Data.Word
+import Data.ByteString.Base (inlinePerformIO)
 import qualified Data.ByteString.Base as S
 import qualified Data.ByteString.Lazy as L
 
 type Put = Writer Builder ()
 
+-- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
 runPut              = runBuilder . execWriter
 
+-- | Pop the ByteString we have constructed so far, if any, yielding a
+-- new chunk in the result ByteString.
 flush               :: Put
 flush               = tell flushB
 
 putWord8            :: Word8 -> Put
 putWord8            = tell . singleton
 
+-- | An efficient primitive to write a strict ByteString into the output buffer.
+-- It flushes the current buffer, and writes the argument into a new chunk.
 putByteString       :: S.ByteString -> Put
 putByteString       = tell . putByteStringB
 
+-- | Write a lazy ByteString efficiently, simply appending the lazy
+-- ByteString chunks to the output buffer
 putLazyByteString   :: L.ByteString -> Put
 putLazyByteString   = tell . putLazyByteStringB
 
 -- | Write a Word16 in big endian format
 putWord16be         :: Word16 -> Put
 putWord16be         = tell . putWord16beB
+{-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
 putWord16le         :: Word16 -> Put
@@ -145,13 +153,13 @@ defaultSize = 32 * k - overhead
 -- Run the builder monoid
 --
 runBuilder :: Builder -> L.ByteString
-runBuilder m = S.LPS $ unsafePerformIO $ do
+runBuilder m = S.LPS $ inlinePerformIO $ do
     buf <- newBuffer defaultSize
     return (unBuilder (m `append` flushB) (const []) buf)
 
 -- | Sequence an IO operation on the buffer
 unsafeLiftIO :: (Buffer -> IO Buffer) -> Builder
-unsafeLiftIO f =  Builder $ \ k buf -> unsafePerformIO $ do
+unsafeLiftIO f =  Builder $ \ k buf -> inlinePerformIO $ do
     buf' <- f buf
     return (k buf')
 
@@ -175,7 +183,7 @@ flushB = Builder $ \ k buf@(Buffer p o u l) ->
 
 -- | Ensure that there are at least @n@ many bytes available.
 ensureFree :: Int -> Builder
-ensureFree n = withSize $ \ l ->
+ensureFree n = n `seq` withSize $ \ l ->
     if n <= l then empty else
         flushB `append` unsafeLiftIO (const (newBuffer (max n defaultSize)))
 {-# INLINE [1] ensureFree #-}
@@ -219,8 +227,8 @@ putWord16beB w16 =
     let w1 = shiftR w16 8
         w2 = w16 .&. 0xff
     in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2)
+    putWord8B (fromIntegral w1) `append`
+    putWord8B (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
