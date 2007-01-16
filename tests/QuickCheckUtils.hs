@@ -18,6 +18,7 @@ import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 
+import qualified Control.Exception as C (evaluate)
 
 import Control.Monad        ( liftM2 )
 import Data.Char
@@ -50,38 +51,44 @@ mycheck :: Testable a => Config -> a -> IO ()
 mycheck config a = do
      rnd <- newStdGen
      performGC -- >> threadDelay 100
-     time (mytests config (evaluate a) rnd 0 0 [])
+     t <- mytests config (evaluate a) rnd 0 0 [] 0 -- 0
+     printf " %0.3f seconds\n" (t :: Double)
+     hFlush stdout
 
-time :: IO () -> IO ()
+time :: a -> IO (a , Double)
 time a = do
     start <- getCPUTime
-    a
+    v     <- C.evaluate a
+    v `seq` return ()
     end   <- getCPUTime
-    let diff = (fromIntegral (end - start)) / (10^12)
-    printf " %0.3f seconds\n" (diff :: Double)
-    hFlush stdout
+    return (v,     (      (fromIntegral (end - start)) / (10^12)))
 
-mytests :: Config -> Gen Result -> StdGen -> Int -> Int -> [[String]] -> IO ()
-mytests config gen rnd0 ntest nfail stamps
+mytests :: Config -> Gen Result -> StdGen -> Int -> Int -> [[String]] -> Double -> IO  Double
+mytests config gen rnd0 ntest nfail stamps t0
   | ntest == configMaxTest config = do done "OK," ntest stamps
-  | nfail == configMaxFail config = do done "Arguments exhausted after" ntest stamps
-  | otherwise               =
-      do putStr (configEvery config ntest (arguments result)) >> hFlush stdout
+                                       return t0
 
-         case ok result of
-           Nothing    ->
-             mytests config gen rnd1 ntest (nfail+1) stamps
-           Just True  ->
-             mytests config gen rnd1 (ntest+1) nfail (stamp result:stamps)
-           Just False ->
-             putStr ( "Falsifiable after "
-                   ++ show ntest
-                   ++ " tests:\n"
-                   ++ unlines (arguments result)
-                    ) >> hFlush stdout
+  | nfail == configMaxFail config = do done "Arguments exhausted after" ntest stamps
+                                       return t0
+
+  | otherwise = do
+     (result,t1) <- time (generate (configSize config ntest) rnd2 gen)
+
+     putStr (configEvery config ntest (arguments result)) >> hFlush stdout
+     case ok result of
+       Nothing    ->
+         mytests config gen rnd1 ntest (nfail+1) stamps (t0 + t1)
+       Just True  ->
+         mytests config gen rnd1 (ntest+1) nfail (stamp result:stamps) (t0 + t1)
+       Just False -> do
+         putStr ( "Falsifiable after "
+               ++ show ntest
+               ++ " tests:\n"
+               ++ unlines (arguments result)
+                ) >> hFlush stdout
+         return t0
 
      where
-      result      = generate (configSize config ntest) rnd2 gen
       (rnd1,rnd2) = split rnd0
 
 done :: String -> Int -> [[String]] -> IO ()
