@@ -52,6 +52,7 @@ import GHC.Word
 import GHC.Int
 #endif
 
+-- | The parse state
 data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
            {-# UNPACK #-} !Int64        -- bytes read
 
@@ -62,7 +63,6 @@ instance Monad Get where
     return a      = Get (return a)
     (Get m) >>= k = Get (m >>= unGet . k)
     fail          = failDesc
-
 
 instance MonadState S Get where
     get         = Get get
@@ -103,7 +103,7 @@ ensureLeft n = do
   where
     worker :: Int -> [B.ByteString] -> Get ()
     worker i _ | i <= 0 = return ()
-    worker i []         = 
+    worker i []         =
         fail $ "Data.Binary.Get.ensureLeft: End of input. Wanted "
                  ++ show n ++ " bytes, found " ++ show (n - i) ++ "."
     worker i (x:xs)     = worker (i - fromIntegral (B.length x)) xs
@@ -239,13 +239,3 @@ unsafeShiftL_W32 (W32# x#) (I# i#) = W32# (narrow32Word# (x# `shiftL#` i#))
 unsafeShiftL_W16 = shiftL
 unsafeShiftL_W32 = shiftL
 #endif
-
-
-------------------------------------------------------------------------
-
-{-# TRICKY RULES
- "ensureLeft/combine" forall a b.
-        ensureLeft a >> ensureLeft b = ensureLeft (max a b)
- #-}
-
-{-# TRICKY RULES "readN/combine" forall s1 s2 f1 f2 k.  readN s1 f1 >>= \w1 -> readN s2 f2 >>= \w2 -> k = readN (s1+s2) (\s -> f1 s >>= \w1 -> f2 (L.drop s1 s)) #-}
