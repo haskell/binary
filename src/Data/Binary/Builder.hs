@@ -180,11 +180,15 @@ putLazyByteString bs = flush `append` mapBuilder (L.toChunks bs ++)
 
 ------------------------------------------------------------------------
 
+--
+-- We rely on the fromIntegral to do the right masking for us.
+--
+
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Builder
 putWord16be w16 =
     let w1 = shiftR w16 8
-        w2 = w16 .&. 0xff
+        w2 = w16
     in
     singleton (fromIntegral w1) `append`
     singleton (fromIntegral w2)
@@ -196,7 +200,7 @@ putWord16le :: Word16 -> Builder
 
 putWord16le w16 =
     let w2 = shiftR w16 8
-        w1 = w16 .&. 0xff
+        w1 = w16
     in
     singleton (fromIntegral w1) `append`
     singleton (fromIntegral w2)
@@ -205,10 +209,10 @@ putWord16le w16 =
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Builder
 putWord32be w32 =
-    let w1 = (w32 `shiftR` 24)
-        w2 = (w32 `shiftR` 16) .&. 0xff
-        w3 = (w32 `shiftR`  8) .&. 0xff
-        w4 =  w32              .&. 0xff
+    let w1 = w32 `shiftR` 24
+        w2 = w32 `shiftR` 16
+        w3 = w32 `shiftR`  8
+        w4 = w32
     in
     singleton (fromIntegral w1) `append`
     singleton (fromIntegral w2) `append`
@@ -219,10 +223,10 @@ putWord32be w32 =
 -- | Write a Word32 in little endian format
 putWord32le :: Word32 -> Builder
 putWord32le w32 =
-    let w4 = (w32 `shiftR` 24)
-        w3 = (w32 `shiftR` 16) .&. 0xff
-        w2 = (w32 `shiftR`  8) .&. 0xff
-        w1 =  w32              .&. 0xff
+    let w4 = w32 `shiftR` 24
+        w3 = w32 `shiftR` 16
+        w2 = w32 `shiftR`  8
+        w1 = w32
     in
     singleton (fromIntegral w1) `append`
     singleton (fromIntegral w2) `append`
@@ -236,21 +240,45 @@ putWord32le w32 =
 -- | Write a Word64 in big endian format
 putWord64be :: Word64 -> Builder
 putWord64be w64 =
-    let w1 = shiftR w64 32
-        w2 = w64 .&. 0xffffffff
+    let w1 = w64 `shiftR` 56
+        w2 = w64 `shiftR` 48
+        w3 = w64 `shiftR` 40
+        w4 = w64 `shiftR` 32
+        w5 = w64 `shiftR` 24
+        w6 = w64 `shiftR` 16
+        w7 = w64 `shiftR`  8
+        w8 = w64
     in
-    putWord32be (fromIntegral w1) `append`
-    putWord32be (fromIntegral w2)
+    singleton (fromIntegral w1) `append`
+    singleton (fromIntegral w2) `append`
+    singleton (fromIntegral w3) `append`
+    singleton (fromIntegral w4) `append`
+    singleton (fromIntegral w5) `append`
+    singleton (fromIntegral w6) `append`
+    singleton (fromIntegral w7) `append`
+    singleton (fromIntegral w8)
 {-# INLINE putWord64be #-}
 
 -- | Write a Word64 in little endian format
 putWord64le :: Word64 -> Builder
 putWord64le w64 =
-    let w2 = shiftR w64 32
-        w1 = w64 .&. 0xffffffff
+    let w1 = w64 `shiftR` 56
+        w2 = w64 `shiftR` 48
+        w3 = w64 `shiftR` 40
+        w4 = w64 `shiftR` 32
+        w5 = w64 `shiftR` 24
+        w6 = w64 `shiftR` 16
+        w7 = w64 `shiftR`  8
+        w8 = w64
     in
-    putWord32le (fromIntegral w1) `append`
-    putWord32le (fromIntegral w2)
+    singleton (fromIntegral w8) `append`
+    singleton (fromIntegral w7) `append`
+    singleton (fromIntegral w6) `append`
+    singleton (fromIntegral w5) `append`
+    singleton (fromIntegral w4) `append`
+    singleton (fromIntegral w3) `append`
+    singleton (fromIntegral w2) `append`
+    singleton (fromIntegral w1)
 {-# INLINE putWord64le #-}
 
 -- on a little endian machine:
