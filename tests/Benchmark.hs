@@ -1,4 +1,4 @@
-{-# OPTIONS -fbang-patterns #-}
+{-# OPTIONS_GHC -fbang-patterns #-}
 module Main where
 
 import qualified Data.ByteString.Lazy as L
@@ -23,8 +23,9 @@ time action = do
 
 test :: Int -> Int -> Int -> IO ()
 test wordSize chunkSize mb = do
-    let iterations :: Int
-        iterations = mb * 2^20
+    let bytes :: Int
+        bytes = mb * 2^20
+        iterations = bytes
         bs = runPut $ go wordSize chunkSize iterations
     putStr $ show mb ++ "MB of Word" ++ show (8 * wordSize)
           ++ " in chunks of " ++ show chunkSize ++ ": "

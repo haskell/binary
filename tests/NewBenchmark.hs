@@ -1,4 +1,4 @@
-{-# OPTIONS -fbang-patterns #-}
+{-# OPTIONS_GHC -fbang-patterns #-}
 --
 -- benchmark NewBinary
 --
@@ -8,45 +8,106 @@ module Main where
 import System.IO
 import Data.Word
 import NewBinary
-import qualified Data.ByteString.Lazy as L
 
-import Text.Printf
 import Control.Exception
 import System.CPUTime
+import Numeric
 
 main :: IO ()
-main = do
-    word8 
-    word16
-    word32
-    word64
+main = sequence_ 
+  [ test 1 n 10
+  | n <- [1,2,4,8,16] ]
 
-time :: String -> IO a -> IO a
-time label f = do
-    putStr (label ++ " ")
+time :: IO a -> IO Double
+time action = do
     start <- getCPUTime
-    v     <- f
+    action
     end   <- getCPUTime
-    let diff = (fromIntegral (end - start)) / (10^12)
-    printf "%0.4f\n" (diff :: Double)
-    return v
+    return $! (fromIntegral (end - start)) / (10^12)
 
-test label f n fs s = do
-    h <- openBinMem (1024 * 1024 * 10) undefined
-    time label $ doN n fs s f h
+test :: Int -> Int -> Int -> IO ()
+test wordSize chunkSize mb = do
+    let bytes :: Int
+        bytes = mb * 2^20
+        iterations = bytes
+    putStr $ show mb ++ "MB of Word" ++ show (8 * wordSize)
+          ++ " in chunks of " ++ show chunkSize ++ ": "
+    seconds <- time $ do
+      h <- openBinMem bytes undefined      
+      go wordSize chunkSize h iterations
+    let throughput = fromIntegral mb / seconds
+    putStrLn $ showFFloat (Just 2) throughput "MB/s"
 
-doN 0 _ _ _  _ = return ()
-doN !n !f !s !body !h = do
-    body h s
-    doN (n-1) f (f s) body h
+go :: Int -> Int -> BinHandle -> Int -> IO ()
+go wordSize chunkSize =
+  case (wordSize, chunkSize) of
+    (1, 1)  -> word8N1
+    (1, 2)  -> word8N2
+    (1, 4)  -> word8N4
+    (1, 8)  -> word8N8
+    (1, 16) -> word8N16
 
-putWord8 h w    = put h (w :: Word8)
-putWord16be h w = put h (w :: Word16)
-putWord32be h w = put h (w :: Word32)
-putWord64be h w = put h (w :: Word64)
+putWord8 :: BinHandle -> Word8 -> IO ()
+putWord8 = put_
+{-# inline putWord8 #-}
 
-word8  = test "Word8  10MB" putWord8    10000000 (+1) 0
-word16 = test "Word16 10MB" putWord16be  5000000 (+1) 0
-word32 = test "Word32 10MB" putWord32be  2500000 (+1) 0
-word64 = test "Word64 10MB" putWord64be  1250000 (+1) 0
+word8N1 hnd = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWord8 hnd (s+0)
+          loop (s+1) (n-1)
 
+word8N2 hnd = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWord8 hnd (s+0)
+          putWord8 hnd (s+1)
+          loop (s+2) (n-2)
+
+word8N4 hnd = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWord8 hnd (s+0)
+          putWord8 hnd (s+1)
+          putWord8 hnd (s+2)
+          putWord8 hnd (s+3)
+          loop (s+4) (n-4)
+
+word8N8 hnd = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWord8 hnd (s+0)
+          putWord8 hnd (s+1)
+          putWord8 hnd (s+2)
+          putWord8 hnd (s+3)
+          putWord8 hnd (s+4)
+          putWord8 hnd (s+5)
+          putWord8 hnd (s+6)
+          putWord8 hnd (s+7)
+          loop (s+8) (n-8)
+
+word8N16 hnd = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWord8 hnd (s+0)
+          putWord8 hnd (s+1)
+          putWord8 hnd (s+2)
+          putWord8 hnd (s+3)
+          putWord8 hnd (s+4)
+          putWord8 hnd (s+5)
+          putWord8 hnd (s+6)
+          putWord8 hnd (s+7)
+          putWord8 hnd (s+8)
+          putWord8 hnd (s+9)
+          putWord8 hnd (s+10)
+          putWord8 hnd (s+11)
+          putWord8 hnd (s+12)
+          putWord8 hnd (s+13)
+          putWord8 hnd (s+14)
+          putWord8 hnd (s+15)
+          loop (s+16) (n-16)
