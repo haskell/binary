@@ -75,7 +75,6 @@ putLazyByteString   = tell . putLazyByteStringB
 -- | Write a Word16 in big endian format
 putWord16be         :: Word16 -> Put
 putWord16be         = tell . putWord16beB
-{-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
 putWord16le         :: Word16 -> Put
@@ -135,11 +134,9 @@ instance Monoid Builder where
 
 empty :: Builder
 empty = Builder id
-{-# INLINE [1] empty #-}
 
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
-{-# INLINE [1] append #-}
 
 --
 -- copied from Data.ByteString.Lazy
@@ -162,6 +159,7 @@ unsafeLiftIO :: (Buffer -> IO Buffer) -> Builder
 unsafeLiftIO f =  Builder $ \ k buf -> inlinePerformIO $ do
     buf' <- f buf
     return (k buf')
+{-# INLINE unsafeLiftIO #-}
 
 -- | Get the size of the buffer
 withSize :: (Int -> Builder) -> Builder
@@ -179,7 +177,6 @@ flushB = Builder $ \ k buf@(Buffer p o u l) ->
     if u == 0
       then k buf
       else S.PS p o u : k (Buffer p (o+u) 0 l)
-{-# INLINE [1] flush #-}
 
 -- | Ensure that there are at least @n@ many bytes available.
 ensureFree :: Int -> Builder
@@ -209,7 +206,7 @@ newBuffer size = do
 -- | Write a byte into the Builder's output buffer
 singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
-{-# INLINE putWord8 #-}
+{-# INLINE [1] putWord8 #-}
 
 -- | Write a strict ByteString efficiently
 putByteStringB :: S.ByteString -> Builder
