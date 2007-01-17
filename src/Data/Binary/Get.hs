@@ -174,6 +174,8 @@ getWord8 :: Get Word8
 getWord8 = readN 1 L.head
 {-# INLINE getWord8 #-}
 
+-- XXX readN k 
+
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
 getWord16be = do
