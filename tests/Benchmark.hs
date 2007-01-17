@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fbang-patterns #-}
 module Main where
 
 import qualified Data.ByteString.Lazy as L

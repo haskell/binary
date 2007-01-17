@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fbang-patterns #-}
 --
 -- benchmark NewBinary
 --
