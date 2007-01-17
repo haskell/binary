@@ -28,7 +28,10 @@ module Data.Binary.Get (
 
     -- * Parsing
     , skip
+    , uncheckedSkip
     , lookAhead
+    , uncheckedLookAhead
+    , getBytes
     , remaining
     , isEmpty
 
@@ -93,17 +96,28 @@ failDesc err = do
     S _ bytes <- get
     Get (fail (err ++ ". Failed reading at byte position " ++ show bytes))
 
--- | Skip ahead @n@ bytes
+-- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
 skip n = readN n (const ())
 
+-- | Skip ahead @n@ bytes. 
+uncheckedSkip :: Int -> Get ()
+uncheckedSkip n = do
+    S s bytes <- get
+    let rest = L.drop (fromIntegral n) s
+    put $! S rest (bytes + (fromIntegral n))
+    return ()
+
 -- | Get the next @n@ bytes as a lazy ByteString, without consuming them. 
--- Fails if not enough bytes are available.
+-- Fails if fewer than @n@ bytes are available.
 lookAhead :: Int -> Get L.ByteString
-lookAhead n = do
-    ensureLeft n
+lookAhead n = uncheckedLookAhead n >>= takeExactly n
+
+-- | Get the next up to @n@ bytes as a lazy ByteString, without consuming them. 
+uncheckedLookAhead :: Int -> Get L.ByteString
+uncheckedLookAhead n = do
     S s _ <- get
-    return (L.take (fromIntegral n) s)
+    return $ L.take (fromIntegral n) s
 
 -- | Get the number of remaining unparsed bytes.
 -- Useful for checking whether all input has been consumed.
@@ -123,34 +137,29 @@ isEmpty = do
 ------------------------------------------------------------------------
 -- Helpers
 
--- Check that there are more bytes left in the input
-ensureLeft :: Int -> Get ()
-ensureLeft n = do
-    S (B.LPS strs) _ <- get
-    worker n strs
-  where
-    worker :: Int -> [B.ByteString] -> Get ()
-    worker i _ | i `seq` False = undefined
-    worker i _ | i <= 0 = return ()
-    worker i []         =
-        fail $ concat [ "Data.Binary.Get.ensureLeft: End of input. Wanted "
-                      , show n
-                      , " bytes, found "
-                      , show (n - i)
-                      , "." ]
-    worker i (x:xs)     = worker (i - fromIntegral (B.length x)) xs
-    {-# INLINE worker #-}
-{-# INLINE ensureLeft #-}
+-- Fail if the ByteString does not have the right size.
+takeExactly :: Int -> L.ByteString -> Get L.ByteString
+takeExactly n bs 
+    | l == n    = return bs
+    | otherwise = fail $ concat [ "Data.Binary.Get.takeExactly: Wanted "
+                                , show n, " bytes, found ", show l, "." ]
+  where l = fromIntegral (L.length bs)
+{-# INLINE takeExactly #-}
+
+-- | Pull up to @n@ bytes from the input. 
+getBytes :: Int -> Get L.ByteString
+getBytes n = do
+    S s bytes <- get
+    let (consuming, rest) = L.splitAt (fromIntegral n) s
+    put $! S rest (bytes + (fromIntegral n))
+    return consuming
+{-# INLINE getBytes #-}
+-- ^ important
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value
 readN :: Int -> (L.ByteString -> a) -> Get a
-readN n f = do
-    ensureLeft n
-    S s bytes <- get
-    let (consuming, rest) = L.splitAt (fromIntegral n) s
-    put $! S rest (bytes + (fromIntegral n))
-    return (f consuming)
+readN n f = liftM f (getBytes n >>= takeExactly n)
 {-# INLINE readN #-}
 -- ^ important
 
@@ -161,7 +170,8 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 {-# INLINE getByteString #-}
 
--- | An efficient 'get' method for lazy ByteStrings
+-- | An efficient 'get' method for lazy ByteStrings. Fails if fewer than
+-- @n@ bytes are left in the input.
 getLazyByteString :: Int -> Get L.ByteString
 getLazyByteString n = readN n id
 {-# INLINE getLazyByteString #-}
