@@ -65,6 +65,7 @@ flush               = tell B.flush
 -- | Efficiently write a byte into the output buffer
 putWord8            :: Word8 -> Put
 putWord8            = tell . B.singleton
+{-# INLINE putWord8 #-}
 
 -- | An efficient primitive to write a strict ByteString into the output buffer.
 -- It flushes the current buffer, and writes the argument into a new chunk.

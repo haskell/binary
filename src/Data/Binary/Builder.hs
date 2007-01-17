@@ -48,6 +48,11 @@ import Data.ByteString.Base (inlinePerformIO)
 import qualified Data.ByteString.Base as S
 import qualified Data.ByteString.Lazy as L
 
+#if defined(__GLASGOW_HASKELL__)
+import GHC.Base
+import GHC.Word (Word32(..),Word16(..),Word64(..))
+#endif
+
 ------------------------------------------------------------------------
 
 -- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
@@ -83,6 +88,7 @@ empty = Builder id
 --
 singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
+{-# INLINE singleton #-}
 
 -- | /O(1)./ The concatenation of two Builders, satisfying
 --
@@ -189,12 +195,13 @@ newBuffer size = do
 
 --
 -- We rely on the fromIntegral to do the right masking for us.
+-- The inlining here is critical, and can be worth 4x performance
 --
 
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Builder
 putWord16be w16 =
-    let w1 = shiftR w16 8
+    let w1 = shiftr_w16 w16 8
         w2 = w16
     in
     singleton (fromIntegral w1) `append`
@@ -206,7 +213,7 @@ putWord16le :: Word16 -> Builder
 -- putWord16le w16 = writeN 2 (\p -> poke (castPtr p) w16)
 
 putWord16le w16 =
-    let w2 = shiftR w16 8
+    let w2 = shiftr_w16 w16 8
         w1 = w16
     in
     singleton (fromIntegral w1) `append`
@@ -216,9 +223,9 @@ putWord16le w16 =
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Builder
 putWord32be w32 =
-    let w1 = w32 `shiftR` 24
-        w2 = w32 `shiftR` 16
-        w3 = w32 `shiftR`  8
+    let w1 = shiftr_w32 w32 24
+        w2 = shiftr_w32 w32 16
+        w3 = shiftr_w32 w32  8
         w4 = w32
     in
     singleton (fromIntegral w1) `append`
@@ -230,9 +237,9 @@ putWord32be w32 =
 -- | Write a Word32 in little endian format
 putWord32le :: Word32 -> Builder
 putWord32le w32 =
-    let w4 = w32 `shiftR` 24
-        w3 = w32 `shiftR` 16
-        w2 = w32 `shiftR`  8
+    let w4 = shiftr_w32 w32 24
+        w3 = shiftr_w32 w32 16
+        w2 = shiftr_w32 w32  8
         w1 = w32
     in
     singleton (fromIntegral w1) `append`
@@ -247,13 +254,13 @@ putWord32le w32 =
 -- | Write a Word64 in big endian format
 putWord64be :: Word64 -> Builder
 putWord64be w64 =
-    let w1 = w64 `shiftR` 56
-        w2 = w64 `shiftR` 48
-        w3 = w64 `shiftR` 40
-        w4 = w64 `shiftR` 32
-        w5 = w64 `shiftR` 24
-        w6 = w64 `shiftR` 16
-        w7 = w64 `shiftR`  8
+    let w1 = shiftr_w64 w64 56
+        w2 = shiftr_w64 w64 48
+        w3 = shiftr_w64 w64 40
+        w4 = shiftr_w64 w64 32
+        w5 = shiftr_w64 w64 24
+        w6 = shiftr_w64 w64 16
+        w7 = shiftr_w64 w64  8
         w8 = w64
     in
     singleton (fromIntegral w1) `append`
@@ -269,13 +276,13 @@ putWord64be w64 =
 -- | Write a Word64 in little endian format
 putWord64le :: Word64 -> Builder
 putWord64le w64 =
-    let w1 = w64 `shiftR` 56
-        w2 = w64 `shiftR` 48
-        w3 = w64 `shiftR` 40
-        w4 = w64 `shiftR` 32
-        w5 = w64 `shiftR` 24
-        w6 = w64 `shiftR` 16
-        w7 = w64 `shiftR`  8
+    let w1 = shiftr_w64 w64 56
+        w2 = shiftr_w64 w64 48
+        w3 = shiftr_w64 w64 40
+        w4 = shiftr_w64 w64 32
+        w5 = shiftr_w64 w64 24
+        w6 = shiftr_w64 w64 16
+        w7 = shiftr_w64 w64  8
         w8 = w64
     in
     singleton (fromIntegral w8) `append`
@@ -290,3 +297,23 @@ putWord64le w64 =
 
 -- on a little endian machine:
 -- putWord64le w64 = writeN 8 (\p -> poke (castPtr p) w64)
+
+------------------------------------------------------------------------
+-- Unchecked shifts
+
+shiftr_w16 :: Word16 -> Int -> Word16
+shiftr_w32 :: Word32 -> Int -> Word32
+shiftr_w64 :: Word64 -> Int -> Word64
+
+#if defined(__GLASGOW_HASKELL__)
+shiftr_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftRL#`   i)
+shiftr_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftRL#`   i)
+shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
+
+foreign import ccall unsafe "stg_uncheckedShiftRL64"     
+    uncheckedShiftRL64#     :: Word64# -> Int# -> Word64#
+#else
+shiftr_w16 = shiftR
+shiftr_w32 = shiftR
+shiftr_w64 = shiftR
+#endif

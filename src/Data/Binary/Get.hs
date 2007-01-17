@@ -140,10 +140,12 @@ readN n f = do
 -- | An efficient 'get' method for strict ByteStrings
 getByteString :: Int -> Get B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
+{-# INLINE getByteString #-}
 
 -- | An efficient 'get' method for lazy ByteStrings
 getLazyByteString :: Int -> Get L.ByteString
 getLazyByteString n = readN n id
+{-# INLINE getLazyByteString #-}
 
 ------------------------------------------------------------------------
 -- Primtives
@@ -158,7 +160,7 @@ getWord16be :: Get Word16
 getWord16be = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w1 `unsafeShiftL_W16` 8 .|. w2
+    return $! w1 `shiftl_w16` 8 .|. w2
 {-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
@@ -166,7 +168,7 @@ getWord16le :: Get Word16
 getWord16le = do
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
-    return $! w2 `unsafeShiftL_W16` 8 .|. w1
+    return $! w2 `shiftl_w16` 8 .|. w1
 {-# INLINE getWord16le #-}
 
 -- | Read a Word32 in big endian format
@@ -176,9 +178,9 @@ getWord32be = do
     w2 <- liftM fromIntegral getWord8
     w3 <- liftM fromIntegral getWord8
     w4 <- liftM fromIntegral getWord8
-    return $! (w1 `unsafeShiftL_W32` 24) .|.
-              (w2 `unsafeShiftL_W32` 16) .|.
-              (w3 `unsafeShiftL_W32`  8) .|.
+    return $! (w1 `shiftl_w32` 24) .|.
+              (w2 `shiftl_w32` 16) .|.
+              (w3 `shiftl_w32`  8) .|.
               (w4)
 {-# INLINE getWord32be #-}
 
@@ -189,16 +191,15 @@ getWord32le = do
     w2 <- liftM fromIntegral getWord8
     w3 <- liftM fromIntegral getWord8
     w4 <- liftM fromIntegral getWord8
-    return $! (w4 `unsafeShiftL_W32` 24) .|.
-              (w3 `unsafeShiftL_W32` 16) .|.
-              (w2 `unsafeShiftL_W32`  8) .|.
+    return $! (w4 `shiftl_w32` 24) .|.
+              (w3 `shiftl_w32` 16) .|.
+              (w2 `shiftl_w32`  8) .|.
               (w1)
 {-# INLINE getWord32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-
     w1 <- liftM fromIntegral getWord8
     w2 <- liftM fromIntegral getWord8
     w3 <- liftM fromIntegral getWord8
@@ -207,15 +208,14 @@ getWord64be = do
     w6 <- liftM fromIntegral getWord8
     w7 <- liftM fromIntegral getWord8
     w8 <- liftM fromIntegral getWord8
-    return $! (w1 `shiftL` 56) .|.
-              (w2 `shiftL` 48) .|.
-              (w3 `shiftL` 40) .|.
-              (w4 `shiftL` 32) .|.
-              (w5 `shiftL` 24) .|.
-              (w6 `shiftL` 16) .|.
-              (w7 `shiftL`  8) .|.
+    return $! (w1 `shiftl_w64` 56) .|.
+              (w2 `shiftl_w64` 48) .|.
+              (w3 `shiftl_w64` 40) .|.
+              (w4 `shiftl_w64` 32) .|.
+              (w5 `shiftl_w64` 24) .|.
+              (w6 `shiftl_w64` 16) .|.
+              (w7 `shiftl_w64`  8) .|.
               (w8)
-
 {-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
@@ -229,30 +229,32 @@ getWord64le = do
     w6 <- liftM fromIntegral getWord8
     w7 <- liftM fromIntegral getWord8
     w8 <- liftM fromIntegral getWord8
-    return $! (w8 `shiftL` 56) .|.
-              (w7 `shiftL` 48) .|.
-              (w6 `shiftL` 40) .|.
-              (w5 `shiftL` 32) .|.
-              (w4 `shiftL` 24) .|.
-              (w3 `shiftL` 16) .|.
-              (w2 `shiftL`  8) .|.
+    return $! (w8 `shiftl_w64` 56) .|.
+              (w7 `shiftl_w64` 48) .|.
+              (w6 `shiftl_w64` 40) .|.
+              (w5 `shiftl_w64` 32) .|.
+              (w4 `shiftl_w64` 24) .|.
+              (w3 `shiftl_w64` 16) .|.
+              (w2 `shiftl_w64`  8) .|.
               (w1)
 {-# INLINE getWord64le #-}
 
---
--- Helpers. Should save a bounds check each time (could we inline these
--- further? check the core first.
---
-unsafeShiftL_W16 :: Word16 -> Int -> Word16
-{-# INLINE unsafeShiftL_W16 #-}
+------------------------------------------------------------------------
+-- Unchecked shifts
 
-unsafeShiftL_W32 :: Word32 -> Int -> Word32
-{-# INLINE unsafeShiftL_W32 #-}
+shiftl_w16 :: Word16 -> Int -> Word16
+shiftl_w32 :: Word32 -> Int -> Word32
+shiftl_w64 :: Word64 -> Int -> Word64
 
 #if defined(__GLASGOW_HASKELL__)
-unsafeShiftL_W16 (W16# x#) (I# i#) = W16# (narrow16Word# (x# `shiftL#` i#))
-unsafeShiftL_W32 (W32# x#) (I# i#) = W32# (narrow32Word# (x# `shiftL#` i#))
+shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
+shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
+shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
+
+foreign import ccall unsafe "stg_uncheckedShiftL64"     
+    uncheckedShiftL64#     :: Word64# -> Int# -> Word64#
 #else
-unsafeShiftL_W16 = shiftL
-unsafeShiftL_W32 = shiftL
+shiftl_w16 = shiftL
+shiftl_w32 = shiftL
+shiftl_w64 = shiftL
 #endif
