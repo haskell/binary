@@ -12,7 +12,7 @@ bench::
 	time ./bench
 
 bench-nb::
-	ghc --make -O NewBenchmark.hs -o bench-nb -no-recomp
+	ghc --make -O NewBenchmark.hs -o bench-nb
 	time ./bench-nb
 
 hugs:
