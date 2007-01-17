@@ -172,6 +172,7 @@ class Binary t where
 --
 encode :: Binary a => a -> ByteString
 encode = runPut . put
+{-# INLINE encode #-}
 
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
 --
