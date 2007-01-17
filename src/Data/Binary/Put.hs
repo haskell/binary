@@ -56,6 +56,7 @@ type Put = Writer Builder ()
 -- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
 runPut              = runBuilder . execWriter
+{-# INLINE runPut #-}
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a
 -- new chunk in the result ByteString.

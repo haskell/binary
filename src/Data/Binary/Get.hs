@@ -25,23 +25,31 @@ module Data.Binary.Get (
     -- * The Get type
       Get
     , runGet
+
+    -- * Parsing
     , skip
     , lookAhead
     , remaining
     , isEmpty
 
-    -- * Primitives
+    -- * Parsing particular types
+    , getWord8
+
+    -- ** ByteStrings
     , getByteString
     , getLazyByteString
 
-    , getWord8
+    -- ** Big-endian reads
     , getWord16be
     , getWord16le
     , getWord32be
+
+    -- ** Little-endian reads
     , getWord32le
     , getWord64be
     , getWord64le
-    ) where
+
+  ) where
 
 import Control.Monad.State
 
@@ -52,7 +60,6 @@ import qualified Data.ByteString.Lazy as L
 import Foreign
 
 #if defined(__GLASGOW_HASKELL__)
--- Needed for some low level unboxed shifts
 import GHC.Base
 import GHC.Word
 import GHC.Int
@@ -123,11 +130,17 @@ ensureLeft n = do
     worker n strs
   where
     worker :: Int -> [B.ByteString] -> Get ()
+    worker i _ | i `seq` False = undefined
     worker i _ | i <= 0 = return ()
     worker i []         =
-        fail $ "Data.Binary.Get.ensureLeft: End of input. Wanted "
-                 ++ show n ++ " bytes, found " ++ show (n - i) ++ "."
+        fail $ concat [ "Data.Binary.Get.ensureLeft: End of input. Wanted "
+                      , show n
+                      , " bytes, found "
+                      , show (n - i)
+                      , "." ]
     worker i (x:xs)     = worker (i - fromIntegral (B.length x)) xs
+    {-# INLINE worker #-}
+{-# INLINE ensureLeft #-}
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value
@@ -136,8 +149,10 @@ readN n f = do
     ensureLeft n
     S s bytes <- get
     let (consuming, rest) = L.splitAt (fromIntegral n) s
-    put $ S rest (bytes + (fromIntegral n))
+    put $! S rest (bytes + (fromIntegral n))
     return (f consuming)
+{-# INLINE readN #-}
+-- ^ important
 
 ------------------------------------------------------------------------
 

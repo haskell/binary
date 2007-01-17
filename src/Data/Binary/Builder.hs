@@ -94,6 +94,38 @@ singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
 {-# INLINE singleton #-}
 
+------------------------------------------------------------------------
+
+write2 :: Word8 -> Word8 -> Builder
+write2 a b = writeN 2 $ \p -> do
+    poke p               a
+    poke (p `plusPtr` 1) b
+{-# INLINE write2 #-}
+
+write4 :: Word8 -> Word8 -> Word8 -> Word8 -> Builder
+write4 a b c d = writeN 4 $ \p -> do
+    poke p               a
+    poke (p `plusPtr` 1) b
+    poke (p `plusPtr` 2) c
+    poke (p `plusPtr` 3) d
+{-# INLINE write4 #-}
+
+write8 :: Word8 -> Word8 -> Word8 -> Word8
+       -> Word8 -> Word8 -> Word8 -> Word8
+       -> Builder
+write8 a b c d e f g h = writeN 8 $ \p -> do
+    poke p               a
+    poke (p `plusPtr` 1) b
+    poke (p `plusPtr` 2) c
+    poke (p `plusPtr` 3) d
+    poke (p `plusPtr` 4) e
+    poke (p `plusPtr` 5) f
+    poke (p `plusPtr` 6) g
+    poke (p `plusPtr` 7) h
+{-# INLINE write8 #-}
+
+------------------------------------------------------------------------
+
 -- | /O(1)./ The concatenation of two Builders, satisfying
 --
 --  * @'runBuilder' ('append' x y) = 'L.append' ('runBuilder' x) ('runBuilder' y)@
@@ -177,18 +209,19 @@ ensureFree :: Int -> Builder
 ensureFree n = n `seq` withSize $ \ l ->
     if n <= l then empty else
         flush `append` unsafeLiftIO (const (newBuffer (max n defaultSize)))
-{-# INLINE [1] ensureFree #-}
+{-# INLINE ensureFree #-}
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
 writeN n f = ensureFree n `append` unsafeLiftIO (writeNBuffer n f)
-{-# INLINE [1] writeN #-}
+{-# INLINE writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
 writeNBuffer n f (Buffer fp o u l) = do
     withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
     return (Buffer fp o (u+n) (l-n))
+{-# INLINE writeNBuffer #-}
 
 newBuffer :: Int -> IO Buffer
 newBuffer size = do
@@ -207,22 +240,18 @@ putWord16be :: Word16 -> Builder
 putWord16be w16 =
     let w1 = shiftr_w16 w16 8
         w2 = w16
-    in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2)
+    in write2 (fromIntegral w1) (fromIntegral w2)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
 putWord16le :: Word16 -> Builder
--- putWord16le w16 = writeN 2 (\p -> poke (castPtr p) w16)
-
 putWord16le w16 =
     let w2 = shiftr_w16 w16 8
         w1 = w16
-    in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2)
+    in write2 (fromIntegral w1) (fromIntegral w2)
 {-# INLINE putWord16le #-}
+
+-- putWord16le w16 = writeN 2 (\p -> poke (castPtr p) w16)
 
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Builder
@@ -231,11 +260,11 @@ putWord32be w32 =
         w2 = shiftr_w32 w32 16
         w3 = shiftr_w32 w32  8
         w4 = w32
-    in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2) `append`
-    singleton (fromIntegral w3) `append`
-    singleton (fromIntegral w4)
+    in write4 (fromIntegral w1)
+              (fromIntegral w2)
+              (fromIntegral w3)
+              (fromIntegral w4)
+
 {-# INLINE putWord32be #-}
 
 -- | Write a Word32 in little endian format
@@ -245,11 +274,10 @@ putWord32le w32 =
         w3 = shiftr_w32 w32 16
         w2 = shiftr_w32 w32  8
         w1 = w32
-    in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2) `append`
-    singleton (fromIntegral w3) `append`
-    singleton (fromIntegral w4)
+    in write4 (fromIntegral w1)
+              (fromIntegral w2)
+              (fromIntegral w3)
+              (fromIntegral w4)
 {-# INLINE putWord32le #-}
 
 -- on a little endian machine:
@@ -267,14 +295,14 @@ putWord64be w64 =
         w7 = shiftr_w64 w64  8
         w8 = w64
     in
-    singleton (fromIntegral w1) `append`
-    singleton (fromIntegral w2) `append`
-    singleton (fromIntegral w3) `append`
-    singleton (fromIntegral w4) `append`
-    singleton (fromIntegral w5) `append`
-    singleton (fromIntegral w6) `append`
-    singleton (fromIntegral w7) `append`
-    singleton (fromIntegral w8)
+    write8 (fromIntegral w1)
+           (fromIntegral w2)
+           (fromIntegral w3)
+           (fromIntegral w4)
+           (fromIntegral w5)
+           (fromIntegral w6)
+           (fromIntegral w7)
+           (fromIntegral w8)
 {-# INLINE putWord64be #-}
 
 -- | Write a Word64 in little endian format
@@ -289,14 +317,15 @@ putWord64le w64 =
         w7 = shiftr_w64 w64  8
         w8 = w64
     in
-    singleton (fromIntegral w8) `append`
-    singleton (fromIntegral w7) `append`
-    singleton (fromIntegral w6) `append`
-    singleton (fromIntegral w5) `append`
-    singleton (fromIntegral w4) `append`
-    singleton (fromIntegral w3) `append`
-    singleton (fromIntegral w2) `append`
-    singleton (fromIntegral w1)
+    write8 (fromIntegral w8)
+           (fromIntegral w7)
+           (fromIntegral w6)
+           (fromIntegral w5)
+           (fromIntegral w4)
+           (fromIntegral w3)
+           (fromIntegral w2)
+           (fromIntegral w1)
+
 {-# INLINE putWord64le #-}
 
 -- on a little endian machine:
