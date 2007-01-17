@@ -293,25 +293,25 @@ instance Binary Int where
 
 ------------------------------------------------------------------------
 -- 
--- Integer. We try to do this efficiently on GHC, and on Hugs we'll have
--- to serialise to a list of Word8 plus a length.
---
 -- Portable, and pretty efficient, serialisation of Integer
 --
 
--- Integers are encoded in two ways: if they fit inside a machine word,
--- they're written as a byte tag, and that word. If the Integer value is
--- too large to fit in a word, it is written as a byte array, along with
--- a sign and length field.
+-- Fixed-size type for a subset of Integer
+type SmallInt = Int32
+
+-- Integers are encoded in two ways: if they fit inside a SmallInt,
+-- they're written as a byte tag, and that value.  If the Integer value
+-- is too large to fit in a SmallInt, it is written as a byte array,
+-- along with a sign and length field.
 
 instance Binary Integer where
 
     put n | n >= lo && n <= hi = do
         putWord8 0
-        put (fromIntegral n :: Int)  -- fast path
+        put (fromIntegral n :: SmallInt)  -- fast path
      where
-        lo = fromIntegral (minBound :: Int) :: Integer
-        hi = fromIntegral (maxBound :: Int) :: Integer
+        lo = fromIntegral (minBound :: SmallInt) :: Integer
+        hi = fromIntegral (maxBound :: SmallInt) :: Integer
 
     put n = do
         putWord8 1
@@ -323,7 +323,7 @@ instance Binary Integer where
     get = do
         tag <- get :: Get Word8
         case tag of
-            0 -> liftM fromIntegral (get :: Get Int)
+            0 -> liftM fromIntegral (get :: Get SmallInt)
             _ -> do sign  <- get
                     bytes <- get
                     let v = roll bytes
