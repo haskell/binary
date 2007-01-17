@@ -309,8 +309,8 @@ instance Binary Integer where
         putWord8 0
         put (fromIntegral n :: Int)  -- fast path
      where
-        hi = fromIntegral (maxBound :: Int) :: Integer
         lo = fromIntegral (minBound :: Int) :: Integer
+        hi = fromIntegral (maxBound :: Int) :: Integer
 
     put n = do
         putWord8 1
@@ -335,7 +335,7 @@ unroll :: Integer -> [Word8]
 unroll = unfoldr step
   where
     step 0 = Nothing
-    step i = Just (fromIntegral (i .&. 0xff), i `shiftR` 8)
+    step i = Just (fromIntegral i, i `shiftR` 8)
 
 -- 
 -- Fold a list of bytes back in to an Integer
