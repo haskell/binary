@@ -49,8 +49,8 @@ import qualified Data.ByteString.Lazy as L
 
 ------------------------------------------------------------------------
 
--- | The Put types. A Writer monad over the efficient Builder monoid
--- Put merely lifts Builder into a Monad
+-- | The Put types. A Writer monad over the efficient Builder monoid.
+-- Put merely lifts Builder into a monad
 type Put = Writer Builder ()
 
 -- | Run the 'Put' monad with a serialiser
