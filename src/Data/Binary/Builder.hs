@@ -12,6 +12,10 @@
 --
 -----------------------------------------------------------------------------
 
+#if defined(__GLASGOW_HASKELL__)
+#include "MachDeps.h"
+#endif
+
 module Data.Binary.Builder (
 
     -- * The Builder type
@@ -308,10 +312,16 @@ shiftr_w64 :: Word64 -> Int -> Word64
 #if defined(__GLASGOW_HASKELL__)
 shiftr_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftRL#`   i)
 shiftr_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftRL#`   i)
+
+#if WORD_SIZE_IN_BITS < 64
 shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
 
 foreign import ccall unsafe "stg_uncheckedShiftRL64"     
     uncheckedShiftRL64#     :: Word64# -> Int# -> Word64#
+#else
+shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
+#endif
+
 #else
 shiftr_w16 = shiftR
 shiftr_w32 = shiftR

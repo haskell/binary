@@ -16,6 +16,10 @@
 --
 -----------------------------------------------------------------------------
 
+#if defined(__GLASGOW_HASKELL__)
+#include "MachDeps.h"
+#endif
+
 module Data.Binary.Get (
 
     -- * The Get type
@@ -249,10 +253,16 @@ shiftl_w64 :: Word64 -> Int -> Word64
 #if defined(__GLASGOW_HASKELL__)
 shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
 shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
+
+#if WORD_SIZE_IN_BITS < 64
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
 
 foreign import ccall unsafe "stg_uncheckedShiftL64"     
     uncheckedShiftL64#     :: Word64# -> Int# -> Word64#
+#else
+shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL#` i)
+#endif
+
 #else
 shiftl_w16 = shiftL
 shiftl_w32 = shiftL
