@@ -8,7 +8,7 @@ compiled:
 	time ./qc 1000
 
 bench::
-	ghc --make -O Benchmark.hs -o bench -no-recomp
+	ghc --make -O Benchmark.hs -fasm -o bench -no-recomp
 	time ./bench
 
 bench-nb::
