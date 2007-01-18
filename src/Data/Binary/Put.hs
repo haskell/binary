@@ -53,20 +53,24 @@ newtype Put_ a = Put { unPut :: (a, Builder) }
 type Put = Put_ ()
 
 instance Functor Put_ where
-	fmap f m = Put (let (a, w) = unPut m
+        fmap f m = Put (let (a, w) = unPut m
                          in (f a, w))
 
 instance Monad Put_ where
-	return a = Put (a, B.empty)
-	m >>= k  = Put (let (a, w)  = unPut m
+        return a = Put (a, B.empty)
+
+        m >>= k  = Put (let (a, w)  = unPut m
                             (b, w') = unPut (k a)
                          in (b, w `B.append` w'))
+
         m1 >> m2 = Put (let (_, w)  = unPut m1
                             (b, w') = unPut m2
                          in (b, w `B.append` w'))
+        {-# INlINE (>>) #-}
 
 tell :: Builder -> Put
 tell b = Put ((), b)
+{-# INlINE tell #-}
 
 -- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
