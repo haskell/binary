@@ -4,7 +4,7 @@ license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 synopsis:        Binary serialization using lazy ByteStrings
-build-depends:   base, mtl
+build-depends:   base
 -- ghc 6.4 also needs package fps
 exposed-modules: Data.Binary,
                  Data.Binary.Put,

@@ -54,7 +54,7 @@ module Data.Binary.Get (
 
   ) where
 
-import Control.Monad.State
+import Control.Monad (liftM)
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base as B
@@ -73,28 +73,32 @@ data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
            {-# UNPACK #-} !Int64        -- bytes read
 
 -- | The Get monad is just a State monad carrying around the input ByteString
-newtype Get a = Get { unGet :: State S a }
+newtype Get a = Get { unGet :: S -> (a, S ) }
 
 instance Monad Get where
-    return a      = Get (return a)
-    (Get m) >>= k = Get (m >>= unGet . k)
-    fail          = failDesc
+    return a  = Get (\s -> (a, s))
+    m >>= k   = Get (\s -> let (a, s') = unGet m s
+		            in unGet (k a) s')
+    fail      = failDesc
 
-instance MonadState S Get where
-    get         = Get get
-    put f       = Get (put f)
+get :: Get S
+get   = Get (\s -> (s, s))
+
+put :: S -> Get ()
+put s = Get (\_ -> ((), s))
 
 instance Functor Get where
-    fmap f (Get m) = Get (fmap f m)
+    fmap f m = Get (\s -> let (a, s') = unGet m s
+                           in (f a, s'))
 
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
-runGet (Get m) str = evalState m (S str 0)
+runGet m str = case unGet m (S str 0) of (a, _) -> a
 
 failDesc :: String -> Get a
 failDesc err = do
     S _ bytes <- get
-    Get (fail (err ++ ". Failed reading at byte position " ++ show bytes))
+    Get (error (err ++ ". Failed reading at byte position " ++ show bytes))
 
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()

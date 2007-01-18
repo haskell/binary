@@ -41,8 +41,6 @@ module Data.Binary.Put (
 import Data.Binary.Builder (Builder, runBuilder)
 import qualified Data.Binary.Builder as B
 
-import Control.Monad.Writer
-
 import Data.Word
 import qualified Data.ByteString.Base as S
 import qualified Data.ByteString.Lazy as L
@@ -51,11 +49,28 @@ import qualified Data.ByteString.Lazy as L
 
 -- | The Put types. A Writer monad over the efficient Builder monoid.
 -- Put merely lifts Builder into a monad
-type Put = Writer Builder ()
+newtype Put_ a = Put { unPut :: (a, Builder) }
+type Put = Put_ ()
+
+instance Functor Put_ where
+	fmap f m = Put (let (a, w) = unPut m
+                         in (f a, w))
+
+instance Monad Put_ where
+	return a = Put (a, B.empty)
+	m >>= k  = Put (let (a, w)  = unPut m
+                            (b, w') = unPut (k a)
+                         in (b, w `B.append` w'))
+        m1 >> m2 = Put (let (_, w)  = unPut m1
+                            (b, w') = unPut m2
+                         in (b, w `B.append` w'))
+
+tell :: Builder -> Put
+tell b = Put ((), b)
 
 -- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
-runPut              = runBuilder . execWriter
+runPut              = runBuilder . snd . unPut
 {-# INLINE runPut #-}
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a

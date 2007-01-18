@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -fglasgow-exts #-}
+-- for unboxed shifts
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Builder
