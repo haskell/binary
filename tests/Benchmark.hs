@@ -36,7 +36,7 @@ test wordSize chunkSize mb = do
           ++ " in chunks of " ++ show chunkSize ++ ": "
     putSeconds <- time $ evaluate (L.length bs)
     getSeconds <- time $ evaluate sum
-    --print len
+--    print (L.length bs, sum)
     let putThroughput = fromIntegral mb / putSeconds
         getThroughput = fromIntegral mb / getSeconds
     putStrLn $ showFFloat (Just 2) putThroughput "MB/s write, "
