@@ -74,7 +74,7 @@ newtype Builder = Builder {
     }
 
 instance Monoid Builder where
-    mempty = empty
+    mempty  = empty
     mappend = append
 
 ------------------------------------------------------------------------
@@ -93,36 +93,6 @@ empty = Builder id
 singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
 {-# INLINE singleton #-}
-
-------------------------------------------------------------------------
-
-write2 :: Word8 -> Word8 -> Builder
-write2 a b = writeN 2 $ \p -> do
-    poke p               a
-    poke (p `plusPtr` 1) b
-{-# INLINE write2 #-}
-
-write4 :: Word8 -> Word8 -> Word8 -> Word8 -> Builder
-write4 a b c d = writeN 4 $ \p -> do
-    poke p               a
-    poke (p `plusPtr` 1) b
-    poke (p `plusPtr` 2) c
-    poke (p `plusPtr` 3) d
-{-# INLINE write4 #-}
-
-write8 :: Word8 -> Word8 -> Word8 -> Word8
-       -> Word8 -> Word8 -> Word8 -> Word8
-       -> Builder
-write8 a b c d e f g h = writeN 8 $ \p -> do
-    poke p               a
-    poke (p `plusPtr` 1) b
-    poke (p `plusPtr` 2) c
-    poke (p `plusPtr` 3) d
-    poke (p `plusPtr` 4) e
-    poke (p `plusPtr` 5) f
-    poke (p `plusPtr` 6) g
-    poke (p `plusPtr` 7) h
-{-# INLINE write8 #-}
 
 ------------------------------------------------------------------------
 
@@ -215,7 +185,7 @@ ensureFree n = n `seq` withSize $ \ l ->
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
 writeN n f = ensureFree n `append` unsafeLiftIO (writeNBuffer n f)
-{-# INLINE writeN #-}
+{-# INLINE [1] writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
 writeNBuffer n f (Buffer fp o u l) = do
@@ -237,47 +207,47 @@ newBuffer size = do
 
 -- | Write a Word16 in big endian format
 putWord16be :: Word16 -> Builder
-putWord16be w16 =
-    let w1 = shiftr_w16 w16 8
-        w2 = w16
-    in write2 (fromIntegral w1) (fromIntegral w2)
+putWord16be w = writeN 2 $ \p -> do
+    poke p               (fromIntegral (shiftr_w16 w 8) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (w)              :: Word8)
 {-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
 putWord16le :: Word16 -> Builder
-putWord16le w16 =
-    let w2 = shiftr_w16 w16 8
-        w1 = w16
-    in write2 (fromIntegral w1) (fromIntegral w2)
+putWord16le w = writeN 2 $ \p -> do
+    poke p               (fromIntegral (w)              :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w16 w 8) :: Word8)
 {-# INLINE putWord16le #-}
 
 -- putWord16le w16 = writeN 2 (\p -> poke (castPtr p) w16)
 
 -- | Write a Word32 in big endian format
 putWord32be :: Word32 -> Builder
-putWord32be w32 =
-    let w1 = shiftr_w32 w32 24
-        w2 = shiftr_w32 w32 16
-        w3 = shiftr_w32 w32  8
-        w4 = w32
-    in write4 (fromIntegral w1)
-              (fromIntegral w2)
-              (fromIntegral w3)
-              (fromIntegral w4)
-
+putWord32be w = writeN 4 $ \p -> do
+    poke p               (fromIntegral (shiftr_w32 w 24) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 w 16) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 w  8) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (w)               :: Word8)
 {-# INLINE putWord32be #-}
+
+{- 
+"writeN" forall a b f g .
+    ((>>) :: ) writeN a f writeN b g =
+    writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
+ -}
+
+--
+-- a data type to tag Put/Check. writes construct these which are then
+-- inlined and flattened. matching Checks will be more robust with rules.
+--
 
 -- | Write a Word32 in little endian format
 putWord32le :: Word32 -> Builder
-putWord32le w32 =
-    let w4 = shiftr_w32 w32 24
-        w3 = shiftr_w32 w32 16
-        w2 = shiftr_w32 w32  8
-        w1 = w32
-    in write4 (fromIntegral w1)
-              (fromIntegral w2)
-              (fromIntegral w3)
-              (fromIntegral w4)
+putWord32le w = writeN 4 $ \p -> do
+    poke p               (fromIntegral (w)               :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 w  8) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 w 16) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w32 w 24) :: Word8)
 {-# INLINE putWord32le #-}
 
 -- on a little endian machine:
@@ -285,47 +255,28 @@ putWord32le w32 =
 
 -- | Write a Word64 in big endian format
 putWord64be :: Word64 -> Builder
-putWord64be w64 =
-    let w1 = shiftr_w64 w64 56
-        w2 = shiftr_w64 w64 48
-        w3 = shiftr_w64 w64 40
-        w4 = shiftr_w64 w64 32
-        w5 = shiftr_w64 w64 24
-        w6 = shiftr_w64 w64 16
-        w7 = shiftr_w64 w64  8
-        w8 = w64
-    in
-    write8 (fromIntegral w1)
-           (fromIntegral w2)
-           (fromIntegral w3)
-           (fromIntegral w4)
-           (fromIntegral w5)
-           (fromIntegral w6)
-           (fromIntegral w7)
-           (fromIntegral w8)
+putWord64be w = writeN 8 $ \p -> do
+    poke p               (fromIntegral (shiftr_w64 w 56) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w64 w 48) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w64 w 40) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w64 w 32) :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (shiftr_w64 w 24) :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w64 w 16) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w64 w  8) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (w)               :: Word8)
 {-# INLINE putWord64be #-}
 
 -- | Write a Word64 in little endian format
 putWord64le :: Word64 -> Builder
-putWord64le w64 =
-    let w1 = shiftr_w64 w64 56
-        w2 = shiftr_w64 w64 48
-        w3 = shiftr_w64 w64 40
-        w4 = shiftr_w64 w64 32
-        w5 = shiftr_w64 w64 24
-        w6 = shiftr_w64 w64 16
-        w7 = shiftr_w64 w64  8
-        w8 = w64
-    in
-    write8 (fromIntegral w8)
-           (fromIntegral w7)
-           (fromIntegral w6)
-           (fromIntegral w5)
-           (fromIntegral w4)
-           (fromIntegral w3)
-           (fromIntegral w2)
-           (fromIntegral w1)
-
+putWord64le w = writeN 8 $ \p -> do
+    poke p               (fromIntegral (w)               :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w64 w  8) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w64 w 16) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w64 w 24) :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (shiftr_w64 w 32) :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w64 w 40) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w64 w 48) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (shiftr_w64 w 56) :: Word8)
 {-# INLINE putWord64le #-}
 
 -- on a little endian machine:
