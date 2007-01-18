@@ -233,8 +233,8 @@ instance Binary Bool where
 
 -- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
-    put = putWord8 . fromIntegral . fromEnum
-    get = liftM (toEnum . fromIntegral) getWord8
+    put     = putWord8 . fromIntegral . fromEnum
+    get     = liftM (toEnum . fromIntegral) getWord8
 
 ------------------------------------------------------------------------
 -- Words and Ints
