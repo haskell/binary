@@ -75,11 +75,17 @@ data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
 -- | The Get monad is just a State monad carrying around the input ByteString
 newtype Get a = Get { unGet :: S -> (a, S ) }
 
+instance Functor Get where
+    fmap f m = Get (\s -> let (a, s') = unGet m s
+                          in (f a, s'))
+
 instance Monad Get where
     return a  = Get (\s -> (a, s))
     m >>= k   = Get (\s -> let (a, s') = unGet m s
-		            in unGet (k a) s')
+                           in unGet (k a) s')
     fail      = failDesc
+
+------------------------------------------------------------------------
 
 get :: Get S
 get   = Get (\s -> (s, s))
@@ -87,13 +93,13 @@ get   = Get (\s -> (s, s))
 put :: S -> Get ()
 put s = Get (\_ -> ((), s))
 
-instance Functor Get where
-    fmap f m = Get (\s -> let (a, s') = unGet m s
-                           in (f a, s'))
+------------------------------------------------------------------------
 
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
 runGet m str = case unGet m (S str 0) of (a, _) -> a
+
+------------------------------------------------------------------------
 
 failDesc :: String -> Get a
 failDesc err = do
@@ -143,7 +149,7 @@ isEmpty = do
 
 -- Fail if the ByteString does not have the right size.
 takeExactly :: Int -> L.ByteString -> Get L.ByteString
-takeExactly n bs 
+takeExactly n bs
     | l == n    = return bs
     | otherwise = fail $ concat [ "Data.Binary.Get.takeExactly: Wanted "
                                 , show n, " bytes, found ", show l, "." ]
@@ -188,14 +194,12 @@ getWord8 :: Get Word8
 getWord8 = readN 1 L.head
 {-# INLINE getWord8 #-}
 
--- XXX readN k 
-
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
 getWord16be = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    return $! w1 `shiftl_w16` 8 .|. w2
+    s <- readN 2 (L.take 2)
+    return $! (fromIntegral (s `L.index` 0) `shiftl_w16` 8) .|.
+              (fromIntegral (s `L.index` 1))
 {-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
@@ -209,14 +213,11 @@ getWord16le = do
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    w3 <- liftM fromIntegral getWord8
-    w4 <- liftM fromIntegral getWord8
-    return $! (w1 `shiftl_w32` 24) .|.
-              (w2 `shiftl_w32` 16) .|.
-              (w3 `shiftl_w32`  8) .|.
-              (w4)
+    s <- readN 4 (L.take 4)
+    return $! (fromIntegral (s `L.index` 0) `shiftl_w32` 24) .|.
+              (fromIntegral (s `L.index` 1) `shiftl_w32` 16) .|.
+              (fromIntegral (s `L.index` 2) `shiftl_w32`  8) .|.
+              (fromIntegral (s `L.index` 3) )
 {-# INLINE getWord32be #-}
 
 -- | Read a Word32 in little endian format
@@ -235,22 +236,15 @@ getWord32le = do
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    w3 <- liftM fromIntegral getWord8
-    w4 <- liftM fromIntegral getWord8
-    w5 <- liftM fromIntegral getWord8
-    w6 <- liftM fromIntegral getWord8
-    w7 <- liftM fromIntegral getWord8
-    w8 <- liftM fromIntegral getWord8
-    return $! (w1 `shiftl_w64` 56) .|.
-              (w2 `shiftl_w64` 48) .|.
-              (w3 `shiftl_w64` 40) .|.
-              (w4 `shiftl_w64` 32) .|.
-              (w5 `shiftl_w64` 24) .|.
-              (w6 `shiftl_w64` 16) .|.
-              (w7 `shiftl_w64`  8) .|.
-              (w8)
+    s <- readN 8 (L.take 8)
+    return $! (fromIntegral (s `L.index` 0) `shiftl_w64` 56) .|.
+              (fromIntegral (s `L.index` 1) `shiftl_w64` 48) .|.
+              (fromIntegral (s `L.index` 2) `shiftl_w64` 40) .|.
+              (fromIntegral (s `L.index` 3) `shiftl_w64` 32) .|.
+              (fromIntegral (s `L.index` 4) `shiftl_w64` 24) .|.
+              (fromIntegral (s `L.index` 5) `shiftl_w64` 16) .|.
+              (fromIntegral (s `L.index` 6) `shiftl_w64`  8) .|.
+              (fromIntegral (s `L.index` 7) )
 {-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
