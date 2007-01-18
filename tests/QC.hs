@@ -47,6 +47,13 @@ prop_Word32le = roundTripWith putWord32le getWord32le
 prop_Word64be = roundTripWith putWord64be getWord64be
 prop_Word64le = roundTripWith putWord64le getWord64le
 
+invariant_lbs :: L.ByteString -> Bool
+invariant_lbs (B.LPS []) = True
+invariant_lbs (B.LPS xs) = all (not . B.null) xs
+
+prop_invariant :: (Binary a) => a -> Bool
+prop_invariant = invariant_lbs . encode
+
 -- be lazy!
 
 -- doesn't do fair testing of lazy put/get.
@@ -132,6 +139,10 @@ tests =
 
         ,("B.ByteString",  p (test :: T B.ByteString        ))
         ,("L.ByteString",  p (test :: T L.ByteString        ))
+
+        ,("B.ByteString invariant", p (prop_invariant :: T B.ByteString))
+        ,("L.ByteString invariant", p (prop_invariant :: T L.ByteString))
+        ,("IntMap invariant",       p (prop_invariant :: T (IntMap.IntMap B.ByteString)))
 
         ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
         ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
