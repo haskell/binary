@@ -140,9 +140,11 @@ tests =
         ,("B.ByteString",  p (test :: T B.ByteString        ))
         ,("L.ByteString",  p (test :: T L.ByteString        ))
 
-        ,("B.ByteString invariant", p (prop_invariant :: T B.ByteString))
-        ,("L.ByteString invariant", p (prop_invariant :: T L.ByteString))
-        ,("IntMap invariant",       p (prop_invariant :: T (IntMap.IntMap B.ByteString)))
+        ,("B.ByteString invariant",   p (prop_invariant :: T B.ByteString                 ))
+        ,("[B.ByteString] invariant", p (prop_invariant :: T [B.ByteString]               ))
+        ,("L.ByteString invariant",   p (prop_invariant :: T L.ByteString                 ))
+        ,("[L.ByteString] invariant", p (prop_invariant :: T [L.ByteString]               ))
+        ,("IntMap invariant",         p (prop_invariant :: T (IntMap.IntMap B.ByteString) ))
 
         ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
         ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
