@@ -52,6 +52,7 @@ import Foreign
 import Data.Monoid
 import Data.Word
 import Data.ByteString.Base (inlinePerformIO)
+import qualified Data.ByteString      as S
 import qualified Data.ByteString.Base as S
 import qualified Data.ByteString.Lazy as L
 
@@ -111,7 +112,8 @@ append (Builder f) (Builder g) = Builder (f . g)
 --  * @'runBuilder' ('fromByteString' bs) = 'L.fromChunks' [bs]@
 --
 fromByteString :: S.ByteString -> Builder
-fromByteString bs = flush `append` mapBuilder (bs :)
+fromByteString bs | (not . S.null) bs = flush `append` mapBuilder (bs :)
+                  | otherwise         = empty
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
 --
