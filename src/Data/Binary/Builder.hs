@@ -23,7 +23,7 @@ module Data.Binary.Builder (
 
     -- * The Builder type
       Builder
-    , runBuilder
+    , toLazyByteString
 
     -- * Constructing Builders
     , empty
@@ -66,7 +66,7 @@ import GHC.Word (Word32(..),Word16(..),Word64(..))
 -- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
 -- There are several functions for constructing 'Builder's, but only one
 -- to inspect them: to extract any data, you have to turn them into lazy
--- 'L.ByteString's using 'runBuilder'.
+-- 'L.ByteString's using 'toLazyByteString'.
 --
 -- Internally, a 'Builder' constructs a lazy 'L.Bytestring' by filling byte
 -- arrays piece by piece.  As each buffer is filled, it is \'popped\'
@@ -74,7 +74,7 @@ import GHC.Word (Word32(..),Word16(..),Word64(..))
 -- All this is hidden from the user of the 'Builder'.
 
 newtype Builder = Builder {
-        unBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
+        runBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
     }
 
 instance Monoid Builder where
@@ -85,14 +85,14 @@ instance Monoid Builder where
 
 -- | /O(1)./ The empty Builder, satisfying
 --
---  * @'runBuilder' 'empty' = 'L.empty'@
+--  * @'toLazyByteString' 'empty' = 'L.empty'@
 --
 empty :: Builder
 empty = Builder id
 
 -- | /O(1)./ A Builder taking a single byte, satisfying
 --
---  * @'runBuilder' ('singleton' b) = 'L.singleton' b@
+--  * @'toLazyByteString' ('singleton' b) = 'L.singleton' b@
 --
 singleton :: Word8 -> Builder
 singleton = writeN 1 . flip poke
@@ -100,16 +100,17 @@ singleton = writeN 1 . flip poke
 
 ------------------------------------------------------------------------
 
--- | /O(1)./ The concatenation of two Builders, satisfying
+-- | /O(1)./ The concatenation of two Builders, an associative operation
+-- with identity 'empty', satisfying
 --
---  * @'runBuilder' ('append' x y) = 'L.append' ('runBuilder' x) ('runBuilder' y)@
+--  * @'toLazyByteString' ('append' x y) = 'L.append' ('toLazyByteString' x) ('toLazyByteString' y)@
 --
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
 
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
---  * @'runBuilder' ('fromByteString' bs) = 'L.fromChunks' [bs]@
+--  * @'toLazyByteString' ('fromByteString' bs) = 'L.fromChunks' [bs]@
 --
 fromByteString :: S.ByteString -> Builder
 fromByteString bs | (not . S.null) bs = flush `append` mapBuilder (bs :)
@@ -117,7 +118,7 @@ fromByteString bs | (not . S.null) bs = flush `append` mapBuilder (bs :)
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
 --
---  * @'runBuilder' ('fromLazyByteString' bs) = bs@
+--  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
 --
 fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString (S.LPS bss) = flush `append` mapBuilder (bss ++)
@@ -136,10 +137,10 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- The construction work takes place if and when the relevant part of
 -- the lazy 'L.ByteString' is demanded.
 --
-runBuilder :: Builder -> L.ByteString
-runBuilder m = S.LPS $ inlinePerformIO $ do
+toLazyByteString :: Builder -> L.ByteString
+toLazyByteString m = S.LPS $ inlinePerformIO $ do
     buf <- newBuffer defaultSize
-    return (unBuilder (m `append` flush) (const []) buf)
+    return (runBuilder (m `append` flush) (const []) buf)
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
@@ -171,7 +172,7 @@ unsafeLiftIO f =  Builder $ \ k buf -> inlinePerformIO $ do
 -- | Get the size of the buffer
 withSize :: (Int -> Builder) -> Builder
 withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
-    unBuilder (f l) k buf
+    runBuilder (f l) k buf
 
 -- | Map the resulting list of bytestrings.
 mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder

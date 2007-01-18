@@ -38,7 +38,7 @@ module Data.Binary.Put (
 
   ) where
 
-import Data.Binary.Builder (Builder, runBuilder)
+import Data.Binary.Builder (Builder, toLazyByteString)
 import qualified Data.Binary.Builder as B
 
 import Data.Word
@@ -70,7 +70,7 @@ tell b = Put ((), b)
 
 -- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
-runPut              = runBuilder . snd . unPut
+runPut              = toLazyByteString . snd . unPut
 {-# INLINE runPut #-}
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a
