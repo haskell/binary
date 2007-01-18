@@ -133,6 +133,12 @@ tests =
         ,("(Maybe Word8, Bool, [Int], Either Bool Word8)",
                 p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
 
+        ,("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
+        ,("Lazy (Int, ByteString)",   p (lazyTrip :: T (Int, B.ByteString)   ))
+        ,("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
+        ,("Lazy [(Int, ByteString)]", p (lazyTrip :: T [(Int, B.ByteString)] ))
+
+
         ,("Lazy IntMap",   p (lazyTrip  :: T IntSet.IntSet          ))
         ,("IntSet",        p (test      :: T IntSet.IntSet          ))
         ,("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
