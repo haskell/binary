@@ -4,7 +4,7 @@ interpreted:
 	runhaskell QC.hs 1000
 
 compiled:
-	ghc -prof -auto-all --make -O QC.hs -o qc -no-recomp
+	ghc --make -O QC.hs -o qc -no-recomp
 	time ./qc 1000
 
 bench::
