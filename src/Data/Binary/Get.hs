@@ -16,7 +16,7 @@
 --
 -----------------------------------------------------------------------------
 
-#if defined(__GLASGOW_HASKELL__)
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 #include "MachDeps.h"
 #endif
 
@@ -62,7 +62,7 @@ import qualified Data.ByteString.Lazy as L
 
 import Foreign
 
-#if defined(__GLASGOW_HASKELL__)
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base
 import GHC.Word
 import GHC.Int
@@ -275,7 +275,7 @@ shiftl_w16 :: Word16 -> Int -> Word16
 shiftl_w32 :: Word32 -> Int -> Word32
 shiftl_w64 :: Word64 -> Int -> Word64
 
-#if defined(__GLASGOW_HASKELL__)
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
 shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
 
