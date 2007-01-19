@@ -4,7 +4,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Builder
--- Copyright   : Ross Paterson
+-- Copyright   : Lennart Kolmodin, Ross Paterson
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
