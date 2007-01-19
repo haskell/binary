@@ -1,4 +1,4 @@
-all: interpreted compiled bench
+all: compiled
      
 interpreted:
 	runhaskell QC.hs 1000
