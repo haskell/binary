@@ -1,4 +1,4 @@
-module Main where
+module Main (main) where
 
 import qualified Data.ByteString.Lazy as L
 import Data.Binary
@@ -9,14 +9,20 @@ import Control.Exception
 import System.CPUTime
 import Numeric
 
+import MemBench
+
 mb :: Int
 mb = 10
 
 main :: IO ()
-main = sequence_ 
-  [ test wordSize chunkSize mb
-  | wordSize  <- [1,2,4,8]
-  , chunkSize <- [1,2,4,8,16] ]
+main = do
+  memBench (mb*10)
+  putStrLn ""
+  putStrLn "Binary (de)serialisation benchmarks:"
+  sequence_
+    [ test wordSize chunkSize mb
+    | wordSize  <- [1,2,4,8]
+    , chunkSize <- [1,2,4,8,16] ]
 
 time :: IO a -> IO Double
 time action = do
@@ -39,8 +45,8 @@ test wordSize chunkSize mb = do
 --    print (L.length bs, sum)
     let putThroughput = fromIntegral mb / putSeconds
         getThroughput = fromIntegral mb / getSeconds
-    putStrLn $ showFFloat (Just 2) putThroughput "MB/s write, "
-            ++ showFFloat (Just 2) getThroughput "MB/s read"
+    putStrLn $ showFFloat (Just 1) putThroughput "MB/s write, "
+            ++ showFFloat (Just 1) getThroughput "MB/s read"
 
 doPut :: Int -> Int -> Int -> Put
 doPut wordSize chunkSize =
