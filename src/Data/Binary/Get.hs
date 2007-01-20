@@ -9,7 +9,7 @@
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : unstable
--- Portability : Portable.
+-- Portability : Portable. Requires MPTCs
 --
 -- The Get monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings

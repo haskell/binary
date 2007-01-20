@@ -553,7 +553,11 @@ instance Binary B.ByteString where
                 putByteString bs
     get    = get >>= getByteString
 
+--
 -- Using old versions of fps, this is a type synonym, and non portable
+-- 
+-- Requires 'flexible instances'
+--
 instance Binary ByteString where
     put bs = do put (fromIntegral (L.length bs) :: Int)
                 putLazyByteString bs
@@ -615,7 +619,9 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
         es <- get
         return (listArray bs es)
 
--- The IArray UArray e constraint is non portable.
+--
+-- The IArray UArray e constraint is non portable. Requires flexible instances
+--
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
     put a = do
         put (bounds a)
