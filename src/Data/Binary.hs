@@ -9,6 +9,18 @@
 -- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
 -- Binary serialisation of Haskell values to and from lazy ByteStrings.
+-- The Binary library provides methods for encoding Haskell values as
+-- streams of bytes directly in memory. The resulting @ByteString@ can
+-- then be written to disk, sent over the network, or futher processed
+-- (for example, compressed with gzip).
+--
+-- The 'Binary' package is notable in that it provides both pure, and
+-- high performance serialisation.
+--
+-- Values are always encoded in network order (big endian) form, and
+-- encoded data should be portable across machine endianess, word size,
+-- or compiler version. For example, data encoded using the Binary class
+-- could be written from GHC, and read back in Hugs.
 --
 -----------------------------------------------------------------------------
 
@@ -330,7 +342,7 @@ instance Binary Integer where
                     return $! if sign == (1 :: Word8) then v else - v
 
 --
--- Unfold an Integer to a list of its bytes
+-- Fold and unfold an Integer to and from a list of its bytes
 --
 unroll :: Integer -> [Word8]
 unroll = unfoldr step
@@ -338,11 +350,10 @@ unroll = unfoldr step
     step 0 = Nothing
     step i = Just (fromIntegral i, i `shiftR` 8)
 
--- 
--- Fold a list of bytes back in to an Integer
---
 roll :: [Word8] -> Integer
-roll   = foldr (\b a -> a `shiftL` 8 .|. fromIntegral b) 0
+roll   = foldr unstep 0
+  where
+    unstep b a = a `shiftL` 8 .|. fromIntegral b
 
 {-
 
