@@ -24,3 +24,5 @@ user requests:
                  files, alt. 2GB in GHC
 
 SYB-deriving
+
+investigate the UArray instance, it does not seem to compile in GHC 6.4
