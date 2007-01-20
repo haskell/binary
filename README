@@ -8,6 +8,8 @@ ByteStrings.
 
 A key feature of 'binary' is that the interface is both pure, and efficient.
 
+The 'binary' package is portable to GHC and Hugs.
+
 Building:
 
     runhaskell Setup.hs configure
