@@ -49,14 +49,14 @@ import qualified Data.ByteString.Lazy as L
 
 -- | The Put types. A Writer monad over the efficient Builder monoid.
 -- Put merely lifts Builder into a monad
-newtype Put_ a = Put { unPut :: (a, Builder) }
-type Put = Put_ ()
+newtype PutM a = Put { unPut :: (a, Builder) }
+type Put = PutM ()
 
-instance Functor Put_ where
+instance Functor PutM where
         fmap f m = Put (let (a, w) = unPut m
                          in (f a, w))
 
-instance Monad Put_ where
+instance Monad PutM where
         return a = Put (a, B.empty)
 
         m >>= k  = Put (let (a, w)  = unPut m
@@ -108,15 +108,19 @@ putWord16le         = tell . B.putWord16le
 -- | Write a Word32 in big endian format
 putWord32be         :: Word32 -> Put
 putWord32be         = tell . B.putWord32be
+{-# INLINE putWord32be #-}
 
 -- | Write a Word32 in little endian format
 putWord32le         :: Word32 -> Put
 putWord32le         = tell . B.putWord32le
+{-# INLINE putWord32le #-}
 
 -- | Write a Word64 in big endian format
 putWord64be         :: Word64 -> Put
 putWord64be         = tell . B.putWord64be
+{-# INLINE putWord64be #-}
 
 -- | Write a Word64 in little endian format
 putWord64le         :: Word64 -> Put
 putWord64le         = tell . B.putWord64le
+{-# INLINE putWord64le #-}
