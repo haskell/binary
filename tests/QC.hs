@@ -30,11 +30,13 @@ import Text.Printf
 
 ------------------------------------------------------------------------
 
-roundTrip :: (Eq a, Binary a) => a -> Bool
-roundTrip a = a ==
-    {-# SCC "decode.encode" #-} decode (encode a)
+roundTrip :: (Eq a, Binary a) => a -> (L.ByteString -> L.ByteString) -> Bool
+roundTrip a f = a ==
+    {-# SCC "decode.refragment.encode" #-} decode (f (encode a))
 
-roundTripWith put get x = x == runGet get (runPut (put x))
+roundTripWith put get x =
+    forAll positiveList $ \xs ->
+    x == runGet get (refragment xs (runPut (put x)))
 
 -- low level ones:
 
@@ -59,8 +61,23 @@ prop_invariant = invariant_lbs . encode
 -- doesn't do fair testing of lazy put/get.
 -- tons of untested cases
 
-lazyTrip :: (Binary a, Eq a) => a -> Bool
-lazyTrip a = a == (runGet lazyGet . runPut . lazyPut $ a)
+lazyTrip :: (Binary a, Eq a) => a -> Property
+lazyTrip a = forAll positiveList $ \xs ->
+    a == (runGet lazyGet . refragment xs . runPut . lazyPut $ a)
+
+-- refragment a lazy bytestring's chunks
+refragment :: [Int] -> L.ByteString -> L.ByteString
+refragment [] lps = lps
+refragment (x:xs) lps =
+    let x' = fromIntegral . (+1) . abs $ x
+        rest = refragment xs (L.drop x' lps) in
+    L.append (L.fromChunks [B.concat . L.toChunks . L.take x' $ lps]) rest
+
+-- check identity of refragmentation
+prop_refragment lps xs = lps == refragment xs lps
+
+-- check that refragmention still hold invariant
+prop_refragment_inv lps xs = invariant_lbs $ refragment xs lps
 
 main :: IO ()
 main = do
@@ -75,17 +92,25 @@ run tests = do
 
 ------------------------------------------------------------------------
 
-type T a = a -> Bool
+type T a = a -> Property
+type B a = a -> Bool
 
 p       :: Testable a => a -> Int -> IO ()
 p       = mytest
 
-test    :: (Eq a, Binary a) => a -> Bool
-test    = roundTrip
+test    :: (Eq a, Binary a) => a -> Property
+test a  = forAll positiveList (roundTrip a . refragment)
+
+positiveList :: Gen [Int]
+positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
 tests =
+-- utils
+        [ ("refragment id",        p prop_refragment     )
+        , ("refragment invariant", p prop_refragment_inv )
+
 -- Primitives
-        [ ("Word16be",      p prop_Word16be)
+        , ("Word16be",      p prop_Word16be)
         , ("Word16le",      p prop_Word16le)
         , ("Word32be",      p prop_Word32be)
         , ("Word32le",      p prop_Word32le)
@@ -139,23 +164,23 @@ tests =
         ,("Lazy [(Int, ByteString)]", p (lazyTrip :: T [(Int, B.ByteString)] ))
 
 
-        ,("Lazy IntMap",   p (lazyTrip  :: T IntSet.IntSet          ))
-        ,("IntSet",        p (test      :: T IntSet.IntSet          ))
+        ,("Lazy IntMap",       p (lazyTrip  :: T IntSet.IntSet          ))
+        ,("IntSet",            p (test      :: T IntSet.IntSet          ))
         ,("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
 
         ,("B.ByteString",  p (test :: T B.ByteString        ))
         ,("L.ByteString",  p (test :: T L.ByteString        ))
 
-        ,("B.ByteString invariant",   p (prop_invariant :: T B.ByteString                 ))
-        ,("[B.ByteString] invariant", p (prop_invariant :: T [B.ByteString]               ))
-        ,("L.ByteString invariant",   p (prop_invariant :: T L.ByteString                 ))
-        ,("[L.ByteString] invariant", p (prop_invariant :: T [L.ByteString]               ))
-        ,("IntMap invariant",         p (prop_invariant :: T (IntMap.IntMap B.ByteString) ))
+        ,("B.ByteString invariant",   p (prop_invariant :: B B.ByteString                 ))
+        ,("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
+        ,("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
+        ,("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
+        ,("IntMap invariant",         p (prop_invariant :: B (IntMap.IntMap B.ByteString) ))
 
         ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
         ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
 
-        ,("(Maybe Int64, Bool, [Int])", p (roundTrip :: (Maybe Int64, Bool, [Int]) -> Bool))
+        ,("(Maybe Int64, Bool, [Int])", p (test :: T (Maybe Int64, Bool, [Int])))
 
 {-
 --
