@@ -8,7 +8,7 @@ compiled:
 	time ./qc 1000
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
-	ghc --make -O Benchmark.hs -fvia-C CBenchmark.o -o bench -no-recomp
+	ghc --make -O Benchmark.hs -fasm CBenchmark.o -o bench -no-recomp
 	time ./bench
 
 bench-nb::
