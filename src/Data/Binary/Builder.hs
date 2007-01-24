@@ -74,6 +74,8 @@ import GHC.Word (Word32(..),Word16(..),Word64(..))
 -- All this is hidden from the user of the 'Builder'.
 
 newtype Builder = Builder {
+        -- Invariant (from Data.ByteString.Lazy):
+        --      The lists include no null ByteStrings.
         runBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
     }
 
@@ -113,8 +115,9 @@ append (Builder f) (Builder g) = Builder (f . g)
 --  * @'toLazyByteString' ('fromByteString' bs) = 'L.fromChunks' [bs]@
 --
 fromByteString :: S.ByteString -> Builder
-fromByteString bs | (not . S.null) bs = flush `append` mapBuilder (bs :)
-                  | otherwise         = empty
+fromByteString bs
+  | S.null bs = empty
+  | otherwise = flush `append` mapBuilder (bs :)
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
 --
