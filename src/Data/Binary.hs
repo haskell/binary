@@ -470,26 +470,24 @@ instance Binary Char where
 -- Instances for the first few tuples
 
 instance (Binary a, Binary b) => Binary (a,b) where
-    put (a,b) = put a >> put b
-    get       = do a <- get
-                   b <- get
-                   return (a,b)
-
---
--- And then the recursive cases
---
+    put (a,b)           = put a >> put b
+    get                 = liftM2 (,) get get
 
 instance (Binary a, Binary b, Binary c) => Binary (a,b,c) where
-    put (a,b,c)         = put (a, (b,c))
-    get                 = do (a,(b,c)) <- get ; return (a,b,c)
+    put (a,b,c)         = put a >> put b >> put c
+    get                 = liftM3 (,,) get get get
 
 instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
-    put (a,b,c,d)       = put (a,(b,c,d))
-    get                 = do (a,(b,c,d)) <- get ; return (a,b,c,d)
+    put (a,b,c,d)       = put a >> put b >> put c >> put d
+    get                 = liftM4 (,,,) get get get get
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e) where
-    put (a,b,c,d,e)     = put (a,(b,c,d,e))
-    get                 = do (a,(b,c,d,e)) <- get ; return (a,b,c,d,e)
+    put (a,b,c,d,e)     = put a >> put b >> put c >> put d >> put e
+    get                 = liftM5 (,,,,) get get get get get
+
+-- 
+-- and now just recurse:
+--
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f)
         => Binary (a,b,c,d,e,f) where
@@ -611,22 +609,12 @@ instance (Binary e) => Binary (T.Tree e) where
 -- Arrays
 
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
-    put a = do
-        put (bounds a)
-        put (elems a)
-    get = do
-        bs <- get
-        es <- get
-        return (listArray bs es)
+    put a = put (bounds a) >> put (elems a)
+    get = liftM2 listArray get get
 
 --
 -- The IArray UArray e constraint is non portable. Requires flexible instances
 --
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
-    put a = do
-        put (bounds a)
-        put (elems a)
-    get = do
-        bs <- get
-        es <- get
-        return (listArray bs es)
+    put a = put (bounds a) >> put (elems a)
+    get = liftM2 listArray get get
