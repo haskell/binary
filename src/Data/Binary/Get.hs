@@ -8,8 +8,8 @@
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
--- Stability   : unstable
--- Portability : Portable. Requires MPTCs
+-- Stability   : experimental
+-- Portability : portable to Hugs and GHC.
 --
 -- The Get monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings
