@@ -30,6 +30,8 @@ module Data.Binary.Get (
     , skip
     , uncheckedSkip
     , lookAhead
+    , lookAheadM
+    , lookAheadE
     , uncheckedLookAhead
     , getBytes
     , remaining
@@ -54,7 +56,8 @@ module Data.Binary.Get (
 
   ) where
 
-import Control.Monad (liftM)
+import Control.Monad (liftM,when)
+import Data.Maybe (isNothing)
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base as B
@@ -118,10 +121,35 @@ uncheckedSkip n = do
     put $! S rest (bytes + (fromIntegral n))
     return ()
 
--- | Get the next @n@ bytes as a lazy ByteString, without consuming them. 
--- Fails if fewer than @n@ bytes are available.
-lookAhead :: Int -> Get L.ByteString
-lookAhead n = uncheckedLookAhead n >>= takeExactly n
+-- | Run @ga@, but return withou consuming its input.
+-- Fails if @ga@ fails.
+lookAhead :: Get a -> Get a
+lookAhead ga = do
+    s <- get
+    a <- ga
+    put s
+    return a
+
+-- | Like 'lookAhead', but consume the input if @g@ returns 'Just _'.
+-- Fails if @gma@ fails.
+lookAheadM :: Get (Maybe a) -> Get (Maybe a)
+lookAheadM gma = do
+    s <- get
+    ma <- gma
+    when (isNothing ma) $
+        put s
+    return ma
+
+-- | Like 'lookAhead', but consume the input if @g@ returns 'Right _'.
+-- Fails if @gea@ fails.
+lookAheadE :: Get (Either a b) -> Get (Either a b)
+lookAheadE gea = do
+    s <- get
+    ea <- gea
+    case ea of
+        Left _ -> put s
+        _      -> return ()
+    return ea
 
 -- | Get the next up to @n@ bytes as a lazy ByteString, without consuming them. 
 uncheckedLookAhead :: Int -> Get L.ByteString
