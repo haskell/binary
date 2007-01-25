@@ -3,7 +3,10 @@ version:         0.2
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+maintainer:      Lennart Kolmodin
+description:     Efficient, pure binary serialisation using lazy ByteStrings
 synopsis:        Binary serialization using lazy ByteStrings
+category:        Data, Parsing
 build-depends:   base
 -- ghc 6.4 also needs package fps
 exposed-modules: Data.Binary,
