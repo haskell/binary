@@ -47,9 +47,9 @@ module Data.Binary (
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
 
-    -- * Lazy put and get
-    , lazyPut
-    , lazyGet
+-- Lazy put and get
+--  , lazyPut
+--  , lazyGet
 
     , module Data.Word -- useful
 
@@ -223,11 +223,11 @@ decodeFile f = liftM decode (L.readFile f)
 ------------------------------------------------------------------------
 -- Lazy put and get
 
-lazyPut :: (Binary a) => a -> Put
-lazyPut a = put (encode a)
+-- lazyPut :: (Binary a) => a -> Put
+-- lazyPut a = put (encode a)
 
-lazyGet :: (Binary a) => Get a
-lazyGet = fmap decode get
+-- lazyGet :: (Binary a) => Get a
+-- lazyGet = fmap decode get
 
 ------------------------------------------------------------------------
 -- Simple instances
