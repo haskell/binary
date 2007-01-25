@@ -121,7 +121,7 @@ uncheckedSkip n = do
     put $! S rest (bytes + (fromIntegral n))
     return ()
 
--- | Run @ga@, but return withou consuming its input.
+-- | Run @ga@, but return without consuming its input.
 -- Fails if @ga@ fails.
 lookAhead :: Get a -> Get a
 lookAhead ga = do
@@ -130,7 +130,7 @@ lookAhead ga = do
     put s
     return a
 
--- | Like 'lookAhead', but consume the input if @g@ returns 'Just _'.
+-- | Like 'lookAhead', but consume the input if @gma@ returns 'Just _'.
 -- Fails if @gma@ fails.
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM gma = do
@@ -140,7 +140,7 @@ lookAheadM gma = do
         put s
     return ma
 
--- | Like 'lookAhead', but consume the input if @g@ returns 'Right _'.
+-- | Like 'lookAhead', but consume the input if @gea@ returns 'Right _'.
 -- Fails if @gea@ fails.
 lookAheadE :: Get (Either a b) -> Get (Either a b)
 lookAheadE gea = do
