@@ -5,10 +5,10 @@ module BinaryDerive where
 import Data.Generics
 import Data.List
 
-deriveM ::  (Typeable a, Show a, Data a) => a -> IO ()
+deriveM ::  (Typeable a, Data a) => a -> IO ()
 deriveM (a :: a) = mapM_ putStrLn . lines $ derive (undefined :: a)
 
-derive :: (Typeable a, Show a, Data a) => a -> String
+derive :: (Typeable a, Data a) => a -> String
 derive x = 
     "instance " ++ context ++ "Binary " ++ inst ++ " where\n" ++
     concat putDefs ++ getDefs
