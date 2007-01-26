@@ -124,7 +124,6 @@ fromByteString bs
 --  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
 --
 fromLazyByteString :: L.ByteString -> Builder
-fromLazyByteString (S.LPS [])  = empty
 fromLazyByteString (S.LPS bss) = flush `append` mapBuilder (bss ++)
 
 ------------------------------------------------------------------------
