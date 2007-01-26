@@ -43,7 +43,11 @@ derive x =
        (if length constrs > 1
             then "  get = do\n    tag_ <- getWord8\n    case tag_ of\n"
             else "  get =")
-        ++ concatMap ((++"\n")) (map getDef constrs)
+        ++ concatMap ((++"\n")) (map getDef constrs) ++
+       (if length constrs > 1
+	    then "      _ -> fail \"no parse\""
+	    else ""
+       )
     getDef (n, (name, ps)) =
         let wrap = if ps /= 0 then ("("++) . (++")") else id
         in
