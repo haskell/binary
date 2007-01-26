@@ -46,12 +46,12 @@ module Data.Binary.Get (
 
     -- ** Big-endian reads
     , getWord16be
-    , getWord16le
     , getWord32be
+    , getWord64be
 
     -- ** Little-endian reads
+    , getWord16le
     , getWord32le
-    , getWord64be
     , getWord64le
 
   ) where
