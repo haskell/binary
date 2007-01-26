@@ -76,6 +76,7 @@ import qualified Data.Map        as Map
 import qualified Data.Set        as Set
 import qualified Data.IntMap     as IntMap
 import qualified Data.IntSet     as IntSet
+import qualified Data.Ratio      as R
 
 import qualified Data.Tree as T
 
@@ -460,6 +461,10 @@ freezeByteArray arr = IO $ \s ->
   (# s', BA arr' #) }
 
 -}
+
+instance (Binary a,Integral a) => Binary (R.Ratio a) where
+    put r = put (R.numerator r) >> put (R.denominator r)
+    get = liftM2 (R.%) get get
 
 ------------------------------------------------------------------------
 
