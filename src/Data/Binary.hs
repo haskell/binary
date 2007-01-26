@@ -152,6 +152,38 @@ class Binary t where
 -- >                    0 -> liftM  IntE get
 -- >                    1 -> liftM3 OpE  get get get
 --
+-- The generation of Binary instances has been automated by a script
+-- using Scrap Your Boilerplate generics. Use the script here:
+--  <http://darcs.haskell.org/binary/tools/derive/BinaryDerive.hs>.
+--
+-- To derive the instance for a type, load this script into GHCi, and
+-- bring your type into scope. Your type can then have its Binary
+-- instances derived as follows:
+--
+-- > $ ghci -fglasgow-exts BinaryDerive.hs
+-- > *BinaryDerive> :l Example.hs
+-- > *Main> deriveM (undefined :: Drinks)
+-- >
+-- > instance Binary Main.Drinks where
+-- >      put (Beer a) = putWord8 0 >> put a
+-- >      put Coffee = putWord8 1
+-- >      put Tea = putWord8 2
+-- >      put EnergyDrink = putWord8 3
+-- >      put Water = putWord8 4
+-- >      put Wine = putWord8 5
+-- >      put Whisky = putWord8 6
+-- >      get = do
+-- >        tag_ <- getWord8
+-- >        case tag_ of
+-- >          0 -> get >>= \a -> return (Beer a)
+-- >          1 -> return Coffee
+-- >          2 -> return Tea
+-- >          3 -> return EnergyDrink
+-- >          4 -> return Water
+-- >          5 -> return Wine
+-- >          6 -> return Whisky
+-- >
+--
 -- To serialise this to a bytestring, we use 'encode', which packs the
 -- data structure into a binary format, in a lazy bytestring
 --
