@@ -144,6 +144,14 @@ class Binary t where
 -- Note how we write an initial tag byte to indicate each variant of the
 -- data type.
 --
+-- We can simplify the writing of 'get' instances using monadic
+-- combinators:
+-- 
+-- >       get = do tag <- getWord8
+-- >                case tag of
+-- >                    0 -> liftM  IntE get
+-- >                    1 -> liftM3 OpE  get get get
+--
 -- To serialise this to a bytestring, we use 'encode', which packs the
 -- data structure into a binary format, in a lazy bytestring
 --
