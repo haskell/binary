@@ -33,7 +33,7 @@ memBench mb = do
     bench "words read   " hs_wordread
 
 hs_bytewrite  :: Ptr CUChar -> Int -> IO ()
-hs_bytewrite ptr bytes = loop 0 0
+hs_bytewrite !ptr bytes = loop 0 0
   where iterations = bytes
         loop :: Int -> CUChar -> IO ()
         loop !i !n | i == iterations = return ()
@@ -41,7 +41,7 @@ hs_bytewrite ptr bytes = loop 0 0
                                     loop (i+1) (n+1)
 
 hs_byteread  :: Ptr CUChar -> Int -> IO CUChar
-hs_byteread ptr bytes = loop 0 0
+hs_byteread !ptr bytes = loop 0 0
   where iterations = bytes
         loop :: Int -> CUChar -> IO CUChar
         loop !i !n | i == iterations = return n
@@ -49,7 +49,7 @@ hs_byteread ptr bytes = loop 0 0
                                     loop (i+1) (n+x)
 
 hs_wordwrite :: Ptr CULong -> Int -> IO ()
-hs_wordwrite ptr bytes = loop 0 0
+hs_wordwrite !ptr bytes = loop 0 0
   where iterations = bytes `div` sizeOf (undefined :: CULong)
         loop :: Int -> CULong -> IO ()
         loop !i !n | i == iterations = return ()
@@ -57,7 +57,7 @@ hs_wordwrite ptr bytes = loop 0 0
                                     loop (i+1) (n+1)
 
 hs_wordread  :: Ptr CULong -> Int -> IO CULong
-hs_wordread ptr bytes = loop 0 0
+hs_wordread !ptr bytes = loop 0 0
   where iterations = bytes `div` sizeOf (undefined :: CULong)
         loop :: Int -> CULong -> IO CULong
         loop !i !n | i == iterations = return n
