@@ -48,18 +48,18 @@ hs_byteread ptr bytes = loop 0 0
                    | otherwise = do x <- peekByteOff ptr i
                                     loop (i+1) (n+x)
 
-hs_wordwrite :: Ptr CUInt -> Int -> IO ()
+hs_wordwrite :: Ptr CULong -> Int -> IO ()
 hs_wordwrite ptr bytes = loop 0 0
-  where iterations = bytes `div` sizeOf (undefined :: CUInt)
-        loop :: Int -> CUInt -> IO ()
+  where iterations = bytes `div` sizeOf (undefined :: CULong)
+        loop :: Int -> CULong -> IO ()
         loop !i !n | i == iterations = return ()
                    | otherwise = do pokeByteOff ptr i n
                                     loop (i+1) (n+1)
 
-hs_wordread  :: Ptr CUInt -> Int -> IO CUInt
+hs_wordread  :: Ptr CULong -> Int -> IO CULong
 hs_wordread ptr bytes = loop 0 0
-  where iterations = bytes `div` sizeOf (undefined :: CUInt)
-        loop :: Int -> CUInt -> IO CUInt
+  where iterations = bytes `div` sizeOf (undefined :: CULong)
+        loop :: Int -> CULong -> IO CULong
         loop !i !n | i == iterations = return n
                    | otherwise = do x <- peekByteOff ptr i
                                     loop (i+1) (n+x)

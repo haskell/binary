@@ -19,19 +19,19 @@ unsigned char byteread(unsigned char *a, int bytes) {
   return n;
 }
 
-void wordwrite(unsigned int *a, int bytes) {
-  unsigned int n = 0;
+void wordwrite(unsigned long *a, int bytes) {
+  unsigned long n = 0;
   int i = 0;
-  int iterations = bytes / sizeof(unsigned int) ;
+  int iterations = bytes / sizeof(unsigned long) ;
   while (i < iterations) {
     a[i++] = n++;
   }
 }
 
-unsigned int wordread(unsigned int *a, int bytes) {
-  unsigned int n = 0;
+unsigned int wordread(unsigned long *a, int bytes) {
+  unsigned long n = 0;
   int i = 0;
-  int iterations = bytes / sizeof(unsigned int);
+  int iterations = bytes / sizeof(unsigned long);
   while (i < iterations) {
     n += a[i++];
   }
