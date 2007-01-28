@@ -122,14 +122,14 @@ failDesc err = do
 
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
-skip n = readN n (const ())
+skip n = readN (fromIntegral n) (const ())
 
 -- | Skip ahead @n@ bytes. 
-uncheckedSkip :: Int -> Get ()
+uncheckedSkip :: Int64 -> Get ()
 uncheckedSkip n = do
     S s bytes <- get
-    let rest = L.drop (fromIntegral n) s
-    put $! S rest (bytes + (fromIntegral n))
+    let rest = L.drop n s
+    put $! S rest (bytes + n)
     return ()
 
 -- | Run @ga@, but return without consuming its input.
@@ -163,10 +163,10 @@ lookAheadE gea = do
     return ea
 
 -- | Get the next up to @n@ bytes as a lazy ByteString, without consuming them. 
-uncheckedLookAhead :: Int -> Get L.ByteString
+uncheckedLookAhead :: Int64 -> Get L.ByteString
 uncheckedLookAhead n = do
     S s _ <- get
-    return $ L.take (fromIntegral n) s
+    return $ L.take n s
 
 -- | Get the number of remaining unparsed bytes.
 -- Useful for checking whether all input has been consumed.
@@ -187,21 +187,21 @@ isEmpty = do
 -- Helpers
 
 -- | Fail if the ByteString does not have the right size.
-takeExactly :: Int -> L.ByteString -> Get L.ByteString
+takeExactly :: Int64 -> L.ByteString -> Get L.ByteString
 takeExactly n bs
     | l == n    = return bs
     | otherwise = fail $ concat [ "Data.Binary.Get.takeExactly: Wanted "
                                 , show n, " bytes, found ", show l, "." ]
-  where l = fromIntegral (L.length bs)
+  where l = L.length bs
 {-# INLINE takeExactly #-}
 
 -- | Pull @n@ bytes from the input, as a lazy ByteString. If not enough
 -- bytes are available, as much as possible will be returned. No error
 -- will be thrown.
-getBytes :: Int -> Get L.ByteString
+getBytes :: Int64 -> Get L.ByteString
 getBytes n = do
     S s bytes <- get
-    case splitAtST (fromIntegral n) s of
+    case splitAtST n s of
       (consuming, rest) -> 
           do put $! (S rest (bytes + n)) -- n should be L.length consuming, but that
                                          -- would destory the laziness
@@ -233,7 +233,7 @@ splitAtST i (B.LPS ps) = runST (
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value. If less than @n@ bytes are available, fail with an
 -- error. This wraps @getBytes@.
-readN :: Int -> (L.ByteString -> a) -> Get a
+readN :: Int64 -> (L.ByteString -> a) -> Get a
 readN n f = liftM f (getBytes n >>= takeExactly n)
 {-# INLINE readN #-}
 -- ^ important
@@ -249,7 +249,7 @@ getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 -- | An efficient 'get' method for lazy ByteStrings. Fails if fewer than
 -- @n@ bytes are left in the input.
 getLazyByteString :: Int -> Get L.ByteString
-getLazyByteString n = readN n id
+getLazyByteString n = readN (fromIntegral n) id
 {-# INLINE getLazyByteString #-}
 
 ------------------------------------------------------------------------
