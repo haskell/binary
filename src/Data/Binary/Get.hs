@@ -73,7 +73,7 @@ import GHC.Int
 
 -- | The parse state
 data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
-           {-# UNPACK #-} !Int64        -- bytes read
+           {-# UNPACK #-} !Int64         -- bytes read
 
 -- | The Get monad is just a State monad carrying around the input ByteString
 newtype Get a = Get { unGet :: S -> (a, S ) }
