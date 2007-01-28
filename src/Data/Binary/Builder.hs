@@ -46,7 +46,7 @@ module Data.Binary.Builder (
     , putWord32le           -- :: Word32 -> Builder
     , putWord64le           -- :: Word64 -> Builder
 
-    -- ** Host-endian writes
+    -- ** Host-endian, unaligned writes
     , putWordhost           -- :: Word -> Builder
     , putWord16host         -- :: Word16 -> Builder
     , putWord32host         -- :: Word32 -> Builder

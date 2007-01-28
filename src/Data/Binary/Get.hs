@@ -55,7 +55,7 @@ module Data.Binary.Get (
     , getWord32le
     , getWord64le
 
-    -- ** Host-endian reads
+    -- ** Host-endian, unaligned reads
     , getWordhost
     , getWord16host
     , getWord32host
@@ -337,17 +337,17 @@ getWordhost =
 #endif
 {-# INLINE getWordhost #-}
 
--- | Read a 2 byte Word16 in native host order and host endianness.
+-- | /O(1)./ Read a 2 byte Word16 in native host order and host endianness.
 getWord16host :: Get Word16
 getWord16host = getPtr 2
 {-# INLINE getWord16host #-}
 
--- | Read a Word32 in native host order and host endianness.
+-- | /O(1)./ Read a Word32 in native host order and host endianness.
 getWord32host :: Get Word32
 getWord32host = getPtr 4
 {-# INLINE getWord32host #-}
 
--- | Read a Word64 in native host order.
+-- | /O(1)./ Read a Word64 in native host order.
 -- On a 32 bit machine two host order Word32s are read in big endian form.
 getWord64host   :: Get Word64
 getWord64host = do
