@@ -36,6 +36,12 @@ module Data.Binary.Put (
     , putWord32le
     , putWord64le
 
+    -- ** Host-endian writes
+    , putWordhost           -- :: Word   -> Put
+    , putWord16host         -- :: Word16 -> Put
+    , putWord32host         -- :: Word32 -> Put
+    , putWord64host         -- :: Word64 -> Put
+
   ) where
 
 import Data.Binary.Builder (Builder, toLazyByteString)
@@ -124,3 +130,34 @@ putWord64be         = tell . B.putWord64be
 putWord64le         :: Word64 -> Put
 putWord64le         = tell . B.putWord64le
 {-# INLINE putWord64le #-}
+
+------------------------------------------------------------------------
+
+-- | /O(1)./ Write a single native machine word. The word is
+-- written in host order, host endian form, for the machine you're on.
+-- On a 64 bit machine the Word is an 8 byte value, on a 32 bit machine,
+-- 4 bytes. Values written this way are not portable to
+-- different endian or word sized machines, without conversion.
+--
+putWordhost         :: Word -> Put
+putWordhost         = tell . B.putWordhost
+{-# INLINE putWordhost #-}
+
+-- | Write a Word16 in native host order and host endianness.
+-- For portability issues see @putWordhost@.
+putWord16host       :: Word16 -> Put
+putWord16host       = tell . B.putWord16host
+{-# INLINE putWord16host #-}
+
+-- | Write a Word32 in native host order and host endianness.
+-- For portability issues see @putWordhost@.
+putWord32host       :: Word32 -> Put
+putWord32host       = tell . B.putWord32host
+{-# INLINE putWord32host #-}
+
+-- | Write a Word64 in native host order
+-- On a 32 bit machine we write two host order Word32s, in big endian form.
+-- For portability issues see @putWordhost@.
+putWord64host       :: Word64 -> Put
+putWord64host       = tell . B.putWord64host
+{-# INLINE putWord64host #-}

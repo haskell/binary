@@ -42,12 +42,17 @@ roundTripWith put get x =
 
 prop_Word16be = roundTripWith putWord16be getWord16be
 prop_Word16le = roundTripWith putWord16le getWord16le
+prop_Word16host = roundTripWith putWord16host getWord16host
 
 prop_Word32be = roundTripWith putWord32be getWord32be
 prop_Word32le = roundTripWith putWord32le getWord32le
+prop_Word32host = roundTripWith putWord32host getWord32host
 
 prop_Word64be = roundTripWith putWord64be getWord64be
 prop_Word64le = roundTripWith putWord64le getWord64le
+prop_Word64host = roundTripWith putWord64host getWord64host
+
+prop_Wordhost = roundTripWith putWordhost getWordhost
 
 invariant_lbs :: L.ByteString -> Bool
 invariant_lbs (B.LPS []) = True
@@ -112,10 +117,14 @@ tests =
 -- Primitives
         , ("Word16be",      p prop_Word16be)
         , ("Word16le",      p prop_Word16le)
+        , ("Word16host",      p prop_Word16host)
         , ("Word32be",      p prop_Word32be)
         , ("Word32le",      p prop_Word32le)
+        , ("Word32host",      p prop_Word32host)
         , ("Word64be",      p prop_Word64be)
         , ("Word64le",      p prop_Word64le)
+        , ("Word64host",      p prop_Word64host)
+        , ("Wordhost",      p prop_Wordhost)
 
 -- higher level ones using the Binary class
         ,("()",         p (test :: T ()                     ))

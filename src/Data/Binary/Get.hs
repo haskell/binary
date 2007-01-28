@@ -33,6 +33,7 @@ module Data.Binary.Get (
     , lookAheadM
     , lookAheadE
     , uncheckedLookAhead
+
     , getBytes
     , remaining
     , isEmpty
@@ -53,6 +54,12 @@ module Data.Binary.Get (
     , getWord16le
     , getWord32le
     , getWord64le
+
+    -- ** Host-endian reads
+    , getWordhost
+    , getWord16host
+    , getWord32host
+    , getWord64host
 
   ) where
 
@@ -175,7 +182,7 @@ isEmpty = do
 ------------------------------------------------------------------------
 -- Helpers
 
--- Fail if the ByteString does not have the right size.
+-- | Fail if the ByteString does not have the right size.
 takeExactly :: Int -> L.ByteString -> Get L.ByteString
 takeExactly n bs
     | l == n    = return bs
@@ -184,18 +191,22 @@ takeExactly n bs
   where l = fromIntegral (L.length bs)
 {-# INLINE takeExactly #-}
 
--- | Pull up to @n@ bytes from the input. 
+-- | Pull @n@ bytes from the input, as a lazy ByteString. If not enough
+-- bytes are available, as much as possible will be returned. No error
+-- will be thrown.
 getBytes :: Int -> Get L.ByteString
 getBytes n = do
     S s bytes <- get
     let (consuming, rest) = L.splitAt (fromIntegral n) s
-    put $! S rest (bytes + (fromIntegral n))
+        n' = L.length consuming
+    put $! S rest (bytes + (fromIntegral n')) -- better put an accurate value here
     return consuming
 {-# INLINE getBytes #-}
 -- ^ important
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
--- yielding a value
+-- yielding a value. If less than @n@ bytes are available, fail with an
+-- error. This wraps @getBytes@.
 readN :: Int -> (L.ByteString -> a) -> Get a
 readN n f = liftM f (getBytes n >>= takeExactly n)
 {-# INLINE readN #-}
@@ -203,7 +214,8 @@ readN n f = liftM f (getBytes n >>= takeExactly n)
 
 ------------------------------------------------------------------------
 
--- | An efficient 'get' method for strict ByteStrings
+-- | An efficient 'get' method for strict ByteStrings. Fails if fewer
+-- than @n@ bytes are left in the input.
 getByteString :: Int -> Get B.ByteString
 getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
 {-# INLINE getByteString #-}
@@ -295,6 +307,58 @@ getWord64le = do
               (w2 `shiftl_w64`  8) .|.
               (w1)
 {-# INLINE getWord64le #-}
+
+------------------------------------------------------------------------
+-- Host-endian reads
+
+-- helper, get a raw Ptr onto a strict ByteString copied out of the
+-- underlying lazy byteString. So many indirections from the raw parser
+-- state that my head hurts...
+
+getPtr :: Storable a => Int -> Get a
+getPtr n = do
+    (fp,o,_) <- liftM B.toForeignPtr (getByteString n)
+    return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
+{-# INLINE getPtr #-}
+{-# SPECIALISE getPtr :: Int -> Get Word #-}
+{-# SPECIALISE getPtr :: Int -> Get Word16 #-}
+{-# SPECIALISE getPtr :: Int -> Get Word32 #-}
+{-# SPECIALISE getPtr :: Int -> Get Word64 #-}
+
+-- | /O(1)./ Read a single native machine word. The word is read in
+-- host order, host endian form, for the machine you're on. On a 64 bit
+-- machine the Word is an 8 byte value, on a 32 bit machine, 4 bytes.
+getWordhost :: Get Word
+getWordhost =
+#if WORD_SIZE_IN_BITS < 64
+    getPtr 4
+#else
+    getPtr 8
+#endif
+{-# INLINE getWordhost #-}
+
+-- | Read a 2 byte Word16 in native host order and host endianness.
+getWord16host :: Get Word16
+getWord16host = getPtr 2
+{-# INLINE getWord16host #-}
+
+-- | Read a Word32 in native host order and host endianness.
+getWord32host :: Get Word32
+getWord32host = getPtr 4
+{-# INLINE getWord32host #-}
+
+-- | Read a Word64 in native host order.
+-- On a 32 bit machine two host order Word32s are read in big endian form.
+getWord64host   :: Get Word64
+getWord64host = do
+#if WORD_SIZE_IN_BITS < 64
+    w1 <- getPtr 4 :: Get Word32
+    w2 <- getPtr 4 :: Get Word32
+    return $! (shiftl_w64 (fromIntegral w1) 32 .|. fromIntegral w2)
+#else
+    getPtr 8
+#endif
+{-# INLINE getWord64host #-}
 
 ------------------------------------------------------------------------
 -- Unchecked shifts

@@ -257,6 +257,31 @@ putWord32N16 = loop 0
           putWord32be (s+15)
           loop (s+16) (n-16)
 
+{-
+-- putWordhostN16 = loop 0
+putWord32N16 = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop _ 0 = return ()
+        loop s n = do
+          putWordhost (s+0)
+          putWordhost (s+1)
+          putWordhost (s+2)
+          putWordhost (s+3)
+          putWordhost (s+4)
+          putWordhost (s+5)
+          putWordhost (s+6)
+          putWordhost (s+7)
+          putWordhost (s+8)
+          putWordhost (s+9)
+          putWordhost (s+10)
+          putWordhost (s+11)
+          putWordhost (s+12)
+          putWordhost (s+13)
+          putWordhost (s+14)
+          putWordhost (s+15)
+          loop (s+16) (n-16)
+-}
+
 putWord64N1 = loop 0
   where loop s n | s `seq` n `seq` False = undefined
         loop _ 0 = return ()
@@ -506,6 +531,7 @@ getWord32N8 = loop 0
           s7 <- getWord32be
           loop (s+s0+s1+s2+s3+s4+s5+s6+s7) (n-8)
 
+{-
 getWord32N16 = loop 0
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
@@ -526,6 +552,30 @@ getWord32N16 = loop 0
           s13 <- getWord32be
           s14 <- getWord32be
           s15 <- getWord32be
+          loop (s+s0+s1+s2+s3+s4+s5+s6+s7+s9+s10+s11+s12+s13+s14+s15) (n-16)
+-}
+
+-- getWordhostN16 = loop 0
+getWord32N16 = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop s 0 = return s
+        loop s n = do
+          s0 <- getWordhost
+          s1 <- getWordhost
+          s2 <- getWordhost
+          s3 <- getWordhost
+          s4 <- getWordhost
+          s5 <- getWordhost
+          s6 <- getWordhost
+          s7 <- getWordhost
+          s8 <- getWordhost
+          s9 <- getWordhost
+          s10 <- getWordhost
+          s11 <- getWordhost
+          s12 <- getWordhost
+          s13 <- getWordhost
+          s14 <- getWordhost
+          s15 <- getWordhost
           loop (s+s0+s1+s2+s3+s4+s5+s6+s7+s9+s10+s11+s12+s13+s14+s15) (n-16)
 
 getWord64N1 = loop 0
