@@ -21,6 +21,13 @@ CBenchmark.o: CBenchmark.c
 hugs:
 	runhugs -98 QC.hs  
 
+
+HeapUse: HeapUse.hs
+	ghc --make -O $^ -fasm -o $@
+
+heap: HeapUse
+	./HeapUse +RTS -M10M -t/dev/stderr -RTS
+
 clean:
 	rm -f *.o *.hi qc bench bench-nb *~
 
