@@ -72,6 +72,10 @@ import qualified Data.ByteString.Lazy as L
 
 import Foreign
 
+-- used by splitAtST
+import Control.Monad.ST
+import Data.STRef
+
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base
 import GHC.Word
@@ -197,12 +201,34 @@ takeExactly n bs
 getBytes :: Int -> Get L.ByteString
 getBytes n = do
     S s bytes <- get
-    let (consuming, rest) = L.splitAt (fromIntegral n) s
-        n' = L.length consuming
-    put $! S rest (bytes + (fromIntegral n')) -- better put an accurate value here
-    return consuming
+    case splitAtST (fromIntegral n) s of
+      (consuming, rest) -> 
+          do put $! (S rest (bytes + n)) -- n should be L.length consuming, but that
+                                         -- would destory the laziness
+             return consuming
 {-# INLINE getBytes #-}
 -- ^ important
+
+-- | Split a ByteString. If the first result is consumed before the
+-- second, this runs in constant heap space.
+-- NOTE: you must force the returned tuple for that to work, e.g.
+-- > case splitAtST n xs of
+-- >   (ys,zs) -> consume ys ... consume zs
+splitAtST :: Int64 -> L.ByteString -> (L.ByteString, L.ByteString)
+splitAtST i p        | i <= 0 = (L.empty, p)
+splitAtST i (B.LPS ps) = runST (
+     do r <- newSTRef undefined
+        xs <- first r i ps
+        ys <- unsafeInterleaveST (readSTRef r)
+        return (B.LPS xs, B.LPS ys))
+  where first r 0 xs     = writeSTRef r xs >> return []
+        first r _ []     = writeSTRef r [] >> return []
+        first r n (x:xs)
+          | n < l     = do writeSTRef r (B.drop (fromIntegral n) x : xs)
+                           return [B.take (fromIntegral n) x]
+          | otherwise = do writeSTRef r (L.toChunks (L.drop (n - l) (B.LPS xs)))
+                           fmap (x:) $ unsafeInterleaveST (first r (n - l) xs)
+         where l = fromIntegral (B.length x) 
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value. If less than @n@ bytes are available, fail with an
