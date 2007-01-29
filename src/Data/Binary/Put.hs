@@ -16,6 +16,7 @@ module Data.Binary.Put (
 
     -- * The Put type
       Put
+    , PutM(..)
     , runPut
 
     -- * Flushing the implicit parse state
@@ -53,9 +54,10 @@ import qualified Data.ByteString.Lazy as L
 
 ------------------------------------------------------------------------
 
--- | The Put types. A Writer monad over the efficient Builder monoid.
--- Put merely lifts Builder into a monad
+-- | The PutM type. A Writer monad over the efficient Builder monoid.
 newtype PutM a = Put { unPut :: (a, Builder) }
+
+-- | Put merely lifts Builder into a Write monad, applied to ().
 type Put = PutM ()
 
 instance Functor PutM where

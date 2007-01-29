@@ -209,11 +209,14 @@ getBytes n = do
 {-# INLINE getBytes #-}
 -- ^ important
 
--- | Split a ByteString. If the first result is consumed before the
+-- | Split a ByteString. If the first result is consumed before the --
 -- second, this runs in constant heap space.
--- NOTE: you must force the returned tuple for that to work, e.g.
+--
+-- You must force the returned tuple for that to work, e.g.
+-- 
 -- > case splitAtST n xs of
--- >   (ys,zs) -> consume ys ... consume zs
+-- >    (ys,zs) -> consume ys ... consume zs
+--
 splitAtST :: Int64 -> L.ByteString -> (L.ByteString, L.ByteString)
 splitAtST i p        | i <= 0 = (L.empty, p)
 splitAtST i (B.LPS ps) = runST (
