@@ -351,36 +351,26 @@ putWord64le w = writeN 8 $ \p -> do
 -- different endian or word sized machines, without conversion.
 --
 putWordhost :: Word -> Builder
-#if WORD_SIZE_IN_BITS < 64
-putWordhost w = writeNbytes 4 (\p -> poke p w)
-#else
-putWordhost w = writeNbytes 8 (\p -> poke p w)
-#endif
+putWordhost w = writeNbytes (sizeOf (undefined :: Word)) (\p -> poke p w)
 {-# INLINE putWordhost #-}
 
 -- | Write a Word16 in native host order and host endianness.
 -- 2 bytes will be written, unaligned.
 putWord16host :: Word16 -> Builder
-putWord16host w16 = writeNbytes 2 (\p -> poke p w16)
+putWord16host w16 = writeNbytes (sizeOf (undefined :: Word16)) (\p -> poke p w16)
 {-# INLINE putWord16host #-}
 
 -- | Write a Word32 in native host order and host endianness.
 -- 4 bytes will be written, unaligned.
 putWord32host :: Word32 -> Builder
-putWord32host w32 = writeNbytes 4 (\p -> poke p w32)
+putWord32host w32 = writeNbytes (sizeOf (undefined :: Word32)) (\p -> poke p w32)
 {-# INLINE putWord32host #-}
 
 -- | Write a Word64 in native host order.
 -- On a 32 bit machine we write two host order Word32s, in big endian form.
 -- 8 bytes will be written, unaligned.
 putWord64host :: Word64 -> Builder
-#if WORD_SIZE_IN_BITS < 64
-putWord64host w = writeNbytes 8 $ \p -> do
-    poke p               (fromIntegral (shiftr_w64 w 32) :: Word)
-    poke (p `plusPtr` 4) (fromIntegral (w)               :: Word)
-#else
-putWord64Native w = writeNbytes 8 (\p -> poke p w)
-#endif
+putWord64host w = writeNbytes (sizeOf (undefined :: Word64)) (\p -> poke p w)
 {-# INLINE putWord64host #-}
 
 ------------------------------------------------------------------------

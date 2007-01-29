@@ -255,9 +255,21 @@ getLazyByteString n = readN (fromIntegral n) id
 ------------------------------------------------------------------------
 -- Primtives
 
+-- helper, get a raw Ptr onto a strict ByteString copied out of the
+-- underlying lazy byteString. So many indirections from the raw parser
+-- state that my head hurts...
+
+getPtr :: Storable a => Int -> Get a
+getPtr n = do
+    (fp,o,_) <- liftM B.toForeignPtr (getByteString n)
+    return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
+{-# INLINE getPtr #-}
+
+------------------------------------------------------------------------
+
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = readN 1 L.head
+getWord8 = getPtr (sizeOf (undefined :: Word8)) -- readN 1 L.head
 {-# INLINE getWord8 #-}
 
 -- | Read a Word16 in big endian format
@@ -337,53 +349,26 @@ getWord64le = do
 ------------------------------------------------------------------------
 -- Host-endian reads
 
--- helper, get a raw Ptr onto a strict ByteString copied out of the
--- underlying lazy byteString. So many indirections from the raw parser
--- state that my head hurts...
-
-getPtr :: Storable a => Int -> Get a
-getPtr n = do
-    (fp,o,_) <- liftM B.toForeignPtr (getByteString n)
-    return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
-{-# INLINE getPtr #-}
-{-# SPECIALISE getPtr :: Int -> Get Word #-}
-{-# SPECIALISE getPtr :: Int -> Get Word16 #-}
-{-# SPECIALISE getPtr :: Int -> Get Word32 #-}
-{-# SPECIALISE getPtr :: Int -> Get Word64 #-}
-
 -- | /O(1)./ Read a single native machine word. The word is read in
 -- host order, host endian form, for the machine you're on. On a 64 bit
 -- machine the Word is an 8 byte value, on a 32 bit machine, 4 bytes.
 getWordhost :: Get Word
-getWordhost =
-#if WORD_SIZE_IN_BITS < 64
-    getPtr 4
-#else
-    getPtr 8
-#endif
+getWordhost = getPtr (sizeOf (undefined :: Word))
 {-# INLINE getWordhost #-}
 
 -- | /O(1)./ Read a 2 byte Word16 in native host order and host endianness.
 getWord16host :: Get Word16
-getWord16host = getPtr 2
+getWord16host = getPtr (sizeOf (undefined :: Word16))
 {-# INLINE getWord16host #-}
 
 -- | /O(1)./ Read a Word32 in native host order and host endianness.
 getWord32host :: Get Word32
-getWord32host = getPtr 4
+getWord32host = getPtr  (sizeOf (undefined :: Word32))
 {-# INLINE getWord32host #-}
 
--- | /O(1)./ Read a Word64 in native host order.
--- On a 32 bit machine two host order Word32s are read in big endian form.
+-- | /O(1)./ Read a Word64 in native host order and host endianess.
 getWord64host   :: Get Word64
-getWord64host = do
-#if WORD_SIZE_IN_BITS < 64
-    w1 <- getPtr 4 :: Get Word32
-    w2 <- getPtr 4 :: Get Word32
-    return $! (shiftl_w64 (fromIntegral w1) 32 .|. fromIntegral w2)
-#else
-    getPtr 8
-#endif
+getWord64host = getPtr  (sizeOf (undefined :: Word64))
 {-# INLINE getWord64host #-}
 
 ------------------------------------------------------------------------
