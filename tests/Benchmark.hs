@@ -73,7 +73,10 @@ test wordSize chunkSize end mb = do
     let putThroughput = fromIntegral mb / putSeconds
         getThroughput = fromIntegral mb / getSeconds
 
-    printf "%6.1f MB/s write, %6.1f MB/s read\n" putThroughput getThroughput
+    printf "%6.1f MB/s write, %6.1f MB/s read, %5.1f get/put-ratio\n"
+           putThroughput
+           getThroughput
+           (getThroughput/putThroughput)
 
 ------------------------------------------------------------------------
 
