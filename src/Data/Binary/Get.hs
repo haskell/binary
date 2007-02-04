@@ -4,7 +4,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Get
--- Copyright   : Lennart Kolmodin
+-- Copyright   : Lennart Kolmodin, Stefan Karrmann
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
@@ -25,6 +25,7 @@ module Data.Binary.Get (
     -- * The Get type
       Get
     , runGet
+    , runGetState
 
     -- * Parsing
     , skip
@@ -128,6 +129,13 @@ mkState (B.LPS xs) =
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
 runGet m str = case unGet m (initState str) of (a, _) -> a
+
+------------------------------------------------------------------------
+-- | Run the Get monad applies a 'get'-based parser on the input
+-- ByteString. Additional to the result of get it returns the number of
+-- consumed bytes and the rest of the input.
+runGetState :: Get a -> L.ByteString -> (a,Int64,L.ByteString)
+runGetState m str = case unGet m (S str 0) of (a,S rest u) -> (a,u,rest)
 
 ------------------------------------------------------------------------
 
