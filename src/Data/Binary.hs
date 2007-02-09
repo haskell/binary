@@ -644,6 +644,17 @@ instance (Binary e) => Binary (Seq.Seq e) where
 #endif
 
 ------------------------------------------------------------------------
+-- Floating point
+
+instance Binary Double where
+    put d = case decodeFloat d of (a,b) -> put a >> put b
+    get   = liftM2 encodeFloat get get
+
+instance Binary Float where
+    put f = case decodeFloat f of (a,b) -> put a >> put b
+    get   = liftM2 encodeFloat get get
+
+------------------------------------------------------------------------
 -- Trees
 
 instance (Binary e) => Binary (T.Tree e) where
