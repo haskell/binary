@@ -145,6 +145,9 @@ tests =
         ,("Int",        p (test :: T Int                    ))
         ,("Integer",    p (test :: T Integer                ))
 
+        ,("Float",      p (test :: T Float                  ))
+        ,("Double",     p (test :: T Double                 ))
+
         ,("Char",       p (test :: T Char                   ))
 
         ,("[()]",       p (test :: T [()]                  ))
