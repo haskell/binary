@@ -63,7 +63,7 @@ module Data.Binary.Get (
 
   ) where
 
-import Control.Monad (liftM,when)
+import Control.Monad (when)
 import Data.Maybe (isNothing)
 
 import qualified Data.ByteString as B
@@ -83,11 +83,12 @@ import GHC.Int
 #endif
 
 -- | The parse state
-data S = S {-# UNPACK #-} !L.ByteString  -- the rest of the input
+data S = S {-# UNPACK #-} !B.ByteString  -- current chunk
+           L.ByteString                  -- the rest of the input
            {-# UNPACK #-} !Int64         -- bytes read
 
 -- | The Get monad is just a State monad carrying around the input ByteString
-newtype Get a = Get { unGet :: S -> (a, S ) }
+newtype Get a = Get { unGet :: S -> (a, S) }
 
 instance Functor Get where
     fmap f m = Get (\s -> let (a, s') = unGet m s
@@ -109,28 +110,44 @@ put s = Get (\_ -> ((), s))
 
 ------------------------------------------------------------------------
 
+initState :: L.ByteString -> S
+initState (B.LPS xs) =
+    case xs of
+      []     -> S B.empty L.empty 0
+      (x:xs') -> S x (B.LPS xs') 0
+{-# INLINE initState #-}
+
+mkState :: L.ByteString -> Int64 -> S
+mkState (B.LPS xs) =
+    case xs of
+        [] -> S B.empty L.empty
+        (x:xs') -> S x (B.LPS xs')
+{-# INLINE mkState #-}
+
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
-runGet m str = case unGet m (S str 0) of (a, _) -> a
+runGet m str = case unGet m (initState str) of (a, _) -> a
 
 ------------------------------------------------------------------------
 
 failDesc :: String -> Get a
 failDesc err = do
-    S _ bytes <- get
+    S _ _ bytes <- get
     Get (error (err ++ ". Failed reading at byte position " ++ show bytes))
 
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
 skip n = readN (fromIntegral n) (const ())
 
--- | Skip ahead @n@ bytes. 
+-- | Skip ahead @n@ bytes. No error if there isn't enough bytes.
 uncheckedSkip :: Int64 -> Get ()
 uncheckedSkip n = do
-    S s bytes <- get
-    let rest = L.drop n s
-    put $! S rest (bytes + n)
-    return ()
+    S s ss bytes <- get
+    if fromIntegral (B.length s) >= n
+      then put (S (B.drop (fromIntegral n) s) ss (bytes + n))
+      else do
+        let rest = L.drop (n - fromIntegral (B.length s)) ss
+        put $! mkState rest (bytes + n)
 
 -- | Run @ga@, but return without consuming its input.
 -- Fails if @ga@ fails.
@@ -165,49 +182,63 @@ lookAheadE gea = do
 -- | Get the next up to @n@ bytes as a lazy ByteString, without consuming them. 
 uncheckedLookAhead :: Int64 -> Get L.ByteString
 uncheckedLookAhead n = do
-    S s _ <- get
-    return $ L.take n s
+    S s ss _ <- get
+    if n <= fromIntegral (B.length s)
+        then return (L.fromChunks [B.take (fromIntegral n) s])
+        else return $ L.take n (s `join` ss)
 
 -- | Get the number of remaining unparsed bytes.
 -- Useful for checking whether all input has been consumed.
 -- Note that this forces the rest of the input.
 remaining :: Get Int64
 remaining = do
-    S s _ <- get
-    return (L.length s)
+    S s ss _ <- get
+    return (fromIntegral (B.length s) + L.length ss)
 
 -- | Test whether all input has been consumed,
 -- i.e. there are no remaining unparsed bytes.
 isEmpty :: Get Bool
 isEmpty = do
-    S s _ <- get
-    return (L.null s)
+    S s ss _ <- get
+    return (B.null s && L.null ss)
 
 ------------------------------------------------------------------------
 -- Helpers
 
+{-
 -- | Fail if the ByteString does not have the right size.
-takeExactly :: Int64 -> L.ByteString -> Get L.ByteString
+takeExactly :: Int -> B.ByteString -> Get B.ByteString
 takeExactly n bs
     | l == n    = return bs
     | otherwise = fail $ concat [ "Data.Binary.Get.takeExactly: Wanted "
                                 , show n, " bytes, found ", show l, "." ]
-  where l = L.length bs
+  where l = B.length bs
 {-# INLINE takeExactly #-}
+-}
 
--- | Pull @n@ bytes from the input, as a lazy ByteString. If not enough
--- bytes are available, as much as possible will be returned. No error
--- will be thrown.
-getBytes :: Int64 -> Get L.ByteString
+-- | Pull @n@ bytes from the input, as a strict ByteString.
+getBytes :: Int -> Get B.ByteString
 getBytes n = do
-    S s bytes <- get
-    case splitAtST n s of
-      (consuming, rest) -> 
-          do put $! (S rest (bytes + n)) -- n should be L.length consuming, but that
-                                         -- would destory the laziness
-             return consuming
+    S s ss bytes <- get
+    if n <= B.length s
+        then do let (consume,rest) = B.splitAt n s
+                put $! S rest ss (bytes + fromIntegral n)
+                return $! consume
+        else
+              case L.splitAt (fromIntegral n) (s `join` ss) of
+                (consuming, rest) ->
+                    do let now = B.concat . L.toChunks $ consuming
+                       put $! mkState rest (bytes + fromIntegral n)
+                       -- forces the next chunk before this one is returned
+                       when (B.length now < n) $
+                         fail "too few bytes"
+                       return now
 {-# INLINE getBytes #-}
 -- ^ important
+
+join :: B.ByteString -> L.ByteString -> L.ByteString
+join bb lb = L.fromChunks [bb] `L.append` lb
+{-# INLINE join #-}
 
 -- | Split a ByteString. If the first result is consumed before the --
 -- second, this runs in constant heap space.
@@ -232,12 +263,13 @@ splitAtST i (B.LPS ps) = runST (
           | otherwise = do writeSTRef r (L.toChunks (L.drop (n - l) (B.LPS xs)))
                            fmap (x:) $ unsafeInterleaveST (first r (n - l) xs)
          where l = fromIntegral (B.length x) 
+{-# INLINE splitAtST #-}
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value. If less than @n@ bytes are available, fail with an
 -- error. This wraps @getBytes@.
-readN :: Int64 -> (L.ByteString -> a) -> Get a
-readN n f = liftM f (getBytes n >>= takeExactly n)
+readN :: Int -> (B.ByteString -> a) -> Get a
+readN n f = fmap f $ getBytes n
 {-# INLINE readN #-}
 -- ^ important
 
@@ -246,13 +278,18 @@ readN n f = liftM f (getBytes n >>= takeExactly n)
 -- | An efficient 'get' method for strict ByteStrings. Fails if fewer
 -- than @n@ bytes are left in the input.
 getByteString :: Int -> Get B.ByteString
-getByteString n = readN (fromIntegral n) (B.concat . L.toChunks)
+getByteString n = readN n id
 {-# INLINE getByteString #-}
 
 -- | An efficient 'get' method for lazy ByteStrings. Fails if fewer than
 -- @n@ bytes are left in the input.
-getLazyByteString :: Int -> Get L.ByteString
-getLazyByteString n = readN (fromIntegral n) id
+getLazyByteString :: Int64 -> Get L.ByteString
+getLazyByteString n = do
+    S s ss bytes <- get
+    let big = s `join` ss
+        (consume, rest) = splitAtST n big
+    put $! mkState rest (bytes + n)
+    return consume
 {-# INLINE getLazyByteString #-}
 
 ------------------------------------------------------------------------
@@ -264,7 +301,7 @@ getLazyByteString n = readN (fromIntegral n) id
 
 getPtr :: Storable a => Int -> Get a
 getPtr n = do
-    (fp,o,_) <- liftM B.toForeignPtr (getByteString n)
+    (fp,o,_) <- readN n B.toForeignPtr
     return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
 {-# INLINE getPtr #-}
 
@@ -272,81 +309,71 @@ getPtr n = do
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = getPtr (sizeOf (undefined :: Word8)) -- readN 1 L.head
+getWord8 = getPtr (sizeOf (undefined :: Word8))
 {-# INLINE getWord8 #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
 getWord16be = do
-    s <- readN 2 (L.take 2)
-    return $! (fromIntegral (s `L.index` 0) `shiftl_w16` 8) .|.
-              (fromIntegral (s `L.index` 1))
+    s <- readN 2 id
+    return $! (fromIntegral (s `B.index` 0) `shiftl_w16` 8) .|.
+              (fromIntegral (s `B.index` 1))
 {-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
 getWord16le = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    return $! w2 `shiftl_w16` 8 .|. w1
+    s <- readN 2 id
+    return $! (fromIntegral (s `B.index` 1) `shiftl_w16` 8) .|.
+              (fromIntegral (s `B.index` 0) )
 {-# INLINE getWord16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
-    s <- readN 4 (L.take 4)
-    return $! (fromIntegral (s `L.index` 0) `shiftl_w32` 24) .|.
-              (fromIntegral (s `L.index` 1) `shiftl_w32` 16) .|.
-              (fromIntegral (s `L.index` 2) `shiftl_w32`  8) .|.
-              (fromIntegral (s `L.index` 3) )
+    s <- readN 4 id
+    return $! (fromIntegral (s `B.index` 0) `shiftl_w32` 24) .|.
+              (fromIntegral (s `B.index` 1) `shiftl_w32` 16) .|.
+              (fromIntegral (s `B.index` 2) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.index` 3) )
 {-# INLINE getWord32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
 getWord32le = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    w3 <- liftM fromIntegral getWord8
-    w4 <- liftM fromIntegral getWord8
-    return $! (w4 `shiftl_w32` 24) .|.
-              (w3 `shiftl_w32` 16) .|.
-              (w2 `shiftl_w32`  8) .|.
-              (w1)
+    s <- readN 4 id
+    return $! (fromIntegral (s `B.index` 3) `shiftl_w32` 24) .|.
+              (fromIntegral (s `B.index` 2) `shiftl_w32` 16) .|.
+              (fromIntegral (s `B.index` 1) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.index` 0) )
 {-# INLINE getWord32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-    s <- readN 8 (L.take 8)
-    return $! (fromIntegral (s `L.index` 0) `shiftl_w64` 56) .|.
-              (fromIntegral (s `L.index` 1) `shiftl_w64` 48) .|.
-              (fromIntegral (s `L.index` 2) `shiftl_w64` 40) .|.
-              (fromIntegral (s `L.index` 3) `shiftl_w64` 32) .|.
-              (fromIntegral (s `L.index` 4) `shiftl_w64` 24) .|.
-              (fromIntegral (s `L.index` 5) `shiftl_w64` 16) .|.
-              (fromIntegral (s `L.index` 6) `shiftl_w64`  8) .|.
-              (fromIntegral (s `L.index` 7) )
+    s <- readN 8 id
+    return $! (fromIntegral (s `B.index` 0) `shiftl_w64` 56) .|.
+              (fromIntegral (s `B.index` 1) `shiftl_w64` 48) .|.
+              (fromIntegral (s `B.index` 2) `shiftl_w64` 40) .|.
+              (fromIntegral (s `B.index` 3) `shiftl_w64` 32) .|.
+              (fromIntegral (s `B.index` 4) `shiftl_w64` 24) .|.
+              (fromIntegral (s `B.index` 5) `shiftl_w64` 16) .|.
+              (fromIntegral (s `B.index` 6) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.index` 7) )
 {-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
 getWord64le = do
-    w1 <- liftM fromIntegral getWord8
-    w2 <- liftM fromIntegral getWord8
-    w3 <- liftM fromIntegral getWord8
-    w4 <- liftM fromIntegral getWord8
-    w5 <- liftM fromIntegral getWord8
-    w6 <- liftM fromIntegral getWord8
-    w7 <- liftM fromIntegral getWord8
-    w8 <- liftM fromIntegral getWord8
-    return $! (w8 `shiftl_w64` 56) .|.
-              (w7 `shiftl_w64` 48) .|.
-              (w6 `shiftl_w64` 40) .|.
-              (w5 `shiftl_w64` 32) .|.
-              (w4 `shiftl_w64` 24) .|.
-              (w3 `shiftl_w64` 16) .|.
-              (w2 `shiftl_w64`  8) .|.
-              (w1)
+    s <- readN 8 id
+    return $! (fromIntegral (s `B.index` 7) `shiftl_w64` 56) .|.
+              (fromIntegral (s `B.index` 6) `shiftl_w64` 48) .|.
+              (fromIntegral (s `B.index` 5) `shiftl_w64` 40) .|.
+              (fromIntegral (s `B.index` 4) `shiftl_w64` 32) .|.
+              (fromIntegral (s `B.index` 3) `shiftl_w64` 24) .|.
+              (fromIntegral (s `B.index` 2) `shiftl_w64` 16) .|.
+              (fromIntegral (s `B.index` 1) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.index` 0) )
 {-# INLINE getWord64le #-}
 
 ------------------------------------------------------------------------
