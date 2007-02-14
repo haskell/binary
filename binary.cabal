@@ -4,8 +4,11 @@ license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 maintainer:      Lennart Kolmodin
-description:     Efficient, pure binary serialisation using lazy ByteStrings
-synopsis:        Binary serialization using lazy ByteStrings
+homepage:        http://www.cse.unsw.edu.au/~dons/binary.html
+description:     Efficient, pure binary serialisation using lazy ByteStrings.
+                 Haskell values may be encoded to and form binary formats, 
+                 written to disk as binary, or set over the network.
+synopsis:        Binary serialization for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 build-depends:   base
 -- ghc 6.4 also needs package fps
