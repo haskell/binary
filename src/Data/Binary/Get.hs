@@ -281,15 +281,15 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = readN n id
 {-# INLINE getByteString #-}
 
--- | An efficient 'get' method for lazy ByteStrings. Fails if fewer than
+-- | An efficient 'get' method for lazy ByteStrings. Does not fail if fewer than
 -- @n@ bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n = do
     S s ss bytes <- get
     let big = s `join` ss
-        (consume, rest) = splitAtST n big
-    put $! mkState rest (bytes + n)
-    return consume
+    case splitAtST n big of
+      (consume, rest) -> do put $ mkState rest (bytes + n)
+                            return consume
 {-# INLINE getLazyByteString #-}
 
 ------------------------------------------------------------------------
