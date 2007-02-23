@@ -130,14 +130,15 @@ mkState (B.LPS xs) =
 runGet :: Get a -> L.ByteString -> a
 runGet m str = case unGet m (initState str) of (a, _) -> a
 
-------------------------------------------------------------------------
 -- | Run the Get monad applies a 'get'-based parser on the input
 -- ByteString. Additional to the result of get it returns the number of
 -- consumed bytes and the rest of the input.
-runGetState :: Get a -> L.ByteString -> (a,Int64,L.ByteString)
-runGetState m str = case unGet m (S str 0) of (a,S rest u) -> (a,u,rest)
-
-------------------------------------------------------------------------
+runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
+runGetState m str off =
+    case unGet m (mkState str off) of
+      (a, S x xs@(B.LPS xs') newOff)
+        | B.null x -> (a, xs, newOff)
+        | otherwise -> (a, B.LPS (x:xs'), newOff)
 
 failDesc :: String -> Get a
 failDesc err = do
