@@ -44,6 +44,7 @@ module Data.Binary.Get (
     -- ** ByteStrings
     , getByteString
     , getLazyByteString
+    , getRemainingLazyByteString
 
     -- ** Big-endian reads
     , getWord16be
@@ -194,6 +195,12 @@ remaining :: Get Int64
 remaining = do
     S s ss _ <- get
     return (fromIntegral (B.length s) + L.length ss)
+
+-- | Get the remaining bytes as a lazy ByteString
+getRemainingLazyByteString :: Get L.ByteString
+getRemainingLazyByteString = do
+    S s ss _ <- get
+    return (s `join` ss)
 
 -- | Test whether all input has been consumed,
 -- i.e. there are no remaining unparsed bytes.
