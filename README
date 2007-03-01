@@ -12,9 +12,9 @@ The 'binary' package is portable to GHC and Hugs.
 
 Building:
 
-    runhaskell Setup.hs configure
-    runhaskell Setup.hs build
-    runhaskell Setup.hs install
+    runhaskell Setup.lhs configure
+    runhaskell Setup.lhs build
+    runhaskell Setup.lhs install
 
 First:
     import Data.Binary
