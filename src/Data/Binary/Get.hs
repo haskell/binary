@@ -136,9 +136,9 @@ runGet m str = case unGet m (initState str) of (a, _) -> a
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState m str off =
     case unGet m (mkState str off) of
-      (a, S x xs@(B.LPS xs') newOff)
-        | B.null x -> (a, xs, newOff)
-        | otherwise -> (a, B.LPS (x:xs'), newOff)
+      (a, S s ss newOff) -> (a, s `join` ss, newOff)
+
+------------------------------------------------------------------------
 
 failDesc :: String -> Get a
 failDesc err = do
