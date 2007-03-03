@@ -253,7 +253,10 @@ getBytes n = do
 -- ^ important
 
 join :: B.ByteString -> L.ByteString -> L.ByteString
-join bb lb = L.fromChunks [bb] `L.append` lb
+join bb (B.LPS lb)
+    | B.null bb = B.LPS lb
+    | otherwise = B.LPS (bb:lb)
+    -- don't use L.append, it's strict in it's second argument :/
 {-# INLINE join #-}
 
 -- | Split a ByteString. If the first result is consumed before the --
