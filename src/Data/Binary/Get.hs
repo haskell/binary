@@ -4,7 +4,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Get
--- Copyright   : Lennart Kolmodin, Stefan Karrmann
+-- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
