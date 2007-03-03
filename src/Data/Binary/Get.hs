@@ -35,6 +35,8 @@ module Data.Binary.Get (
     , lookAheadE
     , uncheckedLookAhead
 
+    -- * Utility
+    , bytesRead
     , getBytes
     , remaining
     , isEmpty
@@ -196,6 +198,15 @@ uncheckedLookAhead n = do
     if n <= fromIntegral (B.length s)
         then return (L.fromChunks [B.take (fromIntegral n) s])
         else return $ L.take n (s `join` ss)
+
+------------------------------------------------------------------------
+-- Utility
+
+-- | Get the total number of bytes read to this point.
+bytesRead :: Get Int64
+bytesRead = do
+    S _ _ b <- get
+    return b
 
 -- | Get the number of remaining unparsed bytes.
 -- Useful for checking whether all input has been consumed.
