@@ -216,18 +216,38 @@ remaining = do
     S s ss _ <- get
     return (fromIntegral (B.length s) + L.length ss)
 
--- | Get the remaining bytes as a lazy ByteString
-getRemainingLazyByteString :: Get L.ByteString
-getRemainingLazyByteString = do
-    S s ss _ <- get
-    return (s `join` ss)
-
 -- | Test whether all input has been consumed,
 -- i.e. there are no remaining unparsed bytes.
 isEmpty :: Get Bool
 isEmpty = do
     S s ss _ <- get
     return (B.null s && L.null ss)
+
+------------------------------------------------------------------------
+-- Utility with ByteStrings
+
+-- | An efficient 'get' method for strict ByteStrings. Fails if fewer
+-- than @n@ bytes are left in the input.
+getByteString :: Int -> Get B.ByteString
+getByteString n = readN n id
+{-# INLINE getByteString #-}
+
+-- | An efficient 'get' method for lazy ByteStrings. Does not fail if fewer than
+-- @n@ bytes are left in the input.
+getLazyByteString :: Int64 -> Get L.ByteString
+getLazyByteString n = do
+    S s ss bytes <- get
+    let big = s `join` ss
+    case splitAtST n big of
+      (consume, rest) -> do put $ mkState rest (bytes + n)
+                            return consume
+{-# INLINE getLazyByteString #-}
+
+-- | Get the remaining bytes as a lazy ByteString
+getRemainingLazyByteString :: Get L.ByteString
+getRemainingLazyByteString = do
+    S s ss _ <- get
+    return (s `join` ss)
 
 ------------------------------------------------------------------------
 -- Helpers
@@ -291,25 +311,6 @@ readN :: Int -> (B.ByteString -> a) -> Get a
 readN n f = fmap f $ getBytes n
 {-# INLINE readN #-}
 -- ^ important
-
-------------------------------------------------------------------------
-
--- | An efficient 'get' method for strict ByteStrings. Fails if fewer
--- than @n@ bytes are left in the input.
-getByteString :: Int -> Get B.ByteString
-getByteString n = readN n id
-{-# INLINE getByteString #-}
-
--- | An efficient 'get' method for lazy ByteStrings. Does not fail if fewer than
--- @n@ bytes are left in the input.
-getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n = do
-    S s ss bytes <- get
-    let big = s `join` ss
-    case splitAtST n big of
-      (consume, rest) -> do put $ mkState rest (bytes + n)
-                            return consume
-{-# INLINE getLazyByteString #-}
 
 ------------------------------------------------------------------------
 -- Primtives
