@@ -221,17 +221,6 @@ isEmpty = do
 ------------------------------------------------------------------------
 -- Helpers
 
-{-
--- | Fail if the ByteString does not have the right size.
-takeExactly :: Int -> B.ByteString -> Get B.ByteString
-takeExactly n bs
-    | l == n    = return bs
-    | otherwise = fail $ concat [ "Data.Binary.Get.takeExactly: Wanted "
-                                , show n, " bytes, found ", show l, "." ]
-  where l = B.length bs
-{-# INLINE takeExactly #-}
--}
-
 -- | Pull @n@ bytes from the input, as a strict ByteString.
 getBytes :: Int -> Get B.ByteString
 getBytes n = do
