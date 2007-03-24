@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fglasgow-exts #-}
 -- for unboxed shifts
 
