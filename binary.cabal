@@ -16,7 +16,7 @@ exposed-modules: Data.Binary,
                  Data.Binary.Put,
                  Data.Binary.Get,
                  Data.Binary.Builder
-extensions:      ForeignFunctionInterface,CPP,FlexibleInstances
+extensions:      CPP,FlexibleInstances
 hs-source-dirs:  src
 ghc-options:     -O2 -Wall -Werror -fliberate-case-threshold=1000
 extra-source-files: README 
