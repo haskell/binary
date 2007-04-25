@@ -69,6 +69,7 @@ module Data.Binary.Get (
   ) where
 
 import Control.Monad (when)
+import Control.Monad.Fix
 import Data.Maybe (isNothing)
 
 import qualified Data.ByteString as B
@@ -104,6 +105,10 @@ instance Monad Get where
     m >>= k   = Get (\s -> let (a, s') = unGet m s
                            in unGet (k a) s')
     fail      = failDesc
+
+instance MonadFix Get where
+    mfix f = Get (\s -> let (a,s') = unGet (f a) s 
+                        in (a,s'))
 
 ------------------------------------------------------------------------
 
