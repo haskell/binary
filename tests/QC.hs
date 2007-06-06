@@ -17,10 +17,12 @@ import Data.Array (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed (UArray)
 
+import qualified Control.Exception as C (catch,evaluate)
 import Control.Monad
 import Foreign
 import System.Environment
 import System.IO
+import System.IO.Unsafe
 
 import Test.QuickCheck hiding (test)
 import QuickCheckUtils
@@ -37,6 +39,13 @@ roundTrip a f = a ==
 roundTripWith put get x =
     forAll positiveList $ \xs ->
     x == runGet get (refragment xs (runPut (put x)))
+
+-- make sure that a test fails
+errorish :: B a
+errorish a = unsafePerformIO $
+    C.catch (do C.evaluate a
+                return False)
+            (\_ -> return True)
 
 -- low level ones:
 
@@ -56,7 +65,8 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 
 -- read too much:
 
-prop_bookworm x = let (a,b) = decode (encode x) in x == a && x /= b
+prop_bookworm x = errorish $
+    let (a,b) = decode (encode x) in x == a && x /= b
 
 -- sanity:
 
