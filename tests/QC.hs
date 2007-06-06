@@ -54,6 +54,12 @@ prop_Word64host = roundTripWith putWord64host getWord64host
 
 prop_Wordhost = roundTripWith putWordhost getWordhost
 
+-- read too much:
+
+prop_bookworm x = let (a,b) = decode (encode x) in x == a && x /= b
+
+-- sanity:
+
 invariant_lbs :: L.ByteString -> Bool
 invariant_lbs (B.LPS []) = True
 invariant_lbs (B.LPS xs) = all (not . B.null) xs
@@ -114,16 +120,19 @@ tests =
         [ ("refragment id",        p prop_refragment     )
         , ("refragment invariant", p prop_refragment_inv )
 
+-- boundaries
+        , ("read to much",  p (prop_bookworm :: B Word8     ))
+
 -- Primitives
         , ("Word16be",      p prop_Word16be)
         , ("Word16le",      p prop_Word16le)
-        , ("Word16host",      p prop_Word16host)
+        , ("Word16host",    p prop_Word16host)
         , ("Word32be",      p prop_Word32be)
         , ("Word32le",      p prop_Word32le)
-        , ("Word32host",      p prop_Word32host)
+        , ("Word32host",    p prop_Word32host)
         , ("Word64be",      p prop_Word64be)
         , ("Word64le",      p prop_Word64le)
-        , ("Word64host",      p prop_Word64host)
+        , ("Word64host",    p prop_Word64host)
         , ("Wordhost",      p prop_Wordhost)
 
 -- higher level ones using the Binary class
