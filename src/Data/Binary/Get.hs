@@ -272,9 +272,11 @@ getBytes n = do
                     do let now = B.concat . L.toChunks $ consuming
                        put $! mkState rest (bytes + fromIntegral n)
                        -- forces the next chunk before this one is returned
-                       () <- when (B.length now < n) $
-                               fail "too few bytes"
-                       return now
+                       if (B.length now < n)
+                         then
+                            fail "too few bytes"
+                         else
+                            return now
 {-# INLINE getBytes #-}
 -- ^ important
 
@@ -327,9 +329,7 @@ readN n f = fmap f $ getBytes n
 
 getPtr :: Storable a => Int -> Get a
 getPtr n = do
-    (fp,o,l) <- readN n B.toForeignPtr
-    () <- when (l < n) $
-            fail "too few bytes"
+    (fp,o,_) <- readN n B.toForeignPtr
     return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
 {-# INLINE getPtr #-}
 
