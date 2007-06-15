@@ -148,7 +148,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- the lazy 'L.ByteString' is demanded.
 --
 toLazyByteString :: Builder -> L.ByteString
-toLazyByteString m = S.LPS $ inlinePerformIO $ do
+toLazyByteString m = S.LPS $ unsafePerformIO $ do
     buf <- newBuffer defaultSize
     return (runBuilder (m `append` flush) (const []) buf)
 
