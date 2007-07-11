@@ -670,7 +670,11 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
         put (bounds a)
         put (rangeSize $ bounds a) -- write the length
         mapM_ put (elems a)        -- now the elems.
-    get = liftM2 listArray get get -- and we can read this a [elem] instance
+    get = do
+        bs <- get
+        n  <- get                  -- read the length
+        xs <- replicateM n get     -- now the elems.
+        return (listArray bs xs)
 
 --
 -- The IArray UArray e constraint is non portable. Requires flexible instances
@@ -680,4 +684,8 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
         put (bounds a)
         put (rangeSize $ bounds a) -- now write the length
         mapM_ put (elems a)
-    get = liftM2 listArray get get
+    get = do
+        bs <- get
+        n  <- get
+        xs <- replicateM n get
+        return (listArray bs xs)
