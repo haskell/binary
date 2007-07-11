@@ -668,9 +668,9 @@ instance (Binary e) => Binary (T.Tree e) where
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
     put a = do
         put (bounds a)
-        put (rangeSize $ bounds a)
-        mapM_ put (elems a)
-    get = liftM2 listArray get get
+        put (rangeSize $ bounds a) -- write the length
+        mapM_ put (elems a)        -- now the elems.
+    get = liftM2 listArray get get -- and we can read this a [elem] instance
 
 --
 -- The IArray UArray e constraint is non portable. Requires flexible instances
@@ -678,6 +678,6 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
     put a = do
         put (bounds a)
-        put (rangeSize $ bounds a)
+        put (rangeSize $ bounds a) -- now write the length
         mapM_ put (elems a)
     get = liftM2 listArray get get
