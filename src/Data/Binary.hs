@@ -666,12 +666,18 @@ instance (Binary e) => Binary (T.Tree e) where
 -- Arrays
 
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
-    put a = put (bounds a) >> put (elems a)
+    put a = do
+        put (bounds a)
+        put (rangeSize $ bounds a)
+        mapM_ put (elems a)
     get = liftM2 listArray get get
 
 --
 -- The IArray UArray e constraint is non portable. Requires flexible instances
 --
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
-    put a = put (bounds a) >> put (elems a)
+    put a = do
+        put (bounds a)
+        put (rangeSize $ bounds a)
+        mapM_ put (elems a)
     get = liftM2 listArray get get
