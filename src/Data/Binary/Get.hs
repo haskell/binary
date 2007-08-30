@@ -48,6 +48,7 @@ module Data.Binary.Get (
     -- ** ByteStrings
     , getByteString
     , getLazyByteString
+    , getLazyByteStringNul
     , getRemainingLazyByteString
 
     -- ** Big-endian reads
@@ -248,6 +249,21 @@ getLazyByteString n = do
       (consume, rest) -> do put $ mkState rest (bytes + n)
                             return consume
 {-# INLINE getLazyByteString #-}
+
+-- | Get a lazy ByteString that is terminated with a NUL byte. Fails
+-- if it reaches the end of input without hitting a NUL.
+getLazyByteStringNul :: Get L.ByteString
+getLazyByteStringNul = do
+    S s ss bytes <- get
+    let big = s `join` ss
+        (consume, t) = L.break (== 0) big
+        (h, rest) = L.splitAt 1 t
+    if L.null h
+      then fail "too few bytes"
+      else do
+        put $ mkState rest (bytes + L.length consume + 1)
+        return consume
+{-# INLINE getLazyByteStringNul #-}
 
 -- | Get the remaining bytes as a lazy ByteString
 getRemainingLazyByteString :: Get L.ByteString
