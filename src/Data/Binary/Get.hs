@@ -145,7 +145,7 @@ runGet m str = case unGet m (initState str) of (a, _) -> a
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState m str off =
     case unGet m (mkState str off) of
-      (a, S s ss newOff) -> (a, s `join` ss, newOff)
+      (a, ~(S s ss newOff)) -> (a, s `join` ss, newOff)
 
 ------------------------------------------------------------------------
 
