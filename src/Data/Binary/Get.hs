@@ -69,13 +69,14 @@ module Data.Binary.Get (
 
   ) where
 
-import Control.Monad (when)
+import Control.Monad (when,liftM)
 import Control.Monad.Fix
 import Data.Maybe (isNothing)
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base as B
+import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Internal as L
 
 import Foreign
 
@@ -122,18 +123,28 @@ put s = Get (\_ -> ((), s))
 ------------------------------------------------------------------------
 
 initState :: L.ByteString -> S
-initState (B.LPS xs) =
-    case xs of
-      []     -> S B.empty L.empty 0
-      (x:xs') -> S x (B.LPS xs') 0
+initState xs = mkState xs 0
 {-# INLINE initState #-}
 
+{-
+initState (B.LPS xs) =
+    case xs of
+      []      -> S B.empty L.empty 0
+      (x:xs') -> S x (B.LPS xs') 0
+-}
+
 mkState :: L.ByteString -> Int64 -> S
+mkState l = case l of
+    L.Empty      -> S B.empty L.empty
+    L.Chunk x xs -> S x xs
+{-# INLINE mkState #-}
+
+{-
 mkState (B.LPS xs) =
     case xs of
         [] -> S B.empty L.empty
         (x:xs') -> S x (B.LPS xs')
-{-# INLINE mkState #-}
+-}
 
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
@@ -297,9 +308,15 @@ getBytes n = do
 -- ^ important
 
 join :: B.ByteString -> L.ByteString -> L.ByteString
+join bb lb
+    | B.null bb = lb
+    | otherwise = L.Chunk bb lb
+
+{-
 join bb (B.LPS lb)
     | B.null bb = B.LPS lb
     | otherwise = B.LPS (bb:lb)
+-}
     -- don't use L.append, it's strict in it's second argument :/
 {-# INLINE join #-}
 
@@ -312,20 +329,24 @@ join bb (B.LPS lb)
 -- >    (ys,zs) -> consume ys ... consume zs
 --
 splitAtST :: Int64 -> L.ByteString -> (L.ByteString, L.ByteString)
-splitAtST i p        | i <= 0 = (L.empty, p)
-splitAtST i (B.LPS ps) = runST (
-     do r <- newSTRef undefined
+splitAtST i ps | i <= 0 = (L.empty, ps)
+splitAtST i ps          = runST (
+     do r  <- newSTRef undefined
         xs <- first r i ps
         ys <- unsafeInterleaveST (readSTRef r)
-        return (B.LPS xs, B.LPS ys))
-  where first r 0 xs     = writeSTRef r xs >> return []
-        first r _ []     = writeSTRef r [] >> return []
-        first r n (x:xs)
-          | n < l     = do writeSTRef r (B.drop (fromIntegral n) x : xs)
-                           return [B.take (fromIntegral n) x]
-          | otherwise = do writeSTRef r (L.toChunks (L.drop (n - l) (B.LPS xs)))
-                           fmap (x:) $ unsafeInterleaveST (first r (n - l) xs)
-         where l = fromIntegral (B.length x) 
+        return (xs, ys))
+
+  where
+        first r 0 xs@(L.Chunk _ _) = writeSTRef r xs    >> return L.Empty
+        first r _ L.Empty          = writeSTRef r L.Empty >> return L.Empty
+
+        first r n (L.Chunk x xs)
+          | n < l     = do writeSTRef r (L.Chunk (B.drop (fromIntegral n) x) xs)
+                           return $ L.Chunk (B.take (fromIntegral n) x) L.Empty
+          | otherwise = do writeSTRef r (L.drop (n - l) xs)
+                           liftM (L.Chunk x) $ unsafeInterleaveST (first r (n - l) xs)
+
+         where l = fromIntegral (B.length x)
 {-# INLINE splitAtST #-}
 
 -- Pull n bytes from the input, and apply a parser to those bytes,

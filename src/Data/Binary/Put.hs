@@ -49,7 +49,7 @@ import Data.Binary.Builder (Builder, toLazyByteString)
 import qualified Data.Binary.Builder as B
 
 import Data.Word
-import qualified Data.ByteString.Base as S
+import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 
 ------------------------------------------------------------------------

@@ -58,10 +58,11 @@ module Data.Binary.Builder (
 import Foreign
 import Data.Monoid
 import Data.Word
-import Data.ByteString.Base (inlinePerformIO)
+import Data.ByteString.Internal (inlinePerformIO)
 import qualified Data.ByteString      as S
-import qualified Data.ByteString.Base as S
+import qualified Data.ByteString.Internal as S
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Internal as L
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base
@@ -131,7 +132,7 @@ fromByteString bs
 --  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
 --
 fromLazyByteString :: L.ByteString -> Builder
-fromLazyByteString (S.LPS bss) = flush `append` mapBuilder (bss ++)
+fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
 
 ------------------------------------------------------------------------
 
@@ -148,7 +149,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- the lazy 'L.ByteString' is demanded.
 --
 toLazyByteString :: Builder -> L.ByteString
-toLazyByteString m = S.LPS $ unsafePerformIO $ do
+toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
     buf <- newBuffer defaultSize
     return (runBuilder (m `append` flush) (const []) buf)
 
