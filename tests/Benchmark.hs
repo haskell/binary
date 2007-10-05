@@ -10,6 +10,7 @@ import Control.Exception
 import System.CPUTime
 import Numeric
 import Text.Printf
+import System.Environment
 
 import MemBench
 
@@ -19,12 +20,10 @@ data Endian
     | Host
     deriving (Eq,Ord,Show)
 
-mb :: Int
-mb = 10
-
 main :: IO ()
 main = do
-  memBench (mb*10)
+  mb <- getArgs >>= readIO . head
+  memBench (mb*10) 
   putStrLn ""
   putStrLn "Binary (de)serialisation benchmarks:"
 

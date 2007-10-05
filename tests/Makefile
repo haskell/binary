@@ -9,11 +9,11 @@ compiled:
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
 	ghc --make -O Benchmark.hs -fasm CBenchmark.o -o bench -no-recomp
-	time ./bench
+	time ./bench 50
 
 bench-nb::
 	ghc --make -O NewBenchmark.hs -fasm -o bench-nb
-	time ./bench-nb
+	time ./bench-nb 
 
 CBenchmark.o: CBenchmark.c
 	gcc -O -c $< -o $@

@@ -6,8 +6,10 @@ import Data.Binary.Put
 import Data.Binary.Get
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base as B
+import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Internal as L
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.IntMap as IntMap
@@ -71,8 +73,8 @@ prop_bookworm x = errorish $
 -- sanity:
 
 invariant_lbs :: L.ByteString -> Bool
-invariant_lbs (B.LPS []) = True
-invariant_lbs (B.LPS xs) = all (not . B.null) xs
+invariant_lbs (L.Empty)      = True
+invariant_lbs (L.Chunk x xs) = not (B.null x) && invariant_lbs xs
 
 prop_invariant :: (Binary a) => a -> Bool
 prop_invariant = invariant_lbs . encode

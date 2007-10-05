@@ -11,7 +11,8 @@ import Test.QuickCheck
 import Text.Show.Functions
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base as B
+import qualified Data.ByteString.Unsafe as B
+import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -35,7 +36,7 @@ import Text.Printf
 
 import qualified Data.ByteString      as P
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Base as L (LazyByteString(..))
+import qualified Data.ByteString.Lazy.Internal as L
 
 -- import qualified Data.Sequence as Seq
 
@@ -210,17 +211,21 @@ instance Arbitrary Char where
     arbitrary = choose (maxBound, minBound)
     coarbitrary = undefined
 
+{-
 instance Arbitrary a => Arbitrary (Maybe a) where
     arbitrary = oneof [ return Nothing, liftM Just arbitrary]
     coarbitrary = undefined
+    -}
 
 instance Arbitrary Ordering where
     arbitrary = oneof [ return LT,return  GT,return  EQ ]
     coarbitrary = undefined
 
+{-
 instance (Arbitrary a, Arbitrary b) => Arbitrary (Either a b) where
     arbitrary = oneof [ liftM Left arbitrary, liftM Right arbitrary]
     coarbitrary = undefined
+    -}
 
 instance Arbitrary IntSet.IntSet where
     arbitrary = fmap IntSet.fromList arbitrary
@@ -245,7 +250,7 @@ instance (Arbitrary a) => Arbitrary (Seq.Seq a) where
 -}
 
 instance Arbitrary L.ByteString where
-    arbitrary     = arbitrary >>= return . B.LPS . filter (not. B.null) -- maintain the invariant.
+    arbitrary     = arbitrary >>= return . L.fromChunks . filter (not. B.null) -- maintain the invariant.
     coarbitrary s = coarbitrary (L.unpack s)
 
 instance Arbitrary B.ByteString where
