@@ -360,6 +360,7 @@ type SmallInt = Int32
 
 instance Binary Integer where
 
+    {-# INLINE put #-}
     put n | n >= lo && n <= hi = do
         putWord8 0
         put (fromIntegral n :: SmallInt)  -- fast path
@@ -374,6 +375,7 @@ instance Binary Integer where
      where
         sign = fromIntegral (signum n) :: Word8
 
+    {-# INLINE get #-}
     get = do
         tag <- get :: Get Word8
         case tag of
