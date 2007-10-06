@@ -5,6 +5,8 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
+import Parallel
+
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
@@ -67,8 +69,9 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 
 -- read too much:
 
-prop_bookworm x = errorish $
-    let (a,b) = decode (encode x) in x == a && x /= b
+prop_bookworm x = errorish $ x == a && x /= b
+  where
+    (a,b) = decode (encode x)
 
 -- sanity:
 
@@ -105,21 +108,25 @@ prop_refragment_inv lps xs = invariant_lbs $ refragment xs lps
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
-    run tests
+    s <- getArgs
+    let x = if null s then 100 else read (head s)
+    pRun 2 x tests
 
+{-
 run :: [(String, Int -> IO ())] -> IO ()
 run tests = do
     x <- getArgs
     let n = if null x then 100 else read . head $ x
     mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
+-}
 
 ------------------------------------------------------------------------
 
 type T a = a -> Property
 type B a = a -> Bool
 
-p       :: Testable a => a -> Int -> IO ()
-p       = mytest
+p       :: Testable a => a -> Int -> IO String
+p       = pNon
 
 test    :: (Eq a, Binary a) => a -> Property
 test a  = forAll positiveList (roundTrip a . refragment)
@@ -127,6 +134,7 @@ test a  = forAll positiveList (roundTrip a . refragment)
 positiveList :: Gen [Int]
 positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
+-- tests :: [(String, Int -> IO String)]
 tests =
 -- utils
         [ ("refragment id",        p prop_refragment     )
