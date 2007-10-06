@@ -19,5 +19,5 @@ exposed-modules: Data.Binary,
                  Data.Binary.Builder
 extensions:      CPP,FlexibleContexts
 hs-source-dirs:  src
-ghc-options:     -O2 -Wall -Werror -fliberate-case-threshold=1000
+ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 extra-source-files: README 
