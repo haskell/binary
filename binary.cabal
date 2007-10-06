@@ -7,7 +7,10 @@ maintainer:      Lennart Kolmodin, Don Stewart <dons@galois.com>
 homepage:        http://www.cse.unsw.edu.au/~dons/binary.html
 description:     Efficient, pure binary serialisation using lazy ByteStrings.
                  Haskell values may be encoded to and form binary formats, 
-                 written to disk as binary, or set over the network.
+                 written to disk as binary, or sent over the network.
+                 Serialisation speeds of over 1 G\/sec have been observed,
+                 so this library should be suitable for high performance
+                 scenarios.
 synopsis:        Binary serialization for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 build-depends:   base, containers, array, bytestring>=0.9
