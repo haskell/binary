@@ -15,6 +15,7 @@ synopsis:        Binary serialization for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 build-depends:   base, containers, array, bytestring>=0.9
 stability:       provisional
+tested-with:     GHC ==6.6.8
 -- ghc 6.4 also needs package fps
 exposed-modules: Data.Binary,
                  Data.Binary.Put,
