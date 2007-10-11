@@ -480,7 +480,7 @@ shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
 #if WORD_SIZE_IN_BITS < 64
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
 
-foreign import ccall unsafe "stg_uncheckedShiftL64"     
+foreign import ccall unsafe "hs_uncheckedShiftL64"     
     uncheckedShiftL64#     :: Word64# -> Int# -> Word64#
 #else
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL#` i)
