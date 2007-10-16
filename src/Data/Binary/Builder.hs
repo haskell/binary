@@ -58,11 +58,17 @@ module Data.Binary.Builder (
 import Foreign
 import Data.Monoid
 import Data.Word
-import Data.ByteString.Internal (inlinePerformIO)
 import qualified Data.ByteString      as S
-import qualified Data.ByteString.Internal as S
 import qualified Data.ByteString.Lazy as L
+
+#ifdef BYTESTRING_IN_BASE
+import Data.ByteString.Base (inlinePerformIO)
+import qualified Data.ByteString.Base as S
+#else
+import Data.ByteString.Internal (inlinePerformIO)
+import qualified Data.ByteString.Internal as S
 import qualified Data.ByteString.Lazy.Internal as L
+#endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base
