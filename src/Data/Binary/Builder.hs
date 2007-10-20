@@ -74,7 +74,7 @@ import qualified Data.ByteString.Lazy.Internal as L
 import GHC.Base
 import GHC.Word (Word32(..),Word16(..),Word64(..))
 
-#if WORD_SIZE_IN_BITS < 64
+#if WORD_SIZE_IN_BITS < 64 && __GLASGOW_HASKELL__ >= 608
 import GHC.Word (uncheckedShiftRL64#)
 #endif
 #endif
@@ -399,8 +399,12 @@ shiftr_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftRL#`   i)
 #if WORD_SIZE_IN_BITS < 64
 shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
 
--- foreign import ccall unsafe "hs_uncheckedShiftRL64"     
---     uncheckedShiftRL64#     :: Word64# -> Int# -> Word64#
+#if __GLASGOW_HASKELL__ <= 606
+-- Exported by GHC.Word in GHC 6.8 and higher
+foreign import ccall unsafe "stg_uncheckedShiftRL64"
+    uncheckedShiftRL64#     :: Word64# -> Int# -> Word64#
+#endif
+
 #else
 shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
 #endif
