@@ -88,6 +88,7 @@ import Data.Array.Unboxed
 --
 #if __GLASGOW_HASKELL__ >= 606
 import qualified Data.Sequence as Seq
+import qualified Data.Foldable as Fold
 #endif
 
 ------------------------------------------------------------------------
@@ -638,10 +639,7 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 
 instance (Binary e) => Binary (Seq.Seq e) where
     -- any better way to do this?
-    put s = put . flip unfoldr s $ \sq ->
-        case Seq.viewl sq of
-            Seq.EmptyL -> Nothing
-            (Seq.:<) e sq' -> Just (e,sq')
+    put = put . Fold.toList
     get = fmap Seq.fromList get
 
 #endif
