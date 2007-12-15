@@ -69,7 +69,7 @@ module Data.Binary.Get (
 
   ) where
 
-import Control.Monad (when,liftM)
+import Control.Monad (when,liftM,ap)
 import Control.Monad.Fix
 import Data.Maybe (isNothing)
 
@@ -81,6 +81,10 @@ import qualified Data.ByteString.Base as B
 #else
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Lazy.Internal as L
+#endif
+
+#ifdef APPLICATIVE_IN_BASE
+import Control.Applicative (Applicative(..))
 #endif
 
 import Foreign
@@ -106,6 +110,12 @@ newtype Get a = Get { unGet :: S -> (a, S) }
 instance Functor Get where
     fmap f m = Get (\s -> let (a, s') = unGet m s
                           in (f a, s'))
+
+#ifdef APPLICATIVE_IN_BASE
+instance Applicative Get where
+    pure  = return
+    (<*>) = ap
+#endif
 
 instance Monad Get where
     return a  = Get (\s -> (a, s))

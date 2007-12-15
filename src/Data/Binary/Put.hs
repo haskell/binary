@@ -52,6 +52,11 @@ import Data.Word
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 
+#ifdef APPLICATIVE_IN_BASE
+import Control.Applicative
+#endif
+
+
 ------------------------------------------------------------------------
 
 -- | The PutM type. A Writer monad over the efficient Builder monoid.
@@ -63,6 +68,14 @@ type Put = PutM ()
 instance Functor PutM where
         fmap f m = Put (let (a, w) = unPut m
                          in (f a, w))
+
+#ifdef APPLICATIVE_IN_BASE
+instance Applicative PutM where
+        pure = return
+        m <*> k  = Put (let (f, w)  = unPut m
+                            (x, w') = unPut k
+                        in (f x, w `B.append` w'))
+#endif
 
 instance Monad PutM where
         return a = Put (a, B.empty)

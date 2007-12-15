@@ -21,6 +21,7 @@ extra-source-files: README index.html
 
 flag bytestring-in-base
 flag split-base
+flag applicative-in-base
 
 library
   if flag(bytestring-in-base)
@@ -35,6 +36,12 @@ library
     build-depends:   base >= 3.0, containers, array
   else
     build-depends:   base < 3.0
+
+  if flag(applicative-in-base)
+    build-depends: base >= 2.0
+    ghc-options: -DAPPLICATIVE_IN_BASE
+  else
+    build-depends: base < 2.0
 
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
