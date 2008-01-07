@@ -105,9 +105,10 @@ import qualified Data.Foldable as Fold
 --
 -- Instances of Binary should satisfy the following property:
 --
--- > get . put == id
+-- > decode . encode == id
 --
--- A range of instances are provided for basic Haskell types. 
+-- That is, the 'get' and 'put' methods should be the inverse of each
+-- other. A range of instances are provided for basic Haskell types. 
 --
 class Binary t where
     -- | Encode a value in the Put monad.
