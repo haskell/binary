@@ -4,7 +4,7 @@ interpreted:
 	runhaskell QC.hs 1000
 
 compiled:
-	ghc --make -O QC.hs -o qc -no-recomp -threaded
+	ghc --make -fhpc -O QC.hs -o qc -no-recomp -threaded
 	time ./qc 500 +RTS -qw -N2
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
