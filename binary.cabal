@@ -51,4 +51,4 @@ library
   hs-source-dirs:  src
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
   if impl(ghc < 6.5)
-    cpp-options:   -fallow-undecidable-instances
+    ghc-options:   -fallow-undecidable-instances
