@@ -99,7 +99,9 @@ newtype Builder = Builder {
 
 instance Monoid Builder where
     mempty  = empty
+    {-# INLINE mempty #-}
     mappend = append
+    {-# INLINE mappend #-}
 
 ------------------------------------------------------------------------
 
@@ -138,6 +140,7 @@ fromByteString :: S.ByteString -> Builder
 fromByteString bs
   | S.null bs = empty
   | otherwise = flush `append` mapBuilder (bs :)
+{-# INLINE fromByteString #-}
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
 --
@@ -145,6 +148,7 @@ fromByteString bs
 --
 fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
+{-# INLINE fromLazyByteString #-}
 
 ------------------------------------------------------------------------
 
@@ -235,7 +239,7 @@ newBuffer size = do
 -- storable values into the memory.
 writeNbytes :: Storable a => Int -> (Ptr a -> IO ()) -> Builder
 writeNbytes n f = ensureFree n `append` unsafeLiftIO (writeNBufferBytes n f)
-{-# INLINE [1] writeNbytes #-}
+{-# INLINE writeNbytes #-}
 
 writeNBufferBytes :: Storable a => Int -> (Ptr a -> IO ()) -> Buffer -> IO Buffer
 writeNBufferBytes n f (Buffer fp o u l) = do
