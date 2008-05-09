@@ -45,6 +45,7 @@ module Data.Binary.Put (
 
   ) where
 
+import Data.Monoid
 import Data.Binary.Builder (Builder, toLazyByteString)
 import qualified Data.Binary.Builder as B
 
@@ -59,46 +60,58 @@ import Control.Applicative
 
 ------------------------------------------------------------------------
 
--- | The PutM type. A Writer monad over the efficient Builder monoid.
-newtype PutM a = Put { unPut :: (a, Builder) }
+-- XXX Strict in buffer only. 
+data PairS a = PairS a {-# UNPACK #-}!Builder
 
--- | Put merely lifts Builder into a Write monad, applied to ().
+sndS :: PairS a -> Builder
+sndS (PairS _ b) = b
+
+-- | The PutM type. A Writer monad over the efficient Builder monoid.
+newtype PutM a = Put { unPut :: PairS a }
+
+-- | Put merely lifts Builder into a Writer monad, applied to ().
 type Put = PutM ()
 
 instance Functor PutM where
-        fmap f m = Put (let (a, w) = unPut m in (f a, w))
+        fmap f m = Put $ let PairS a w = unPut m in PairS (f a) w
         {-# INLINE fmap #-}
 
 #ifdef APPLICATIVE_IN_BASE
 instance Applicative PutM where
-        pure = return
-        m <*> k  = Put (let (f, w)  = unPut m
-                            (x, w') = unPut k
-                        in (f x, w `B.append` w'))
+        pure    = return
+        m <*> k = Put $
+            let PairS f w  = unPut m
+                PairS x w' = unPut k
+            in PairS (f x) (w `mappend` w')
 #endif
 
+-- Standard Writer monad, with aggressive inlining
 instance Monad PutM where
-        return a = Put (a, B.empty)
-        {-# INLINE return #-}
+    return a = Put $ PairS a mempty
+    {-# INLINE return #-}
 
-        m >>= k  = Put (let (a, w)  = unPut m
-                            (b, w') = unPut (k a)
-                         in (b, w `B.append` w'))
-        {-# INLINE (>>=) #-}
+    m >>= k  = Put $
+        let PairS a w  = unPut m
+            PairS b w' = unPut (k a)
+        in PairS b (w `mappend` w')
+    {-# INLINE (>>=) #-}
 
-        m1 >> m2 = Put (let (_, w)  = unPut m1
-                            (b, w') = unPut m2
-                         in (b, w `B.append` w'))
-        {-# INlINE (>>) #-}
+    m >> k  = Put $
+        let PairS _ w  = unPut m
+            PairS b w' = unPut k
+        in PairS b (w `mappend` w')
+    {-# INLINE (>>) #-}
 
 tell :: Builder -> Put
-tell b = Put ((), b)
+tell b = Put $ PairS () b
 {-# INLINE tell #-}
 
 -- | Run the 'Put' monad with a serialiser
-runPut              :: Put -> L.ByteString
-runPut              = toLazyByteString . snd . unPut
+runPut :: Put -> L.ByteString
+runPut = toLazyByteString . sndS . unPut
 {-# INLINE runPut #-}
+
+------------------------------------------------------------------------
 
 -- | Pop the ByteString we have constructed so far, if any, yielding a
 -- new chunk in the result ByteString.
