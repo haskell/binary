@@ -66,8 +66,8 @@ newtype PutM a = Put { unPut :: (a, Builder) }
 type Put = PutM ()
 
 instance Functor PutM where
-        fmap f m = Put (let (a, w) = unPut m
-                         in (f a, w))
+        fmap f m = Put (let (a, w) = unPut m in (f a, w))
+        {-# INLINE fmap #-}
 
 #ifdef APPLICATIVE_IN_BASE
 instance Applicative PutM where
@@ -79,10 +79,12 @@ instance Applicative PutM where
 
 instance Monad PutM where
         return a = Put (a, B.empty)
+        {-# INLINE return #-}
 
         m >>= k  = Put (let (a, w)  = unPut m
                             (b, w') = unPut (k a)
                          in (b, w `B.append` w'))
+        {-# INLINE (>>=) #-}
 
         m1 >> m2 = Put (let (_, w)  = unPut m1
                             (b, w') = unPut m2
@@ -91,7 +93,7 @@ instance Monad PutM where
 
 tell :: Builder -> Put
 tell b = Put ((), b)
-{-# INlINE tell #-}
+{-# INLINE tell #-}
 
 -- | Run the 'Put' monad with a serialiser
 runPut              :: Put -> L.ByteString
@@ -102,6 +104,7 @@ runPut              = toLazyByteString . snd . unPut
 -- new chunk in the result ByteString.
 flush               :: Put
 flush               = tell B.flush
+{-# INLINE flush #-}
 
 -- | Efficiently write a byte into the output buffer
 putWord8            :: Word8 -> Put
@@ -112,19 +115,23 @@ putWord8            = tell . B.singleton
 -- It flushes the current buffer, and writes the argument into a new chunk.
 putByteString       :: S.ByteString -> Put
 putByteString       = tell . B.fromByteString
+{-# INLINE putByteString #-}
 
 -- | Write a lazy ByteString efficiently, simply appending the lazy
 -- ByteString chunks to the output buffer
 putLazyByteString   :: L.ByteString -> Put
 putLazyByteString   = tell . B.fromLazyByteString
+{-# INLINE putLazyByteString #-}
 
 -- | Write a Word16 in big endian format
 putWord16be         :: Word16 -> Put
 putWord16be         = tell . B.putWord16be
+{-# INLINE putWord16be #-}
 
 -- | Write a Word16 in little endian format
 putWord16le         :: Word16 -> Put
 putWord16le         = tell . B.putWord16le
+{-# INLINE putWord16le #-}
 
 -- | Write a Word32 in big endian format
 putWord32be         :: Word32 -> Put
