@@ -109,6 +109,7 @@ instance Monoid Builder where
 --
 empty :: Builder
 empty = Builder id
+{-# INLINE empty #-}
 
 -- | /O(1)./ A Builder taking a single byte, satisfying
 --
@@ -127,6 +128,7 @@ singleton = writeN 1 . flip poke
 --
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
+{-# INLINE append #-}
 
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
@@ -212,7 +214,7 @@ ensureFree n = n `seq` withSize $ \ l ->
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
 writeN n f = ensureFree n `append` unsafeLiftIO (writeNBuffer n f)
-{-# INLINE [1] writeN #-}
+{-# INLINE writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
 writeNBuffer n f (Buffer fp o u l) = do
@@ -224,6 +226,7 @@ newBuffer :: Int -> IO Buffer
 newBuffer size = do
     fp <- S.mallocByteString size
     return $! Buffer fp 0 0 size
+{-# INLINE newBuffer #-}
 
 ------------------------------------------------------------------------
 -- Aligned, host order writes of storable values
@@ -388,8 +391,11 @@ putWord64host w = writeNbytes (sizeOf (undefined :: Word64)) (\p -> poke p w)
 ------------------------------------------------------------------------
 -- Unchecked shifts
 
+{-# INLINE shiftr_w16 #-}
 shiftr_w16 :: Word16 -> Int -> Word16
+{-# INLINE shiftr_w32 #-}
 shiftr_w32 :: Word32 -> Int -> Word32
+{-# INLINE shiftr_w64 #-}
 shiftr_w64 :: Word64 -> Int -> Word64
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
