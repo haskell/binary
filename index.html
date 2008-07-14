@@ -25,6 +25,18 @@
     writing of structures in binary format.
     </p>
 
+    <p>
+    Chris Eidoff writes on his use of Data.Binary implementing a
+    full-text search engine:
+    </p>
+    <pre>
+   "The communication with Sphinx is done using a quite low-level binary
+    protocol, but Data.Binary saved the day: it made it very easy for us
+    to parse all the binary things. Especially the use of the Get and
+    Put monads are a big improvement over the manual reading and keeping
+    track of positions, as is done in the PHP/Python clients."
+    </pre>
+
     <h3>Example</h3>
     For example, to serialise an interpreter's abstract syntax tree to
     binary format:
@@ -142,7 +154,7 @@
 
 
   <div id="footer">
-Mon Apr 21 16:12:09 PDT 2008
+Mon Jul 14 11:37:21 PDT 2008
   </div>
 
 </body>
