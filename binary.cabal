@@ -58,5 +58,5 @@ library
                    -fdicts-cheap
                    -fno-method-sharing
 
-  if impl(ghc < 6.5)
-    ghc-options:   -fallow-undecidable-instances
+--  if impl(ghc < 6.5)
+--    ghc-options:   -fallow-undecidable-instances
