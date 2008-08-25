@@ -251,7 +251,7 @@ decode = runGet get
 encodeFile :: Binary a => FilePath -> a -> IO ()
 encodeFile f v = L.writeFile f (encode v)
 
--- | Lazily reconstruct a value previously written to a file
+-- | Lazily reconstruct a value previously written to a file.
 --
 -- This is just a convenience function, it's defined simply as:
 --
@@ -261,8 +261,20 @@ encodeFile f v = L.writeFile f (encode v)
 --
 -- > return . decode . decompress =<< B.readFile f
 --
+-- After contructing the data from the input file, 'decodeFile' checks
+-- if the file is empty, and in doing so will force the associated file
+-- handle closed, if it is indeed empty. If the file is not empty, 
+-- it is up to the decoding instance to consume the rest of the data,
+-- or otherwise finalise the resource.
+--
 decodeFile :: Binary a => FilePath -> IO a
-decodeFile f = liftM decode (L.readFile f)
+decodeFile f = do
+    s <- L.readFile f
+    return $ runGet (do v <- get
+                        m <- isEmpty
+                        m `seq` return v) s
+
+-- needs bytestring 0.9.1.x to work 
 
 ------------------------------------------------------------------------
 -- Lazy put and get

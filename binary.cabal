@@ -1,5 +1,5 @@
 name:            binary
-version:         0.4.2
+version:         0.4.3
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
@@ -30,7 +30,7 @@ library
     cpp-options: -DBYTESTRING_IN_BASE
   else
     -- in base 1.0 and 3.0 bytestring is a separate package
-    build-depends: base < 2.0 || >= 3, bytestring >= 0.9
+    build-depends: base < 2.0 || >= 3, bytestring >= 0.9.1.0
 
   if flag(split-base)
     build-depends:   base >= 3.0, containers, array
