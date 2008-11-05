@@ -627,20 +627,20 @@ instance Binary ByteString where
 -- Maps and Sets
 
 instance (Ord a, Binary a) => Binary (Set.Set a) where
-    put = put . Set.toAscList
-    get = liftM Set.fromDistinctAscList get
+    put s = put (Set.size s) >> mapM_ put (Set.toAscList s)
+    get   = liftM Set.fromDistinctAscList get
 
 instance (Ord k, Binary k, Binary e) => Binary (Map.Map k e) where
-    put = put . Map.toAscList
-    get = liftM Map.fromDistinctAscList get
+    put m = put (Map.size m) >> mapM_ put (Map.toAscList m)
+    get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
-    put = put . IntSet.toAscList
-    get = liftM IntSet.fromDistinctAscList get
+    put s = put (IntSet.size s) >> mapM_ put (IntSet.toAscList s)
+    get   = liftM IntSet.fromDistinctAscList get
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
-    put = put . IntMap.toAscList
-    get = liftM IntMap.fromDistinctAscList get
+    put m = put (IntMap.size m) >> mapM_ put (IntMap.toAscList m)
+    get   = liftM IntMap.fromDistinctAscList get
 
 ------------------------------------------------------------------------
 -- Queues and Sequences
