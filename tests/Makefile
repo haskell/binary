@@ -5,15 +5,15 @@ interpreted:
 
 compiled:
 	ghc --make -fhpc -O QC.hs -o qc -no-recomp -threaded
-	time ./qc 500 +RTS -qw -N2
+	./qc 500 +RTS -qw -N2
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
 	ghc --make -O2 -fliberate-case-threshold=1000 Benchmark.hs -fasm CBenchmark.o -o bench -no-recomp
-	time ./bench 100
+	./bench 100
 
 bench-nb::
 	ghc --make -O2 -fliberate-case-threshold=1000 NewBenchmark.hs -fasm -o bench-nb
-	time ./bench-nb 
+	./bench-nb 
 
 CBenchmark.o: CBenchmark.c
 	gcc -O -c $< -o $@

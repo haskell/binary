@@ -1,5 +1,5 @@
 name:            binary
-version:         0.4.3.1
+version:         0.4.4
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
@@ -16,7 +16,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.2
-tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0
+tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0, GHC ==6.10.1
 extra-source-files: README index.html
 
 flag bytestring-in-base
@@ -48,15 +48,18 @@ library
                    Data.Binary.Put,
                    Data.Binary.Get,
                    Data.Binary.Builder
+
   extensions:      CPP,
                    FlexibleContexts
 
   ghc-options:     -O2
                    -Wall
                    -fspec-constr
-                   -fliberate-case-threshold=1000
+                   -funbox-strict-fields 
                    -fdicts-cheap
                    -fno-method-sharing
+                   -fliberate-case-threshold=1000
+                   -fmax-simplifier-iterations10
 
 --  if impl(ghc < 6.5)
 --    ghc-options:   -fallow-undecidable-instances

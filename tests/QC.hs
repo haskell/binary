@@ -21,7 +21,7 @@ import Data.Array (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed (UArray)
 
-import qualified Control.Exception as C (catch,evaluate)
+import qualified Control.OldException as C (catch,evaluate)
 import Control.Monad
 import Foreign
 import System.Environment

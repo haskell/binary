@@ -105,11 +105,12 @@ data S = S {-# UNPACK #-} !B.ByteString  -- current chunk
            {-# UNPACK #-} !Int64         -- bytes read
 
 -- | The Get monad is just a State monad carrying around the input ByteString
+-- We treat it as a strict state monad. 
 newtype Get a = Get { unGet :: S -> (a, S) }
 
 instance Functor Get where
-    fmap f m = Get (\s -> let (a, s') = unGet m s
-                          in (f a, s'))
+    fmap f m = Get (\s -> case unGet m s of
+                             (a, s') -> (f a, s'))
     {-# INLINE fmap #-}
 
 #ifdef APPLICATIVE_IN_BASE
@@ -118,6 +119,7 @@ instance Applicative Get where
     (<*>) = ap
 #endif
 
+-- Definition directly from Control.Monad.State.Strict
 instance Monad Get where
     return a  = Get (\s -> (a, s))
     {-# INLINE return #-}
@@ -129,7 +131,7 @@ instance Monad Get where
     fail      = failDesc
 
 instance MonadFix Get where
-    mfix f = Get (\s -> let (a,s') = unGet (f a) s 
+    mfix f = Get (\s -> let (a,s') = unGet (f a) s
                         in (a,s'))
 
 ------------------------------------------------------------------------
@@ -141,10 +143,15 @@ put :: S -> Get ()
 put s = Get (\_ -> ((), s))
 
 ------------------------------------------------------------------------
+--
+-- dons, GHC 6.10: explicit inlining disabled, was killing performance.
+-- Without it, GHC seems to do just fine. And we get similar
+-- performance with 6.8.2 anyway.
+--
 
 initState :: L.ByteString -> S
 initState xs = mkState xs 0
-{-# INLINE initState #-}
+{- INLINE initState -}
 
 {-
 initState (B.LPS xs) =
@@ -158,7 +165,7 @@ mkState :: L.ByteString -> Int64 -> S
 mkState l = case l of
     L.Empty      -> S B.empty L.empty
     L.Chunk x xs -> S x xs
-{-# INLINE mkState #-}
+{- INLINE mkState -}
 
 #else
 mkState :: L.ByteString -> Int64 -> S
@@ -326,7 +333,7 @@ getBytes n = do
                             fail "too few bytes"
                          else
                             return now
-{-# INLINE getBytes #-}
+{- INLINE getBytes -}
 -- ^ important
 
 #ifndef BYTESTRING_IN_BASE
@@ -342,7 +349,7 @@ join bb (B.LPS lb)
     | otherwise = B.LPS (bb:lb)
 #endif
     -- don't use L.append, it's strict in it's second argument :/
-{-# INLINE join #-}
+{- INLINE join -}
 
 -- | Split a ByteString. If the first result is consumed before the --
 -- second, this runs in constant heap space.
@@ -389,14 +396,14 @@ splitAtST i (B.LPS ps)  = runST (
 
          where l = fromIntegral (B.length x)
 #endif
-{-# INLINE splitAtST #-}
+{- INLINE splitAtST -}
 
 -- Pull n bytes from the input, and apply a parser to those bytes,
 -- yielding a value. If less than @n@ bytes are available, fail with an
 -- error. This wraps @getBytes@.
 readN :: Int -> (B.ByteString -> a) -> Get a
 readN n f = fmap f $ getBytes n
-{-# INLINE readN #-}
+{- INLINE readN -}
 -- ^ important
 
 ------------------------------------------------------------------------
@@ -410,14 +417,14 @@ getPtr :: Storable a => Int -> Get a
 getPtr n = do
     (fp,o,_) <- readN n B.toForeignPtr
     return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
-{-# INLINE getPtr #-}
+{- INLINE getPtr -}
 
 ------------------------------------------------------------------------
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
 getWord8 = getPtr (sizeOf (undefined :: Word8))
-{-# INLINE getWord8 #-}
+{- INLINE getWord8 -}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
@@ -425,7 +432,7 @@ getWord16be = do
     s <- readN 2 id
     return $! (fromIntegral (s `B.index` 0) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.index` 1))
-{-# INLINE getWord16be #-}
+{- INLINE getWord16be -}
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
@@ -433,7 +440,7 @@ getWord16le = do
     s <- readN 2 id
     return $! (fromIntegral (s `B.index` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.index` 0) )
-{-# INLINE getWord16le #-}
+{- INLINE getWord16le -}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
@@ -443,7 +450,7 @@ getWord32be = do
               (fromIntegral (s `B.index` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.index` 2) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.index` 3) )
-{-# INLINE getWord32be #-}
+{- INLINE getWord32be -}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
@@ -453,7 +460,7 @@ getWord32le = do
               (fromIntegral (s `B.index` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.index` 1) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.index` 0) )
-{-# INLINE getWord32le #-}
+{- INLINE getWord32le -}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
@@ -467,7 +474,7 @@ getWord64be = do
               (fromIntegral (s `B.index` 5) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.index` 6) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.index` 7) )
-{-# INLINE getWord64be #-}
+{- INLINE getWord64be -}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
@@ -481,7 +488,7 @@ getWord64le = do
               (fromIntegral (s `B.index` 2) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.index` 1) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.index` 0) )
-{-# INLINE getWord64le #-}
+{- INLINE getWord64le -}
 
 ------------------------------------------------------------------------
 -- Host-endian reads
@@ -491,22 +498,22 @@ getWord64le = do
 -- machine the Word is an 8 byte value, on a 32 bit machine, 4 bytes.
 getWordhost :: Get Word
 getWordhost = getPtr (sizeOf (undefined :: Word))
-{-# INLINE getWordhost #-}
+{- INLINE getWordhost -}
 
 -- | /O(1)./ Read a 2 byte Word16 in native host order and host endianness.
 getWord16host :: Get Word16
 getWord16host = getPtr (sizeOf (undefined :: Word16))
-{-# INLINE getWord16host #-}
+{- INLINE getWord16host -}
 
 -- | /O(1)./ Read a Word32 in native host order and host endianness.
 getWord32host :: Get Word32
 getWord32host = getPtr  (sizeOf (undefined :: Word32))
-{-# INLINE getWord32host #-}
+{- INLINE getWord32host -}
 
 -- | /O(1)./ Read a Word64 in native host order and host endianess.
 getWord64host   :: Get Word64
 getWord64host = getPtr  (sizeOf (undefined :: Word64))
-{-# INLINE getWord64host #-}
+{- INLINE getWord64host -}
 
 ------------------------------------------------------------------------
 -- Unchecked shifts
