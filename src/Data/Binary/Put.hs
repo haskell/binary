@@ -18,6 +18,7 @@ module Data.Binary.Put (
       Put
     , PutM(..)
     , runPut
+    , runPutM
 
     -- * Flushing the implicit parse state
     , flush
@@ -110,6 +111,11 @@ tell b = Put $ PairS () b
 runPut :: Put -> L.ByteString
 runPut = toLazyByteString . sndS . unPut
 {-# INLINE runPut #-}
+
+-- | Run the 'Put' monad with a serialiser and get its result
+runPutM :: PutM a -> (a, L.ByteString)
+runPutM (Put (PairS f s)) = (f, toLazyByteString s)
+{-# INLINE runPutM #-}
 
 ------------------------------------------------------------------------
 
