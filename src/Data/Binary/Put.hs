@@ -19,6 +19,8 @@ module Data.Binary.Put (
     , PutM(..)
     , runPut
     , runPutM
+    , putBuilder
+    , execPut
 
     -- * Flushing the implicit parse state
     , flush
@@ -106,6 +108,15 @@ instance Monad PutM where
 tell :: Builder -> Put
 tell b = Put $ PairS () b
 {-# INLINE tell #-}
+
+putBuilder :: Builder -> Put
+putBuilder = tell
+{-# INLINE putBuilder #-}
+
+-- | Run the 'Put' monad
+execPut :: PutM a -> Builder
+execPut = sndS . unPut
+{-# INLINE execPut #-}
 
 -- | Run the 'Put' monad with a serialiser
 runPut :: Put -> L.ByteString
