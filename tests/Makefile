@@ -8,7 +8,7 @@ compiled:
 	./qc 500 +RTS -qw -N2
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
-	ghc --make -O2 -fliberate-case-threshold=1000 Benchmark.hs -fasm CBenchmark.o -o bench -no-recomp
+	ghc --make -O2 Benchmark.hs -fasm CBenchmark.o -o bench -no-recomp
 	./bench 100
 
 bench-nb::

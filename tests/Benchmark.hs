@@ -31,15 +31,15 @@ main = do
   sequence_
     [ test wordSize chunkSize Host mb
     | wordSize  <- [1]
-    , chunkSize <- [1,2,4,8,16]
+    , chunkSize <- [16] --1,2,4,8,16]
     ]
 
   -- now Word16 .. Word64
   sequence_
     [ test wordSize chunkSize end mb
     | wordSize  <- [2,4,8]
-    , chunkSize <- [1,2,4,8,16]
-    , end       <- [Host,Big,Little]
+    , chunkSize <- [16]
+    , end       <- [Host] -- ,Big,Little]
     ]
 
 ------------------------------------------------------------------------
