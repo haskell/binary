@@ -585,7 +585,15 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 instance Binary a => Binary [a] where
     put l  = put (length l) >> mapM_ put l
     get    = do n <- get :: Get Int
-                replicateM n get
+                getMany n
+
+getMany :: Binary a => Int -> Get [a]
+getMany n = go [] n
+ where
+    go xs 0 = return $! reverse xs
+    go xs i = do x <- get
+                 go (x:xs) (i-1)
+{-# INLINE getMany #-}
 
 instance (Binary a) => Binary (Maybe a) where
     put Nothing  = putWord8 0
@@ -690,7 +698,7 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
     get = do
         bs <- get
         n  <- get                  -- read the length
-        xs <- replicateM n get     -- now the elems.
+        xs <- getMany n            -- now the elems.
         return (listArray bs xs)
 
 --
@@ -704,5 +712,5 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
     get = do
         bs <- get
         n  <- get
-        xs <- replicateM n get
+        xs <- getMany n
         return (listArray bs xs)
