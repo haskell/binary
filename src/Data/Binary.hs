@@ -593,7 +593,9 @@ getMany n = go [] n
  where
     go xs 0 = return $! reverse xs
     go xs i = do x <- get
-                 go (x:xs) (i-1)
+                 -- we must seq x to avoid stack overflows due to laziness in
+                 -- (>>=)
+                 x `seq` go (x:xs) (i-1)
 {-# INLINE getMany #-}
 
 instance (Binary a) => Binary (Maybe a) where
