@@ -587,6 +587,7 @@ instance Binary a => Binary [a] where
     get    = do n <- get :: Get Int
                 getMany n
 
+-- | 'getMany n' get 'n' elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]
 getMany n = go [] n
  where
