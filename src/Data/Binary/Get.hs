@@ -106,11 +106,11 @@ data S = S {-# UNPACK #-} !B.ByteString  -- current chunk
 
 -- | The Get monad is just a State monad carrying around the input ByteString
 -- We treat it as a strict state monad. 
-newtype Get a = Get { unGet :: S -> (a, S) }
+newtype Get a = Get { unGet :: S -> (# a, S #) }
 
 instance Functor Get where
     fmap f m = Get (\s -> case unGet m s of
-                             (a, s') -> (f a, s'))
+                             (# a, s' #) -> (# f a, s' #))
     {-# INLINE fmap #-}
 
 #ifdef APPLICATIVE_IN_BASE
@@ -121,26 +121,27 @@ instance Applicative Get where
 
 -- Definition directly from Control.Monad.State.Strict
 instance Monad Get where
-    return a  = Get (\s -> (a, s))
+    return a  = Get $ \s -> (# a, s #)
     {-# INLINE return #-}
 
-    m >>= k   = Get (\s -> let (a, s') = unGet m s
-                           in unGet (k a) s')
+    m >>= k   = Get $ \s -> case unGet m s of
+                             (# a, s' #) -> unGet (k a) s'
     {-# INLINE (>>=) #-}
 
     fail      = failDesc
 
 instance MonadFix Get where
-    mfix f = Get (\s -> let (a,s') = unGet (f a) s
-                        in (a,s'))
+    mfix f = Get $ \s -> let (a,s') = case unGet (f a) s of
+                                              (# a', s'' #) -> (a',s'')
+                        in (# a,s' #)
 
 ------------------------------------------------------------------------
 
 get :: Get S
-get   = Get (\s -> (s, s))
+get   = Get $ \s -> (# s, s #)
 
 put :: S -> Get ()
-put s = Get (\_ -> ((), s))
+put s = Get $ \_ -> (# (), s #)
 
 ------------------------------------------------------------------------
 --
@@ -177,7 +178,7 @@ mkState (B.LPS xs) =
 
 -- | Run the Get monad applies a 'get'-based parser on the input ByteString
 runGet :: Get a -> L.ByteString -> a
-runGet m str = case unGet m (initState str) of (a, _) -> a
+runGet m str = case unGet m (initState str) of (# a, _ #) -> a
 
 -- | Run the Get monad applies a 'get'-based parser on the input
 -- ByteString. Additional to the result of get it returns the number of
@@ -185,7 +186,7 @@ runGet m str = case unGet m (initState str) of (a, _) -> a
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState m str off =
     case unGet m (mkState str off) of
-      (a, ~(S s ss newOff)) -> (a, s `join` ss, newOff)
+      (# a, ~(S s ss newOff) #) -> (a, s `join` ss, newOff)
 
 ------------------------------------------------------------------------
 
