@@ -1,4 +1,4 @@
-{-# OPTIONS -fbang-patterns #-}
+{-# LANGUAGE BangPatterns #-}
 module Main (main) where
 
 import qualified Data.ByteString.Lazy as L

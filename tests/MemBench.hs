@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fffi -fbang-patterns #-}
+{-# LANGUAGE ForeignFunctionInterface, BangPatterns #-}
 module MemBench (memBench) where
 
 import Foreign
