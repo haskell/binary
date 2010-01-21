@@ -6,7 +6,7 @@ module QuickCheckUtils where
 
 import Control.Monad
 
-import Test.QuickCheck.Batch
+--import Test.QuickCheck.Batch
 import Test.QuickCheck
 import Text.Show.Functions
 
