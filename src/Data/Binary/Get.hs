@@ -49,6 +49,7 @@ module Data.Binary.Get (
 import Foreign
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
@@ -60,7 +61,7 @@ import GHC.Int
 
 -- data S = S {-# UNPACK #-} !B.ByteString deriving Show
 newtype S = S B.ByteString deriving Show
-data Result a = HereItIs a | NeedMore Int (B.ByteString -> Result a)
+data Result a = NeedMore (B.ByteString -> Result a) | HereItIs S a
 
 -- unrolled codensity/state monad
 newtype Get a = C { runCont :: forall r. (S -> a -> Result (r, S) ) -> S -> Result (r, S) }
@@ -75,11 +76,11 @@ instance Functor Get where
 
 instance Functor Result where
   fmap f (HereItIs a) = HereItIs (f a)
-  fmap f (NeedMore n c) = NeedMore n (\bs -> fmap f (c bs))
+  fmap f (NeedMore c) = NeedMore (\bs -> fmap f (c bs))
 
 instance (Show a) => Show (Result a) where
   show (HereItIs a) = "HereItIs: " ++ show a
-  show (NeedMore n _) = "NeedMore " ++ show n ++ "(BS -> Result)"
+  show (NeedMore _) = "NeedMore _"
 
 runGetPush :: Get a -> Result (a,S)
 runGetPush g = runCont g (\s a -> HereItIs (a,s)) (S B.empty)
@@ -90,13 +91,13 @@ runGet g bs = feed (runGetPush g) chunks
   chunks = L.toChunks bs
   -- feed :: Result (a,S) -> [B.ByteString] -> a
   feed (HereItIs (r,_)) _ = r
-  feed r@(NeedMore _ c) (x:xs) = feed (c x) xs 
+  feed r@(NeedMore c) (x:xs) = feed (c x) xs 
   feed _ [] = error "ran out of bits, bummer"
  
 -- | Need more data, at least @n@ bytes.
-needMore :: Int -> Get ()
-needMore n = C $ \k (S s) -> 
-  NeedMore n (\s' -> k (S (B.append s s')) ())
+needMore :: Get ()
+needMore = C $ \k (S s) -> 
+  NeedMore (\s' -> k (S (B.append s s')) ())
 
 modify :: (B.ByteString -> B.ByteString) -> Get ()
 modify f = C $ \k (S s) -> k (S (f s)) ()
@@ -118,8 +119,8 @@ getBytes n = do
   (S s) <- getS
   let length = B.length s
   if (length >= n)
-    then set (S (B.drop n s)) >> return s
-    else needMore (length - n) >> getBytes n
+    then set (S (B.unsafeDrop n s)) >> return s
+    else needMore >> getBytes n
 
 ------------------------------------------------------------------------
 -- ByteStrings
@@ -138,7 +139,7 @@ getLazyByteString n0 =
         if fromIntegral left >= n
           then fmap (:[]) (getByteString (fromIntegral n))
           else do now <- getByteString left
-                  needMore 1
+                  needMore
                   remaining <- loop (n - fromIntegral left)
                   return (now:remaining)
   in fmap L.fromChunks (loop n0)
