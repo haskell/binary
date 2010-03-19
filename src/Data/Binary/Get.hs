@@ -61,10 +61,12 @@ import GHC.Int
 
 -- data S = S {-# UNPACK #-} !B.ByteString deriving Show
 newtype S = S B.ByteString deriving Show
-data Result a = NeedMore (B.ByteString -> Result a) | HereItIs S a
+data Result a = Fail S String
+              | NeedMore (B.ByteString -> Result a)
+              | HereItIs S a
 
 -- unrolled codensity/state monad
-newtype Get a = C { runCont :: forall r. (S -> a -> Result (r, S) ) -> S -> Result (r, S) }
+newtype Get a = C { runCont :: forall r. (S -> a -> Result r) -> S -> Result r }
 
 instance Monad Get where
   return a = C $ \k !s -> k s a
@@ -75,22 +77,24 @@ instance Functor Get where
   fmap f c = c >>= \x -> return (f x)
 
 instance Functor Result where
-  fmap f (HereItIs a) = HereItIs (f a)
+  fmap f (HereItIs s a) = HereItIs s (f a)
   fmap f (NeedMore c) = NeedMore (\bs -> fmap f (c bs))
+  fmap f (Fail s msg) = Fail s msg
 
 instance (Show a) => Show (Result a) where
-  show (HereItIs a) = "HereItIs: " ++ show a
+  show (Fail _ msg) = "Fail: " ++ msg
   show (NeedMore _) = "NeedMore _"
+  show (HereItIs _ a) = "HereItIs: " ++ show a
 
-runGetPush :: Get a -> Result (a,S)
-runGetPush g = runCont g (\s a -> HereItIs (a,s)) (S B.empty)
+runGetPush :: Get a -> Result a
+runGetPush g = runCont g (\s a -> HereItIs s a) (S B.empty)
 
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feed (runGetPush g) chunks
   where
   chunks = L.toChunks bs
   -- feed :: Result (a,S) -> [B.ByteString] -> a
-  feed (HereItIs (r,_)) _ = r
+  feed (HereItIs _ r) _ = r
   feed r@(NeedMore c) (x:xs) = feed (c x) xs 
   feed _ [] = error "ran out of bits, bummer"
  
