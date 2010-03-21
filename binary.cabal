@@ -16,7 +16,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.2
-tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0, GHC ==6.10.1
+tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0, GHC ==6.10.1, GHC ==6.12.1
 extra-source-files: README index.html
 
 flag bytestring-in-base
