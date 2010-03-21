@@ -8,14 +8,15 @@ module Data.Binary.Get (
 
     -- * The Get type
       Get
+    , Result(..)
     , runGet
+    , runGetPush
 
     -- * Parsing
     -- , skip
 
     -- * Utility
     -- , bytesRead
-    , getBytes
     -- , remaining
     -- , isEmpty
 
@@ -52,6 +53,8 @@ import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 
+import Control.Applicative
+
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
 import GHC.Base
@@ -59,82 +62,92 @@ import GHC.Word
 import GHC.Int
 #endif
 
--- data S = S {-# UNPACK #-} !B.ByteString deriving Show
 newtype S = S B.ByteString deriving Show
+
 data Result a = Fail S String
-              | NeedMore (B.ByteString -> Result a)
-              | HereItIs S a
+              | Partial (Maybe B.ByteString -> Result a)
+              | Done S a
 
 -- unrolled codensity/state monad
-newtype Get a = C { runCont :: forall r. (S -> a -> Result r) -> S -> Result r }
+newtype Get a = C { runCont :: forall r. S -> (S -> a -> Result r) -> Result r }
 
 instance Monad Get where
-  return a = C $ \k !s -> k s a
+  return = returnG
+  (>>=) = bindG
 
-  (C c) >>= f = C $ \k !s -> c (\s' a -> runCont (f a) k $! s') s
+returnG :: a -> Get a
+returnG a = C $ \s k -> k s a
+{-# INLINE returnG #-}
+
+bindG :: Get a -> (a -> Get b) -> Get b
+bindG (C c) f = C $ \s k -> c s (\s' a -> runCont (f a) s' k)
+{-# INLINE bindG #-}
+
+apG :: Get (a -> b) -> Get a -> Get b
+apG d e = do
+  b <- d
+  a <- e
+  return (b a)
+{-# INLINE apG #-}
+
+fmapG :: (a -> b) -> Get a -> Get b
+fmapG f m = C $ \s0 k -> runCont m s0 (\s a -> k s (f a))
+{-# INLINE fmapG #-}
+
+instance Applicative Get where
+  pure = returnG
+  (<*>) = apG
 
 instance Functor Get where
-  fmap f c = c >>= \x -> return (f x)
+  fmap = fmapG
 
 instance Functor Result where
-  fmap f (HereItIs s a) = HereItIs s (f a)
-  fmap f (NeedMore c) = NeedMore (\bs -> fmap f (c bs))
+  fmap f (Done s a) = Done s (f a)
+  fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
   fmap f (Fail s msg) = Fail s msg
 
 instance (Show a) => Show (Result a) where
   show (Fail _ msg) = "Fail: " ++ msg
-  show (NeedMore _) = "NeedMore _"
-  show (HereItIs _ a) = "HereItIs: " ++ show a
+  show (Partial _) = "Partial _"
+  show (Done _ a) = "Done: " ++ show a
 
 runGetPush :: Get a -> Result a
-runGetPush g = runCont g (\s a -> HereItIs s a) (S B.empty)
+runGetPush g = runCont g (S B.empty) (\s a -> Done s a)
 
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feed (runGetPush g) chunks
   where
   chunks = L.toChunks bs
-  -- feed :: Result (a,S) -> [B.ByteString] -> a
-  feed (HereItIs _ r) _ = r
-  feed r@(NeedMore c) (x:xs) = feed (c x) xs 
-  feed _ [] = error "ran out of bits, bummer"
+  feed (Done _ r) _ = r
+  feed r@(Partial c) (x:xs) = feed (c (Just x)) xs 
+  feed r@(Partial c) [] = feed (c Nothing) []
+  feed (Fail _ msg) _ = error msg
  
 -- | Need more data, at least @n@ bytes.
 needMore :: Get ()
-needMore = C $ \k (S s) -> 
-  NeedMore (\s' -> k (S (B.append s s')) ())
+needMore = C $ \st0@(S s) k -> 
+  Partial $ \sm -> 
+    case sm of
+      Nothing -> Fail st0 "not enough bytes"
+      Just s' -> k (S (B.append s s')) ()
 
-modify :: (B.ByteString -> B.ByteString) -> Get ()
-modify f = C $ \k (S s) -> k (S (f s)) ()
+getS :: Get B.ByteString
+getS = C $ \st0@(S s) k -> k st0 s
+{-# INLINE getS #-}
 
-getS :: Get S
-getS = C $ \k s -> k s s
-
-set :: S -> Get ()
-set s = C $ \k _ -> k s ()
-
--- Pull n bytes from the input, and apply a parser to those bytes,
--- yielding a value. If less than @n@ bytes are available, it will escape
--- with @NeedMore@. This wraps @getBytes@.
-readN :: Int -> (B.ByteString -> a) -> Get a
-readN n f = fmap f (getBytes n)
-
-getBytes :: Int -> Get B.ByteString
-getBytes n = do
-  (S s) <- getS
-  let length = B.length s
-  if (length >= n)
-    then set (S (B.unsafeDrop n s)) >> return s
-    else needMore >> getBytes n
+setS :: B.ByteString -> Get ()
+setS s = C $ \_ k -> k (S s) ()
+{-# INLINE setS #-}
 
 ------------------------------------------------------------------------
 -- ByteStrings
 --
 
 getByteString :: Int -> Get B.ByteString
-getByteString n = fmap (B.take n) (getBytes n)
+getByteString n = B.take n <$> readN n
 
 remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \k (S s) -> k (S s) (B.length s)
+remainingInCurrentChunk = C $ \(S s) k -> k (S s) (B.length s)
 
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
@@ -148,6 +161,14 @@ getLazyByteString n0 =
                   return (now:remaining)
   in fmap L.fromChunks (loop n0)
 
+-- | Return at least @n@ bytes, maybe more. If not enough data is available
+-- it will escape with @Partial@.
+readN :: Int -> Get B.ByteString
+readN n = C $ \ st0@(S s) k -> do
+  if B.length s >= n
+    then k (S (B.unsafeDrop n s)) s
+    else runCont (needMore >> readN n) (S s) k
+
 ------------------------------------------------------------------------
 -- Primtives
 
@@ -157,32 +178,33 @@ getLazyByteString n0 =
 
 getPtr :: Storable a => Int -> Get a
 getPtr n = do
-    (fp,o,_) <- readN n B.toForeignPtr
+    (fp,o,_) <- fmap B.toForeignPtr (readN n)
     return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
-
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = getPtr (sizeOf (undefined :: Word8))
+getWord8 = do
+  s <- readN 1
+  return $! B.unsafeHead s
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
 getWord16be = do
-    s <- readN 2 id
+    s <- readN 2
     return $! (fromIntegral (s `B.index` 0) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.index` 1))
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
 getWord16le = do
-    s <- readN 2 id
+    s <- readN 2
     return $! (fromIntegral (s `B.index` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.index` 0) )
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
-    s <- readN 4 id
+    s <- readN 4
     return $! (fromIntegral (s `B.index` 0) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.index` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.index` 2) `shiftl_w32`  8) .|.
@@ -191,7 +213,7 @@ getWord32be = do
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
 getWord32le = do
-    s <- readN 4 id
+    s <- readN 4
     return $! (fromIntegral (s `B.index` 3) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.index` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.index` 1) `shiftl_w32`  8) .|.
@@ -200,7 +222,7 @@ getWord32le = do
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-    s <- readN 8 id
+    s <- readN 8
     return $! (fromIntegral (s `B.index` 0) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.index` 1) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.index` 2) `shiftl_w64` 40) .|.
@@ -213,7 +235,7 @@ getWord64be = do
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
 getWord64le = do
-    s <- readN 8 id
+    s <- readN 8
     return $! (fromIntegral (s `B.index` 7) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.index` 6) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.index` 5) `shiftl_w64` 40) .|.
