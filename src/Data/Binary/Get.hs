@@ -77,22 +77,18 @@ instance Monad Get where
 
 returnG :: a -> Get a
 returnG a = C $ \s k -> k s a
-{-# INLINE returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f = C $ \s k -> c s (\s' a -> runCont (f a) s' k)
-{-# INLINE bindG #-}
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
   b <- d
   a <- e
   return (b a)
-{-# INLINE apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
 fmapG f m = C $ \s0 k -> runCont m s0 (\s a -> k s (f a))
-{-# INLINE fmapG #-}
 
 instance Applicative Get where
   pure = returnG
@@ -133,11 +129,9 @@ needMore = C $ \st0@(S s) k ->
 
 getS :: Get B.ByteString
 getS = C $ \st0@(S s) k -> k st0 s
-{-# INLINE getS #-}
 
 setS :: B.ByteString -> Get ()
 setS s = C $ \_ k -> k (S s) ()
-{-# INLINE setS #-}
 
 ------------------------------------------------------------------------
 -- ByteStrings
