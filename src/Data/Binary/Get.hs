@@ -13,6 +13,8 @@ module Data.Binary.Get (
     , runGetPush
 
     -- * Parsing
+    , try
+    , plus
     -- , skip
 
     -- * Utility
@@ -62,33 +64,67 @@ import GHC.Word
 import GHC.Int
 #endif
 
-newtype S = S B.ByteString deriving Show
+data S = S { input      :: !B.ByteString
+           , next_input :: !B.ByteString
+           , read_all   :: !Bool
+           } deriving Show
 
-data Result a = Fail S String
+-- Kolmodin 20100427: at zurihack we discussed of having partial take a
+-- "Maybe ByteString" and implemented it in this way.
+-- The reasoning was that you could accidently provide an empty bytestring,
+-- and it should not terminate the parsing (empty would mean eof).
+-- However, I'd say that it's also a risk that you get stuck in a loop,
+-- where you keep providing an empty string. Anyway, no new input should be
+-- rare, as the RTS should only wake you up if you actually have some data
+-- to read from your fd.
+
+data Result a = Fail S [String] String
               | Partial (Maybe B.ByteString -> Result a)
               | Done S a
 
 -- unrolled codensity/state monad
-newtype Get a = C { runCont :: forall r. S -> (S -> a -> Result r) -> Result r }
+newtype Get a = C { runCont :: forall r.
+                               S -> 
+                               Failure   r ->
+                               Success a r ->
+                               Result    r }
+
+type Failure   r = S -> [String] -> String -> Result r
+type Success a r = S -> a -> Result r
 
 instance Monad Get where
   return = returnG
   (>>=) = bindG
+  fail = failG
 
 returnG :: a -> Get a
-returnG a = C $ \s k -> k s a
+returnG a = C $ \s kf ks -> ks s a
+{-# INLINE returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
-bindG (C c) f = C $ \s k -> c s (\s' a -> runCont (f a) s' k)
+bindG (C c) f = C $ \s kf ks -> c s kf (\s' a -> runCont (f a) s' kf ks)
+{-# INLINE bindG #-}
+
+failG :: String -> Get a
+failG str = C $ \st0 kf _ks -> kf st0 [] ("failed reading:" ++ str)
+
+plus :: Get a -> Get a -> Get a
+plus a b = C $ \st0 kf ks ->
+  let kf' st2 _ _ = runCont b (addS st0 st2) kf ks
+      !st1 = noNext st0
+  in runCont a st1 kf' ks
+{-# INLINE plus #-}  
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
   b <- d
   a <- e
   return (b a)
+{-# INLINE apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
-fmapG f m = C $ \s0 k -> runCont m s0 (\s a -> k s (f a))
+fmapG f m = C $ \s0 kf ks -> runCont m s0 kf (\s a -> ks s (f a))
+{-# INLINE fmapG #-}
 
 instance Applicative Get where
   pure = returnG
@@ -100,15 +136,33 @@ instance Functor Get where
 instance Functor Result where
   fmap f (Done s a) = Done s (f a)
   fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
-  fmap f (Fail s msg) = Fail s msg
+  fmap f (Fail s stack msg) = Fail s stack msg
 
 instance (Show a) => Show (Result a) where
-  show (Fail _ msg) = "Fail: " ++ msg
+  show (Fail _ _ msg) = "Fail: " ++ msg
   show (Partial _) = "Partial _"
   show (Done _ a) = "Done: " ++ show a
 
+initState = S B.empty B.empty False
+
 runGetPush :: Get a -> Result a
-runGetPush g = runCont g (S B.empty) (\s a -> Done s a)
+runGetPush g = runCont g initState (\s stack str -> Fail s stack str) (\s a -> Done s a)
+
+addS :: S -> S -> S
+addS (S inp0 next0 eof0) (S _inp1 next1 eof1) = S (inp0 +++ next1) (next0 +++ next1) (eof0 || eof1)
+{-# INLINE addS #-}
+
+noNext :: S -> S
+noNext (S inp _next0 eof) = S inp B.empty eof
+{-# INLINE noNext #-}
+
+(+++) :: B.ByteString -> B.ByteString -> B.ByteString
+(+++) = B.append
+{-# INLINE (+++) #-}
+
+try :: Get a -> Get a
+try g = C $ \st0 kf ks ->
+  runCont g (noNext st0) (kf . addS st0) ks
 
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feed (runGetPush g) chunks
@@ -117,21 +171,27 @@ runGet g bs = feed (runGetPush g) chunks
   feed (Done _ r) _ = r
   feed r@(Partial c) (x:xs) = feed (c (Just x)) xs 
   feed r@(Partial c) [] = feed (c Nothing) []
-  feed (Fail _ msg) _ = error msg
+  feed (Fail _ _ msg) _ = error msg
  
--- | Need more data, at least @n@ bytes.
+-- | Need more data.
 needMore :: Get ()
-needMore = C $ \st0@(S s) k -> 
-  Partial $ \sm -> 
-    case sm of
-      Nothing -> Fail st0 "not enough bytes"
-      Just s' -> k (S (B.append s s')) ()
+needMore = C $ \st0@(S inp next eof) kf ks -> 
+  if eof then kf st0 [] "not enough bytes"
+    else
+      let loop = 
+            Partial $ \sm -> 
+              case sm of
+                Nothing -> kf (S inp next True) [] "not enough bytes"
+                Just s -> if B.null s
+                            then loop -- attention: don't get stuck forever!
+                            else ks (S (B.append inp s) (B.append next s) eof) ()
+      in loop
 
 getS :: Get B.ByteString
-getS = C $ \st0@(S s) k -> k st0 s
+getS = C $ \st@(S inp next eof) kf ks -> ks st inp
 
-setS :: B.ByteString -> Get ()
-setS s = C $ \_ k -> k (S s) ()
+putS :: B.ByteString -> Get ()
+putS inp = C $ \(S _inp next eof) kf ks -> ks (S inp next eof) ()
 
 ------------------------------------------------------------------------
 -- ByteStrings
@@ -141,7 +201,7 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = B.take n <$> readN n
 
 remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \(S s) k -> k (S s) (B.length s)
+remainingInCurrentChunk = C $ \st@(S inp _ _) kf ks -> ks st (B.length inp)
 
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
@@ -158,10 +218,10 @@ getLazyByteString n0 =
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
 -- it will escape with @Partial@.
 readN :: Int -> Get B.ByteString
-readN n = C $ \ st0@(S s) k -> do
-  if B.length s >= n
-    then k (S (B.unsafeDrop n s)) s
-    else runCont (needMore >> readN n) (S s) k
+readN n = C $ \ st0@(S inp next eof) kf ks -> do
+  if B.length inp >= n
+    then ks (S (B.unsafeDrop n inp) next eof) inp
+    else runCont (needMore >> readN n) st0 kf ks
 
 ------------------------------------------------------------------------
 -- Primtives
@@ -187,6 +247,7 @@ getWord16be = do
     s <- readN 2
     return $! (fromIntegral (s `B.index` 0) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.index` 1))
+
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
