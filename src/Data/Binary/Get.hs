@@ -370,16 +370,17 @@ splitAtST i ps          = runST (
         return (xs, ys))
 
   where
-        first r 0 xs@(L.Chunk _ _) = writeSTRef r xs    >> return L.Empty
-        first r _ L.Empty          = writeSTRef r L.Empty >> return L.Empty
+    first :: STRef s L.ByteString -> Int64 -> L.ByteString -> ST s L.ByteString
+    first r 0 xs@(L.Chunk _ _) = writeSTRef r xs    >> return L.Empty
+    first r _ L.Empty          = writeSTRef r L.Empty >> return L.Empty
 
-        first r n (L.Chunk x xs)
-          | n < l     = do writeSTRef r (L.Chunk (B.drop (fromIntegral n) x) xs)
-                           return $ L.Chunk (B.take (fromIntegral n) x) L.Empty
-          | otherwise = do writeSTRef r (L.drop (n - l) xs)
-                           liftM (L.Chunk x) $ unsafeInterleaveST (first r (n - l) xs)
-
-         where l = fromIntegral (B.length x)
+    first r n (L.Chunk x xs)
+      | n < l     = do writeSTRef r (L.Chunk (B.drop (fromIntegral n) x) xs)
+                       return $ L.Chunk (B.take (fromIntegral n) x) L.Empty
+      | otherwise = do writeSTRef r (L.drop (n - l) xs)
+                       liftM (L.Chunk x) $ unsafeInterleaveST (first r (n - l) xs)
+      where 
+        l = fromIntegral (B.length x)
 #else
 splitAtST i (B.LPS ps)  = runST (
      do r  <- newSTRef undefined
