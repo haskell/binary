@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP #-}
-{-# OPTIONS_GHC -fglasgow-exts #-}
--- for unboxed shifts
+{-# LANGUAGE CPP, MagicHash, UnboxedTuples #-}
+-- MagicHash, UnboxedTuples for unboxed shifts
 
 -----------------------------------------------------------------------------
 -- |
