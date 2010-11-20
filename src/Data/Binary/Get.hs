@@ -10,7 +10,7 @@ module Data.Binary.Get (
       Get
     , Result(..)
     , runGet
-    , runGetPush
+    , runGetPartial
 
     -- * Parsing
     , try
@@ -145,8 +145,8 @@ instance (Show a) => Show (Result a) where
 
 initState = S B.empty B.empty False
 
-runGetPush :: Get a -> Result a
-runGetPush g = runCont g initState (\s stack str -> Fail s stack str) (\s a -> Done s a)
+runGetPartial :: Get a -> Result a
+runGetPartial g = runCont g initState (\s stack msg -> Fail s stack msg) (\s a -> Done s a)
 
 addS :: S -> S -> S
 addS (S inp0 next0 eof0) (S _inp1 next1 eof1) = S (inp0 +++ next1) (next0 +++ next1) (eof0 || eof1)
@@ -165,7 +165,7 @@ try g = C $ \st0 kf ks ->
   runCont g (noNext st0) (kf . addS st0) ks
 
 runGet :: Get a -> L.ByteString -> a
-runGet g bs = feed (runGetPush g) chunks
+runGet g bs = feed (runGetPartial g) chunks
   where
   chunks = L.toChunks bs
   feed (Done _ r) _ = r
