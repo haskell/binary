@@ -15,7 +15,7 @@ module Data.Binary.Get (
     -- * Parsing
     , try
     , plus
-    -- , skip
+    , skip
 
     -- * Utility
     -- , bytesRead
@@ -187,6 +187,11 @@ needMore = C $ \st0@(S inp next eof) kf ks ->
                             else ks (S (B.append inp s) (B.append next s) eof) ()
       in loop
 
+skip :: Int -> Get ()
+skip n = C $ \s@(S inp next eof) kf ks ->
+  if B.length inp >= n
+    then ks (S (B.unsafeDrop n inp) next eof) ()
+    else runCont (needMore >> skip (n - (B.length inp))) (S B.empty next eof) kf ks
 getS :: Get B.ByteString
 getS = C $ \st@(S inp next eof) kf ks -> ks st inp
 
