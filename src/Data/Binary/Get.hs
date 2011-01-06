@@ -20,6 +20,7 @@ module Data.Binary.Get (
     -- * Utility
     -- , bytesRead
     -- , remaining
+    , getBytes
     -- , isEmpty
 
     -- * Parsing particular types
@@ -192,6 +193,12 @@ skip n = C $ \s@(S inp next eof) kf ks ->
   if B.length inp >= n
     then ks (S (B.unsafeDrop n inp) next eof) ()
     else runCont (needMore >> skip (n - (B.length inp))) (S B.empty next eof) kf ks
+
+
+{-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
+getBytes :: Int -> Get B.ByteString
+getBytes = getByteString
+
 getS :: Get B.ByteString
 getS = C $ \st@(S inp next eof) kf ks -> ks st inp
 
