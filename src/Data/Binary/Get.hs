@@ -257,60 +257,60 @@ getWord8 = do
 getWord16be :: Get Word16
 getWord16be = do
     s <- readN 2
-    return $! (fromIntegral (s `B.index` 0) `shiftl_w16` 8) .|.
-              (fromIntegral (s `B.index` 1))
+    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
+              (fromIntegral (s `B.unsafeIndex` 1))
 
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
 getWord16le = do
     s <- readN 2
-    return $! (fromIntegral (s `B.index` 1) `shiftl_w16` 8) .|.
-              (fromIntegral (s `B.index` 0) )
+    return $! (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
+              (fromIntegral (s `B.unsafeIndex` 0) )
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
     s <- readN 4
-    return $! (fromIntegral (s `B.index` 0) `shiftl_w32` 24) .|.
-              (fromIntegral (s `B.index` 1) `shiftl_w32` 16) .|.
-              (fromIntegral (s `B.index` 2) `shiftl_w32`  8) .|.
-              (fromIntegral (s `B.index` 3) )
+    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w32` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) )
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
 getWord32le = do
     s <- readN 4
-    return $! (fromIntegral (s `B.index` 3) `shiftl_w32` 24) .|.
-              (fromIntegral (s `B.index` 2) `shiftl_w32` 16) .|.
-              (fromIntegral (s `B.index` 1) `shiftl_w32`  8) .|.
-              (fromIntegral (s `B.index` 0) )
+    return $! (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w32` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 0) )
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
     s <- readN 8
-    return $! (fromIntegral (s `B.index` 0) `shiftl_w64` 56) .|.
-              (fromIntegral (s `B.index` 1) `shiftl_w64` 48) .|.
-              (fromIntegral (s `B.index` 2) `shiftl_w64` 40) .|.
-              (fromIntegral (s `B.index` 3) `shiftl_w64` 32) .|.
-              (fromIntegral (s `B.index` 4) `shiftl_w64` 24) .|.
-              (fromIntegral (s `B.index` 5) `shiftl_w64` 16) .|.
-              (fromIntegral (s `B.index` 6) `shiftl_w64`  8) .|.
-              (fromIntegral (s `B.index` 7) )
+    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w64` 56) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64` 48) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 40) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w64` 32) .|.
+              (fromIntegral (s `B.unsafeIndex` 4) `shiftl_w64` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 7) )
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
 getWord64le = do
     s <- readN 8
-    return $! (fromIntegral (s `B.index` 7) `shiftl_w64` 56) .|.
-              (fromIntegral (s `B.index` 6) `shiftl_w64` 48) .|.
-              (fromIntegral (s `B.index` 5) `shiftl_w64` 40) .|.
-              (fromIntegral (s `B.index` 4) `shiftl_w64` 32) .|.
-              (fromIntegral (s `B.index` 3) `shiftl_w64` 24) .|.
-              (fromIntegral (s `B.index` 2) `shiftl_w64` 16) .|.
-              (fromIntegral (s `B.index` 1) `shiftl_w64`  8) .|.
-              (fromIntegral (s `B.index` 0) )
+    return $! (fromIntegral (s `B.unsafeIndex` 7) `shiftl_w64` 56) .|.
+              (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64` 48) .|.
+              (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 40) .|.
+              (fromIntegral (s `B.unsafeIndex` 4) `shiftl_w64` 32) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w64` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 0) )
 
 ------------------------------------------------------------------------
 -- Host-endian reads
