@@ -19,7 +19,7 @@ module Data.Binary.Get (
     -- , bytesRead
     -- , remaining
     , getBytes
-    -- , isEmpty
+    , isEmpty
     , getS
     , putS
     , feed
@@ -140,7 +140,26 @@ instance (Show a) => Show (Result a) where
   show (Done _ a) = "Done: " ++ show a
 
 runGetPartial :: Get a -> Result a
-runGetPartial g = runCont g B.empty (\i stack msg -> Fail i stack msg) (\i a -> Done i a)
+runGetPartial g = noMeansNo $
+  runCont g B.empty (\i stack msg -> Fail i stack msg) (\i a -> Done i a)
+
+-- | Make sure we don't have to pass Nothing to a Partial twice.
+-- This way we don't need to pass around an EOF value in the Get monad, it
+-- can safely ask several times if it needs to.
+noMeansNo :: Result a -> Result a
+noMeansNo r = go r
+  where
+  go r =
+    case r of
+      Partial f -> Partial $ \ms ->
+                    case ms of
+                      Just s -> go (f ms)
+                      Nothing -> neverAgain (f ms)
+      _ -> r
+  neverAgain r =
+    case r of
+      Partial f -> neverAgain (f Nothing)
+      _ -> r
 
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feed (runGetPartial g) chunks
@@ -165,17 +184,20 @@ eof r =
     Partial f -> f Nothing
     Fail _ _ _ -> r
  
+prompt :: B.ByteString -> Result a -> (B.ByteString -> Result a) -> Result a
+prompt inp kf ks =
+    let loop =
+         Partial $ \sm ->
+           case sm of
+             Just s | B.null s -> loop
+                    | otherwise -> ks (inp `B.append` s)
+             Nothing -> kf
+    in loop
+
 -- | Need more data.
 demandInput :: Get ()
 demandInput = C $ \inp kf ks ->
-  let loop =
-        Partial $ \sm ->
-          case sm of
-            Nothing -> kf inp ["demandInput"] "not enough bytes"
-            Just s -> if B.null s
-                        then loop -- attention: don't get stuck forever!
-                        else ks (B.append inp s) ()
-  in loop
+  prompt inp (kf inp ["demandInput"] "not enough bytes") (\inp' -> ks inp' ())
 
 skip :: Int -> Get ()
 skip n = C $ \inp kf ks ->
@@ -183,6 +205,11 @@ skip n = C $ \inp kf ks ->
     then ks (B.unsafeDrop n inp) ()
     else runCont (demandInput >> skip (n - (B.length inp))) B.empty kf ks
 
+isEmpty :: Get Bool
+isEmpty = C $ \inp kf ks ->
+    if B.null inp
+      then prompt inp (ks inp True) (`ks` False)
+      else ks inp False
 
 {-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
 getBytes :: Int -> Get B.ByteString
