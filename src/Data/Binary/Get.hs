@@ -171,11 +171,11 @@ runGet g bs = feed (runGetPartial g) chunks
   feed (Fail _ _ msg) _ = error msg
 
 feed :: Result a -> B.ByteString -> Result a
-feed r str =
+feed r inp =
   case r of
-    Done _ _ -> r
-    Partial f -> f (Just str)
-    Fail _ _ _ -> r
+    Done inp0 a -> Done (inp0 `B.append` inp) a
+    Partial f -> f (Just inp)
+    Fail inp0 ss s -> Fail (inp0 `B.append` inp) ss s
 
 eof :: Result a -> Result a
 eof r =
