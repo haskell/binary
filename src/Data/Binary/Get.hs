@@ -25,6 +25,8 @@ module Data.Binary.Get (
     , feed
     , eof
 
+    , lookAhead
+
     -- * Parsing particular types
     , getWord8
 
@@ -220,6 +222,15 @@ getS = C $ \inp kf ks -> ks inp inp
 
 putS :: B.ByteString -> Get ()
 putS inp = C $ \_inp kf ks -> ks inp ()
+
+lookAhead :: Get a -> Get a
+lookAhead g = C $ \inp kf ks ->
+  let r0 = runGetPartial (g <?> "lookAhead") `feed` inp
+      go acc r = case r of
+                    Done _ a -> ks (B.concat (inp : reverse acc)) a
+                    Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
+                    Fail inp' ss s -> kf inp' ss s
+  in go [] r0
 
 ------------------------------------------------------------------------
 -- ByteStrings
