@@ -4,7 +4,7 @@
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
 -- 
--- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+-- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : stable
 -- Portability : Portable to Hugs and GHC. Requires MPTCs
 --

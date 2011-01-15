@@ -5,7 +5,7 @@
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
 -- 
--- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+-- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : unstable
 -- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
