@@ -17,7 +17,7 @@ module Data.Binary.Get (
 
     -- * Utility
     -- , bytesRead
-    -- , remaining
+    , remaining
     , getBytes
     , isEmpty
     , getS
@@ -231,6 +231,14 @@ lookAhead g = C $ \inp kf ks ->
                     Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
                     Fail inp' ss s -> kf inp' ss s
   in go [] r0
+
+remaining :: Get Int
+remaining = C $ \ inp kf ks ->
+  let loop acc = Partial $ \ minp ->
+                  case minp of
+                    Nothing -> let all = B.concat (inp : (reverse acc)) in ks all (B.length all)
+                    Just inp' -> loop (inp':acc)
+  in loop []
 
 ------------------------------------------------------------------------
 -- ByteStrings
