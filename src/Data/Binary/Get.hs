@@ -68,7 +68,7 @@ import Control.Applicative
 -- needed for (# unboxing #) with magic hash
 import GHC.Base
 import GHC.Word
-import GHC.Int
+-- import GHC.Int
 #endif
 
 -- Kolmodin 20100427: at zurihack we discussed of having partial take a
@@ -103,7 +103,7 @@ instance Monad Get where
 p <?> msg = C $ \inp kf ks -> runCont p inp (\inp' ss s -> kf inp' (msg:ss) s) ks
 
 returnG :: a -> Get a
-returnG a = C $ \s kf ks -> ks s a
+returnG a = C $ \s _kf ks -> ks s a
 {-# INLINE returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
@@ -134,7 +134,7 @@ instance Functor Get where
 instance Functor Result where
   fmap f (Done s a) = Done s (f a)
   fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
-  fmap f (Fail s stack msg) = Fail s stack msg
+  fmap _ (Fail s stack msg) = Fail s stack msg
 
 instance (Show a) => Show (Result a) where
   show (Fail _ msgs msg) = "Fail: " ++ show msgs ++ ": " ++ msg
@@ -149,13 +149,13 @@ runGetPartial g = noMeansNo $
 -- This way we don't need to pass around an EOF value in the Get monad, it
 -- can safely ask several times if it needs to.
 noMeansNo :: Result a -> Result a
-noMeansNo r = go r
+noMeansNo r0 = go r0
   where
   go r =
     case r of
       Partial f -> Partial $ \ms ->
                     case ms of
-                      Just s -> go (f ms)
+                      Just _ -> go (f ms)
                       Nothing -> neverAgain (f ms)
       _ -> r
   neverAgain r =
@@ -164,13 +164,13 @@ noMeansNo r = go r
       _ -> r
 
 runGet :: Get a -> L.ByteString -> a
-runGet g bs = feed (runGetPartial g) chunks
+runGet g bs = feedAll (runGetPartial g) chunks
   where
   chunks = L.toChunks bs
-  feed (Done _ r) _ = r
-  feed r@(Partial c) (x:xs) = feed (c (Just x)) xs 
-  feed r@(Partial c) [] = feed (c Nothing) []
-  feed (Fail _ _ msg) _ = error msg
+  feedAll (Done _ r) _ = r
+  feedAll (Partial c) (x:xs) = feedAll (c (Just x)) xs
+  feedAll (Partial c) [] = feedAll (c Nothing) []
+  feedAll (Fail _ _ msg) _ = error msg
 
 feed :: Result a -> B.ByteString -> Result a
 feed r inp =
@@ -208,7 +208,7 @@ skip n = C $ \inp kf ks ->
     else runCont (demandInput >> skip (n - (B.length inp))) B.empty kf ks
 
 isEmpty :: Get Bool
-isEmpty = C $ \inp kf ks ->
+isEmpty = C $ \inp _kf ks ->
     if B.null inp
       then prompt inp (ks inp True) (`ks` False)
       else ks inp False
@@ -218,10 +218,10 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 
 getS :: Get B.ByteString
-getS = C $ \inp kf ks -> ks inp inp
+getS = C $ \inp _kf ks -> ks inp inp
 
 putS :: B.ByteString -> Get ()
-putS inp = C $ \_inp kf ks -> ks inp ()
+putS inp = C $ \_inp _kf ks -> ks inp ()
 
 lookAhead :: Get a -> Get a
 lookAhead g = C $ \inp kf ks ->
@@ -240,7 +240,7 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = B.take n <$> readN n
 
 remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \inp kf ks -> ks inp $! (B.length inp)
+remainingInCurrentChunk = C $ \inp _kf ks -> ks inp $! (B.length inp)
 
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
