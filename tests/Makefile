@@ -4,8 +4,9 @@ interpreted:
 	runhaskell QC.hs 1000
 
 compiled:
-	ghc --make -fhpc -O QC.hs -o qc -no-recomp -threaded
-	./qc 500 +RTS -qw -N2
+	ghc --make -fhpc -O QC.hs -o qc -no-recomp -threaded -rtsopts -i../src -XCPP -package test-framework -package test-framework-quickcheck2
+	rm -f qc.tix
+	./qc --maximum-generated-tests=1000 -j2 +RTS -N2
 
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
 	ghc --make -O2 -fliberate-case-threshold=1000 -fasm Benchmark.hs CBenchmark.o -o bench -fforce-recomp

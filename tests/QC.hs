@@ -5,7 +5,7 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
-import Parallel
+-- import Parallel
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
@@ -28,11 +28,15 @@ import System.Environment
 import System.IO
 import System.IO.Unsafe
 
-import Test.QuickCheck hiding (test)
-import QuickCheckUtils
+import Test.QuickCheck
+-- import QuickCheckUtils
 import Text.Printf
 
 -- import qualified Data.Sequence as Seq
+
+import Test.Framework
+import Test.Framework.Providers.QuickCheck2
+import Data.Monoid
 
 ------------------------------------------------------------------------
 
@@ -45,8 +49,8 @@ roundTripWith put get x =
     x == runGet get (refragment xs (runPut (put x)))
 
 -- make sure that a test fails
-errorish :: B a
-errorish a = unsafePerformIO $
+mustThrowError :: B a
+mustThrowError a = unsafePerformIO $
     C.catch (do C.evaluate a
                 return False)
             (\_ -> return True)
@@ -69,9 +73,11 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 
 -- read too much:
 
-prop_bookworm x = errorish $ x == a && x /= b
+prop_readTooMuch x = mustThrowError $ x == a && x /= b
   where
+    -- encode 'a', but try to read 'b' too
     (a,b) = decode (encode x)
+    types = [a,b]
 
 -- sanity:
 
@@ -106,27 +112,15 @@ prop_refragment lps xs = lps == refragment xs lps
 prop_refragment_inv lps xs = invariant_lbs $ refragment xs lps
 
 main :: IO ()
-main = do
-    hSetBuffering stdout NoBuffering
-    s <- getArgs
-    let x = if null s then 100 else read (head s)
-    pRun 2 x tests
-
-{-
-run :: [(String, Int -> IO ())] -> IO ()
-run tests = do
-    x <- getArgs
-    let n = if null x then 100 else read . head $ x
-    mapM_ (\(s,a) -> printf "%-50s" s >> a n) tests
--}
+main = defaultMain tests
 
 ------------------------------------------------------------------------
 
 type T a = a -> Property
 type B a = a -> Bool
 
-p       :: Testable a => a -> Int -> IO String
-p       = pNon
+p :: (Testable p) => p -> Property
+p = property
 
 test    :: (Eq a, Binary a) => a -> Property
 test a  = forAll positiveList (roundTrip a . refragment)
@@ -134,94 +128,103 @@ test a  = forAll positiveList (roundTrip a . refragment)
 positiveList :: Gen [Int]
 positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
--- tests :: [(String, Int -> IO String)]
 tests =
--- utils
-        [ ("refragment id",        p prop_refragment     )
-        , ("refragment invariant", p prop_refragment_inv )
+        [ testGroup "Utils"
+            [ testProperty "refragment id" (p prop_refragment)
+            , testProperty "refragment invariant" (p prop_refragment_inv)
+            ]
 
--- boundaries
-        , ("read to much",  p (prop_bookworm :: B Word8     ))
+        , testGroup "Boundaries"
+            [ testProperty "read to much" (p (prop_readTooMuch :: B Word8))
+            ]
 
--- Primitives
-        , ("Word16be",      p prop_Word16be)
-        , ("Word16le",      p prop_Word16le)
-        , ("Word16host",    p prop_Word16host)
-        , ("Word32be",      p prop_Word32be)
-        , ("Word32le",      p prop_Word32le)
-        , ("Word32host",    p prop_Word32host)
-        , ("Word64be",      p prop_Word64be)
-        , ("Word64le",      p prop_Word64le)
-        , ("Word64host",    p prop_Word64host)
-        , ("Wordhost",      p prop_Wordhost)
+        , testGroup "Primitives"
+            [ testProperty "Word16be"   (p prop_Word16be)
+            , testProperty "Word16le"   (p prop_Word16le)
+            , testProperty "Word16host" (p prop_Word16host)
+            , testProperty "Word32be"   (p prop_Word32be)
+            , testProperty "Word32le"   (p prop_Word32le)
+            , testProperty "Word32host" (p prop_Word32host)
+            , testProperty "Word64be"   (p prop_Word64be)
+            , testProperty "Word64le"   (p prop_Word64le)
+            , testProperty "Word64host" (p prop_Word64host)
+            , testProperty "Wordhost"   (p prop_Wordhost)
+            ]
 
--- higher level ones using the Binary class
-        ,("()",         p (test :: T ()                     ))
-        ,("Bool",       p (test :: T Bool                   ))
-        ,("Ordering",   p (test :: T Ordering               ))
+        , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
+            [ ("()",         p (test :: T ()                     ))
+            , ("Bool",       p (test :: T Bool                   ))
 
-        ,("Word8",      p (test :: T Word8                  ))
-        ,("Word16",     p (test :: T Word16                 ))
-        ,("Word32",     p (test :: T Word32                 ))
-        ,("Word64",     p (test :: T Word64                 ))
+            , ("Word8",      p (test :: T Word8                  ))
+            , ("Word16",     p (test :: T Word16                 ))
+            , ("Word32",     p (test :: T Word32                 ))
+            , ("Word64",     p (test :: T Word64                 ))
 
-        ,("Int8",       p (test :: T Int8                   ))
-        ,("Int16",      p (test :: T Int16                  ))
-        ,("Int32",      p (test :: T Int32                  ))
-        ,("Int64",      p (test :: T Int64                  ))
+            , ("Int8",       p (test :: T Int8                   ))
+            , ("Int16",      p (test :: T Int16                  ))
+            , ("Int32",      p (test :: T Int32                  ))
+            , ("Int64",      p (test :: T Int64                  ))
 
-        ,("Word",       p (test :: T Word                   ))
-        ,("Int",        p (test :: T Int                    ))
-        ,("Integer",    p (test :: T Integer                ))
+            , ("Word",       p (test :: T Word                   ))
+            , ("Int",        p (test :: T Int                    ))
+            , ("Integer",    p (test :: T Integer                ))
 
-        ,("Float",      p (test :: T Float                  ))
-        ,("Double",     p (test :: T Double                 ))
+            , ("Float",      p (test :: T Float                  ))
+            , ("Double",     p (test :: T Double                 ))
 
-        ,("Char",       p (test :: T Char                   ))
+            , ("Char",       p (test :: T Char                   ))
 
-        ,("[()]",       p (test :: T [()]                  ))
-        ,("[Word8]",    p (test :: T [Word8]               ))
-        ,("[Word32]",   p (test :: T [Word32]              ))
-        ,("[Word64]",   p (test :: T [Word64]              ))
-        ,("[Word]",     p (test :: T [Word]                ))
-        ,("[Int]",      p (test :: T [Int]                 ))
-        ,("[Integer]",  p (test :: T [Integer]             ))
-        ,("String",     p (test :: T String                ))
+            , ("[()]",       p (test :: T [()]                  ))
+            , ("[Word8]",    p (test :: T [Word8]               ))
+            , ("[Word32]",   p (test :: T [Word32]              ))
+            , ("[Word64]",   p (test :: T [Word64]              ))
+            , ("[Word]",     p (test :: T [Word]                ))
+            , ("[Int]",      p (test :: T [Int]                 ))
+            , ("[Integer]",  p (test :: T [Integer]             ))
+            , ("String",     p (test :: T String                ))
 
-        ,("((), ())",           p (test :: T ((), ())        ))
-        ,("(Word8, Word32)",    p (test :: T (Word8, Word32) ))
-        ,("(Int8, Int32)",      p (test :: T (Int8,  Int32)  ))
-        ,("(Int32, [Int])",     p (test :: T (Int32, [Int])  ))
+            , ("((), ())",           p (test :: T ((), ())        ))
+            , ("(Word8, Word32)",    p (test :: T (Word8, Word32) ))
+            , ("(Int8, Int32)",      p (test :: T (Int8,  Int32)  ))
+            , ("(Int32, [Int])",     p (test :: T (Int32, [Int])  ))
 
-        ,("Maybe Int8",         p (test :: T (Maybe Int8)        ))
-        ,("Either Int8 Int16",  p (test :: T (Either Int8 Int16) ))
+            , ("Maybe Int8",         p (test :: T (Maybe Int8)        ))
+            , ("Either Int8 Int16",  p (test :: T (Either Int8 Int16) ))
 
-        ,("(Maybe Word8, Bool, [Int], Either Bool Word8)",
-                p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
+            , ("(Maybe Word8, Bool, [Int], Either Bool Word8)",
+                    p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
 
-        ,("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
---      ,("Lazy (Int, ByteString)",   p (lazyTrip :: T (Int, B.ByteString)   ))
-        ,("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
---      ,("Lazy [(Int, ByteString)]", p (lazyTrip :: T [(Int, B.ByteString)] ))
+            , ("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
+    --      , ("Lazy (Int, ByteString)",   p (lazyTrip :: T (Int, B.ByteString)   ))
+            , ("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
+    --      , ("Lazy [(Int, ByteString)]", p (lazyTrip :: T [(Int, B.ByteString)] ))
 
 
---      ,("Lazy IntMap",       p (lazyTrip  :: T IntSet.IntSet          ))
-        ,("IntSet",            p (test      :: T IntSet.IntSet          ))
-        ,("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
+    --      , ("Lazy IntMap",       p (lazyTrip  :: T IntSet.IntSet          ))
+    {-
+            , ("IntSet",            p (test      :: T IntSet.IntSet          ))
+            , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
+    -}
 
-        ,("B.ByteString",  p (test :: T B.ByteString        ))
-        ,("L.ByteString",  p (test :: T L.ByteString        ))
+            , ("B.ByteString",  p (test :: T B.ByteString        ))
+            , ("L.ByteString",  p (test :: T L.ByteString        ))
+            ]
 
-        ,("B.ByteString invariant",   p (prop_invariant :: B B.ByteString                 ))
-        ,("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
-        ,("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
-        ,("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
+        , testGroup "Invariants" $ map (uncurry testProperty)
+            [ ("B.ByteString invariant",   p (prop_invariant :: B B.ByteString                 ))
+            , ("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
+            , ("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
+            , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
+            ]
+
+{-
         ,("IntMap invariant",         p (prop_invariant :: B (IntMap.IntMap B.ByteString) ))
 
         ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
         ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
 
         ,("(Maybe Int64, Bool, [Int])", p (test :: T (Maybe Int64, Bool, [Int])))
+-}
 
 {-
 --
@@ -235,10 +238,13 @@ tests =
 
         ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", p (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
 -}
+        ]
 
 -- GHC only:
 --      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))
 
--- Obsolete
---      ,("ensureLeft/Fail", mytest (shouldFail (decode L.empty :: Either ParseError Int)))
-        ]
+instance Arbitrary L.ByteString where
+    arbitrary     = arbitrary >>= return . L.fromChunks . filter (not. B.null) -- maintain the invariant.
+
+instance Arbitrary B.ByteString where
+  arbitrary = B.pack `fmap` arbitrary
