@@ -8,6 +8,10 @@ compiled:
 	rm -f qc.tix
 	./qc --maximum-generated-tests=1000 -j2 +RTS -N2
 
+inplace-bench:: Benchmark.hs MemBench.hs CBenchmark.o
+	ghc --make -O2 -fliberate-case-threshold=1000 -fasm -i../src Benchmark.hs CBenchmark.o -o inplace-bench -fforce-recomp
+	./inplace-bench 100
+
 bench:: Benchmark.hs MemBench.hs CBenchmark.o
 	ghc --make -O2 -fliberate-case-threshold=1000 -fasm Benchmark.hs CBenchmark.o -o bench -fforce-recomp
 	./bench 100
