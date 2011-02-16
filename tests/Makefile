@@ -36,4 +36,4 @@ heap: HeapUse
 clean:
 	rm -f *.o *.hi qc bench bench-nb *~
 
-.PHONY: clean bench bench-nb
+.PHONY: clean inplace-bench bench bench-nb
