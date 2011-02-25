@@ -110,7 +110,7 @@ instance Monoid Builder where
 --  * @'toLazyByteString' 'empty' = 'L.empty'@
 --
 empty :: Builder
-empty = Builder id
+empty = Builder (\ k b -> k b)
 {-# INLINE empty #-}
 
 -- | /O(1)./ A Builder taking a single byte, satisfying
