@@ -102,6 +102,8 @@ instance Monoid Builder where
     {-# INLINE mempty #-}
     mappend = append
     {-# INLINE mappend #-}
+    mconcat = foldr mappend mempty
+    {-# INLINE mconcat #-}
 
 ------------------------------------------------------------------------
 
