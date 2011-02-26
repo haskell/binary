@@ -92,7 +92,9 @@ import GHC.Word (uncheckedShiftRL64#)
 newtype Builder = Builder {
         -- Invariant (from Data.ByteString.Lazy):
         --      The lists include no null ByteStrings.
-        runBuilder :: (Buffer -> [S.ByteString]) -> Buffer -> [S.ByteString]
+        runBuilder :: (Buffer -> IO [S.ByteString])
+                   -> Buffer
+                   -> IO [S.ByteString]
     }
 
 instance Monoid Builder where
@@ -166,8 +168,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 --
 toLazyByteString :: Builder -> L.ByteString
 toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
-    buf <- newBuffer defaultSize
-    return (runBuilder (m `append` flush) (const []) buf)
+    newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
@@ -175,7 +176,9 @@ flush :: Builder
 flush = Builder $ \ k buf@(Buffer p o u l) ->
     if u == 0
       then k buf
-      else S.PS p o u : k (Buffer p (o+u) 0 l)
+      else let !b  = Buffer p (o+u) 0 l
+               !bs = S.PS p o u
+           in return $! bs : inlinePerformIO (k b)
 
 ------------------------------------------------------------------------
 
@@ -190,11 +193,9 @@ defaultSize = 32 * k - overhead
 ------------------------------------------------------------------------
 
 -- | Sequence an IO operation on the buffer
-unsafeLiftIO :: (Buffer -> IO Buffer) -> Builder
-unsafeLiftIO f =  Builder $ \ k buf -> inlinePerformIO $ do
-    buf' <- f buf
-    return (k buf')
-{-# INLINE unsafeLiftIO #-}
+withBuffer :: (Buffer -> IO Buffer) -> Builder
+withBuffer f = Builder $ \ k buf -> f buf >>= k
+{-# INLINE withBuffer #-}
 
 -- | Get the size of the buffer
 withSize :: (Int -> Builder) -> Builder
@@ -203,7 +204,7 @@ withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
 
 -- | Map the resulting list of bytestrings.
 mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
-mapBuilder f = Builder (f .)
+mapBuilder f = Builder (fmap f .)
 
 ------------------------------------------------------------------------
 
@@ -211,13 +212,13 @@ mapBuilder f = Builder (f .)
 ensureFree :: Int -> Builder
 ensureFree n = n `seq` withSize $ \ l ->
     if n <= l then empty else
-        flush `append` unsafeLiftIO (const (newBuffer (max n defaultSize)))
+        flush `append` withBuffer (const (newBuffer (max n defaultSize)))
 {-# INLINE ensureFree #-}
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
-writeN n f = ensureFree n `append` unsafeLiftIO (writeNBuffer n f)
+writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
 {-# INLINE writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
@@ -238,7 +239,7 @@ newBuffer size = do
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- storable values into the memory.
 writeNbytes :: Storable a => Int -> (Ptr a -> IO ()) -> Builder
-writeNbytes n f = ensureFree n `append` unsafeLiftIO (writeNBufferBytes n f)
+writeNbytes n f = ensureFree n `append` withBuffer (writeNBufferBytes n f)
 {-# INLINE writeNbytes #-}
 
 writeNBufferBytes :: Storable a => Int -> (Ptr a -> IO ()) -> Buffer -> IO Buffer
