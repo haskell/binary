@@ -132,7 +132,7 @@ singleton = writeN 1 . flip poke
 --
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
-{-# INLINE append #-}
+{-# INLINE [0] append #-}
 
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
@@ -213,13 +213,13 @@ ensureFree :: Int -> Builder
 ensureFree n = n `seq` withSize $ \ l ->
     if n <= l then empty else
         flush `append` withBuffer (const (newBuffer (max n defaultSize)))
-{-# INLINE ensureFree #-}
+{-# INLINE [0] ensureFree #-}
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
 writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
-{-# INLINE writeN #-}
+{-# INLINE [0] writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
 writeNBuffer n f (Buffer fp o u l) = do
@@ -424,4 +424,32 @@ shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
 shiftr_w16 = shiftR
 shiftr_w32 = shiftR
 shiftr_w64 = shiftR
+#endif
+
+------------------------------------------------------------------------
+-- Some nice rules for Builder
+
+#if __GLASGOW_HASKELL__ >= 700
+-- In versions of GHC prior to 7.0 these rules would make GHC believe
+-- that 'writeN' and 'ensureFree' are recursive and the rules wouldn't
+-- fire.
+{-# RULES
+
+"append/writeN" forall a b (f::Ptr Word8 -> IO ())
+                           (g::Ptr Word8 -> IO ()) ws.
+        append (writeN a f) (append (writeN b g) ws) =
+            append (writeN (a+b) (\p -> f p >> g (p `plusPtr` a))) ws
+
+"writeN/writeN" forall a b (f::Ptr Word8 -> IO ())
+                           (g::Ptr Word8 -> IO ()).
+        append (writeN a f) (writeN b g) =
+            writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
+
+"ensureFree/ensureFree" forall a b .
+        append (ensureFree a) (ensureFree b) = ensureFree (max a b)
+
+"flush/flush"
+        append flush flush = flush
+
+ #-}
 #endif
