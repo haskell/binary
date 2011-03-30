@@ -16,12 +16,6 @@ run-bench: bench
 CBenchmark.o: CBenchmark.c
 	ghc -c -optc -O3 $< -o $@
 
-HeapUse: HeapUse.hs
-	ghc --make -O $^ -fasm -o $@ -i../src
-
-heap: HeapUse
-	./HeapUse +RTS -M10M -t/dev/stderr -RTS
-
 .PHONY: clean
 clean:
 	rm -f *.o *.hi $(programs)
