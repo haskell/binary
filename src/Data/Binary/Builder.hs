@@ -1,9 +1,9 @@
-{-# LANGUAGE CPP, MagicHash #-}
+{-# LANGUAGE BangPatterns, CPP, MagicHash #-}
 
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Builder
--- Copyright   : Lennart Kolmodin, Ross Paterson
+-- Copyright   : Lennart Kolmodin, Ross Paterson, Johan Tibell
 -- License     : BSD3-style (see LICENSE)
 -- 
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
@@ -79,6 +79,30 @@ import GHC.Word (uncheckedShiftRL64#)
 
 ------------------------------------------------------------------------
 
+-- A build step is a write to a buffer that results in a signal to the
+-- driver that's responsible for allocating new buffers.
+
+type Step = Buffer -> IO Result
+
+-- When we're done writing to the buffer, we return a signal to the
+-- driver indicating the next step.  There are three possibilities:
+--
+-- * We're done.
+--
+-- * The buffer is full and the driver needs to allocate a new buffer
+--   of some minimum size.
+--
+-- * We want to insert a byte string, without copying, into the
+--   output.
+
+data Result = Done {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
+            | Full {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
+                   {-# UNPACK #-} !Int          -- Min new buffer size
+                   !Step
+            | Snoc {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
+                   !S.ByteString                -- ByteString to insert
+                   !Step
+
 -- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
 -- There are several functions for constructing 'Builder's, but only one
 -- to inspect them: to extract any data, you have to turn them into lazy
@@ -89,13 +113,7 @@ import GHC.Word (uncheckedShiftRL64#)
 -- off, to become a new chunk of the resulting lazy 'L.ByteString'.
 -- All this is hidden from the user of the 'Builder'.
 
-newtype Builder = Builder {
-        -- Invariant (from Data.ByteString.Lazy):
-        --      The lists include no null ByteStrings.
-        runBuilder :: (Buffer -> IO [S.ByteString])
-                   -> Buffer
-                   -> IO [S.ByteString]
-    }
+newtype Builder = Builder { runBuilder :: Step -> Step }
 
 instance Monoid Builder where
     mempty  = empty
@@ -134,6 +152,11 @@ append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
 {-# INLINE [0] append #-}
 
+-- | Insert a 'S.ByteString' into the output, without copying.
+snoc :: S.ByteString -> Builder
+snoc bs = Builder $ \ k (Buffer fp _) -> return $! Snoc fp bs k
+{-# INLINE snoc #-}
+
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
 --  * @'toLazyByteString' ('fromByteString' bs) = 'L.fromChunks' [bs]@
@@ -141,7 +164,7 @@ append (Builder f) (Builder g) = Builder (f . g)
 fromByteString :: S.ByteString -> Builder
 fromByteString bs
   | S.null bs = empty
-  | otherwise = flush `append` mapBuilder (bs :)
+  | otherwise = snoc bs
 {-# INLINE fromByteString #-}
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
@@ -149,16 +172,15 @@ fromByteString bs
 --  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
 --
 fromLazyByteString :: L.ByteString -> Builder
-fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
+fromLazyByteString =
+    L.foldrChunks (\bs b -> fromByteString bs `mappend` b) mempty
 {-# INLINE fromLazyByteString #-}
 
 ------------------------------------------------------------------------
 
 -- Our internal buffer type
-data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
-                     {-# UNPACK #-} !Int                -- offset
-                     {-# UNPACK #-} !Int                -- used bytes
-                     {-# UNPACK #-} !Int                -- length left
+data Buffer = Buffer {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
+                     {-# UNPACK #-} !(Ptr Word8)  -- First unusable byte
 
 ------------------------------------------------------------------------
 
@@ -167,18 +189,52 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- the lazy 'L.ByteString' is demanded.
 --
 toLazyByteString :: Builder -> L.ByteString
-toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
-    newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
+toLazyByteString m = unsafePerformIO $ run defaultSize (runBuilder m done)
+  where
+    run :: Int -> Step -> IO L.ByteString
+    run !size k = do
+        fp <- S.mallocByteString size
+        withForeignPtr fp $ fillBuffer fp
+      where
+        fillBuffer !fpbuf !p = fill p k
+          where
+            !ep = p `plusPtr` size
+
+            -- Fill an already allocated buffer
+            fill !fp k = do
+                res <- k (Buffer fp ep)
+                let mkbs fp' = S.PS fpbuf (fp `minusPtr` p) (fp' `minusPtr` fp)
+                    {-# INLINE mkbs #-}
+                case res of
+                    Done fp'
+                        | fp' == fp -> return $ L.Empty
+                        | otherwise -> return $! L.Chunk (mkbs fp') L.Empty
+                    Full fp' sz k'
+                        | fp' == fp -> run (max sz defaultSize) k'
+                        | otherwise -> return $! L.Chunk (mkbs fp')
+                                       (S.inlinePerformIO $
+                                        run (max sz defaultSize) k')
+                    Snoc fp' bs k'
+                        | fp' == fp -> return $! chunk bs $ S.inlinePerformIO $
+                                       fill fp' k'
+                        | otherwise -> return $! L.Chunk (mkbs fp')
+                                       (chunk bs $ S.inlinePerformIO $
+                                        fill fp' k')
+
+    -- Final continuation
+    done :: Step
+    done (Buffer fp ep) = return $! Done fp
+
+    -- Smart constructor that avoids empty chunks
+    chunk :: S.ByteString -> L.ByteString -> L.ByteString
+    chunk bs lbs
+        | S.null bs = lbs
+        | otherwise = L.Chunk bs lbs
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
 flush :: Builder
-flush = Builder $ \ k buf@(Buffer p o u l) ->
-    if u == 0
-      then k buf
-      else let !b  = Buffer p (o+u) 0 l
-               !bs = S.PS p o u
-           in return $! bs : inlinePerformIO (k b)
+flush = Builder $ \ k buf@(Buffer fp _) -> return $! Snoc fp S.empty k
 
 ------------------------------------------------------------------------
 
@@ -199,39 +255,30 @@ withBuffer f = Builder $ \ k buf -> f buf >>= k
 
 -- | Get the size of the buffer
 withSize :: (Int -> Builder) -> Builder
-withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
-    runBuilder (f l) k buf
-
--- | Map the resulting list of bytestrings.
-mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
-mapBuilder f = Builder (fmap f .)
+withSize f = Builder $ \ k buf@(Buffer fp ep) ->
+    let !l = ep `minusPtr` fp
+    in runBuilder (f l) k buf
+{-# INLINE withSize #-}
 
 ------------------------------------------------------------------------
-
--- | Ensure that there are at least @n@ many bytes available.
-ensureFree :: Int -> Builder
-ensureFree n = n `seq` withSize $ \ l ->
-    if n <= l then empty else
-        flush `append` withBuffer (const (newBuffer (max n defaultSize)))
-{-# INLINE [0] ensureFree #-}
 
 -- | Ensure that @n@ many bytes are available, and then use @f@ to write some
 -- bytes into the memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
-writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
+writeN !n f = withSize $ \ l ->
+    if n <= l
+    then withBuffer (writeNBuffer n f)
+    else Builder $ \ k buf@(Buffer fp ep) -> return $! Full fp n (step k)
+  where
+    step = runBuilder (withBuffer (writeNBuffer n f))
+    {-# INLINE step #-}
 {-# INLINE [0] writeN #-}
 
 writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
-writeNBuffer n f (Buffer fp o u l) = do
-    withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
-    return (Buffer fp o (u+n) (l-n))
+writeNBuffer !n f (Buffer fp ep) = do
+    f fp
+    return $! Buffer (fp `plusPtr` n) ep
 {-# INLINE writeNBuffer #-}
-
-newBuffer :: Int -> IO Buffer
-newBuffer size = do
-    fp <- S.mallocByteString size
-    return $! Buffer fp 0 0 size
-{-# INLINE newBuffer #-}
 
 ------------------------------------------------------------------------
 
@@ -429,9 +476,6 @@ shiftr_w64 = shiftR
                            (g::Ptr Word8 -> IO ()).
         append (writeN a f) (writeN b g) =
             writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
-
-"ensureFree/ensureFree" forall a b .
-        append (ensureFree a) (ensureFree b) = ensureFree (max a b)
 
 "flush/flush"
         append flush flush = flush
