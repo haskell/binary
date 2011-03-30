@@ -55,7 +55,6 @@ module Data.Binary.Builder (
 
 import Foreign
 import Data.Monoid
-import Data.Word
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 
@@ -77,61 +76,10 @@ import GHC.Word (uncheckedShiftRL64#)
 #endif
 #endif
 
-------------------------------------------------------------------------
-
--- A build step is a write to a buffer that results in a signal to the
--- driver that's responsible for allocating new buffers.
-
-type Step = Buffer -> IO Result
-
--- When we're done writing to the buffer, we return a signal to the
--- driver indicating the next step.  There are three possibilities:
---
--- * We're done.
---
--- * The buffer is full and the driver needs to allocate a new buffer
---   of some minimum size.
---
--- * We want to insert a byte string, without copying, into the
---   output.
-
-data Result = Done {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
-            | Full {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
-                   {-# UNPACK #-} !Int          -- Min new buffer size
-                   !Step
-            | Snoc {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
-                   !S.ByteString                -- ByteString to insert
-                   !Step
-
--- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
--- There are several functions for constructing 'Builder's, but only one
--- to inspect them: to extract any data, you have to turn them into lazy
--- 'L.ByteString's using 'toLazyByteString'.
---
--- Internally, a 'Builder' constructs a lazy 'L.Bytestring' by filling byte
--- arrays piece by piece.  As each buffer is filled, it is \'popped\'
--- off, to become a new chunk of the resulting lazy 'L.ByteString'.
--- All this is hidden from the user of the 'Builder'.
-
-newtype Builder = Builder { runBuilder :: Step -> Step }
-
-instance Monoid Builder where
-    mempty  = empty
-    {-# INLINE mempty #-}
-    mappend = append
-    {-# INLINE mappend #-}
-    mconcat = foldr mappend mempty
-    {-# INLINE mconcat #-}
+import Data.Binary.Builder.Internal
+import Data.Binary.Builder.Types
 
 ------------------------------------------------------------------------
-
--- | /O(1)./ The empty Builder, satisfying
---
---  * @'toLazyByteString' 'empty' = 'L.empty'@
---
-empty :: Builder
-empty = Builder (\ k b -> k b)
-{-# INLINE empty #-}
 
 -- | /O(1)./ A Builder taking a single byte, satisfying
 --
@@ -142,15 +90,6 @@ singleton = writeN 1 . flip poke
 {-# INLINE singleton #-}
 
 ------------------------------------------------------------------------
-
--- | /O(1)./ The concatenation of two Builders, an associative operation
--- with identity 'empty', satisfying
---
---  * @'toLazyByteString' ('append' x y) = 'L.append' ('toLazyByteString' x) ('toLazyByteString' y)@
---
-append :: Builder -> Builder -> Builder
-append (Builder f) (Builder g) = Builder (f . g)
-{-# INLINE [0] append #-}
 
 -- | Insert a 'S.ByteString' into the output, without copying.
 snoc :: S.ByteString -> Builder
@@ -175,12 +114,6 @@ fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString =
     L.foldrChunks (\bs b -> fromByteString bs `mappend` b) mempty
 {-# INLINE fromLazyByteString #-}
-
-------------------------------------------------------------------------
-
--- Our internal buffer type
-data Buffer = Buffer {-# UNPACK #-} !(Ptr Word8)  -- Next free byte
-                     {-# UNPACK #-} !(Ptr Word8)  -- First unusable byte
 
 ------------------------------------------------------------------------
 
@@ -223,7 +156,7 @@ toLazyByteString m = unsafePerformIO $ run defaultSize (runBuilder m done)
 
     -- Final continuation
     done :: Step
-    done (Buffer fp ep) = return $! Done fp
+    done (Buffer fp _) = return $! Done fp
 
     -- Smart constructor that avoids empty chunks
     chunk :: S.ByteString -> L.ByteString -> L.ByteString
@@ -245,40 +178,6 @@ defaultSize :: Int
 defaultSize = 32 * k - overhead
     where k = 1024
           overhead = 2 * sizeOf (undefined :: Int)
-
-------------------------------------------------------------------------
-
--- | Sequence an IO operation on the buffer
-withBuffer :: (Buffer -> IO Buffer) -> Builder
-withBuffer f = Builder $ \ k buf -> f buf >>= k
-{-# INLINE withBuffer #-}
-
--- | Get the size of the buffer
-withSize :: (Int -> Builder) -> Builder
-withSize f = Builder $ \ k buf@(Buffer fp ep) ->
-    let !l = ep `minusPtr` fp
-    in runBuilder (f l) k buf
-{-# INLINE withSize #-}
-
-------------------------------------------------------------------------
-
--- | Ensure that @n@ many bytes are available, and then use @f@ to write some
--- bytes into the memory.
-writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
-writeN !n f = withSize $ \ l ->
-    if n <= l
-    then withBuffer (writeNBuffer n f)
-    else Builder $ \ k buf@(Buffer fp ep) -> return $! Full fp n (step k)
-  where
-    step = runBuilder (withBuffer (writeNBuffer n f))
-    {-# INLINE step #-}
-{-# INLINE [0] writeN #-}
-
-writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
-writeNBuffer !n f (Buffer fp ep) = do
-    f fp
-    return $! Buffer (fp `plusPtr` n) ep
-{-# INLINE writeNBuffer #-}
 
 ------------------------------------------------------------------------
 
@@ -463,19 +362,8 @@ shiftr_w64 = shiftR
 
 #if __GLASGOW_HASKELL__ >= 700
 -- In versions of GHC prior to 7.0 these rules would make GHC believe
--- that 'writeN' and 'ensureFree' are recursive and the rules wouldn't
--- fire.
+-- that this function is recursive and the rules wouldn't fire.
 {-# RULES
-
-"append/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()) ws.
-        append (writeN a f) (append (writeN b g) ws) =
-            append (writeN (a+b) (\p -> f p >> g (p `plusPtr` a))) ws
-
-"writeN/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()).
-        append (writeN a f) (writeN b g) =
-            writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
 
 "flush/flush"
         append flush flush = flush
