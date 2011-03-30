@@ -1,6 +1,11 @@
+{-# LANGUAGE ExistentialQuantification #-}
 module Main (main) where
 
-import Criterion.Main (bench, defaultMain, whnf)
+import Control.DeepSeq
+import Control.Exception (evaluate)
+import Control.Monad.Trans (liftIO)
+import Criterion.Config
+import Criterion.Main hiding (run)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
@@ -10,8 +15,16 @@ import Data.Word (Word8)
 
 import Data.Binary.Builder
 
+instance NFData S.ByteString
+
+data B = forall a. NFData a => B a
+
+instance NFData B where
+    rnf (B b) = rnf b
+
 main :: IO ()
-main = defaultMain
+main = defaultMainWith defaultConfig
+    (liftIO . evaluate $ rnf [B word8s, B smallByteString, B largeByteString])
     [ -- Test GHC loop optimization of continuation based code.
       bench "[Word8]" $ whnf (run . fromWord8s) word8s
 
