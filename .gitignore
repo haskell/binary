@@ -4,4 +4,7 @@
 *.prof
 *.tix
 .hpc/
+/benchmarks/bench
+/benchmarks/builder
 /dist/*
+/tests/qc
