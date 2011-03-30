@@ -1,5 +1,5 @@
 all: compiled
-     
+
 interpreted:
 	runhaskell QC.hs 1000
 
@@ -21,7 +21,7 @@ bench-nb::
 	./bench-nb 
 
 CBenchmark.o: CBenchmark.c
-	gcc -O3 -c $< -o $@
+	ghc -c -optc -O3 $< -o $@
 
 hugs:
 	runhugs -98 QC.hs  
