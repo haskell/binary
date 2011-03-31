@@ -18,7 +18,8 @@
 
 module Data.Binary.Builder.Internal (
     -- * Low-level construction of Builders
-    writeN
+      writeN
+    , writeAtMost
     ) where
 
 import Data.Word (Word8)
@@ -44,17 +45,24 @@ ensureFree n = n `seq` withSize $ \ l ->
         flush `append` withBuffer (const (newBuffer (max n defaultSize)))
 {-# INLINE [0] ensureFree #-}
 
-writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
-writeNBuffer n f (Buffer fp o u l) = do
-    withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
-    return (Buffer fp o (u+n) (l-n))
-{-# INLINE writeNBuffer #-}
-
 -- | Ensure that @n@ bytes are available, and then use @f@ to write
 -- exactly @n@ bytes into memory.
 writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
-writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
-{-# INLINE [0] writeN #-}
+writeN n f = writeAtMost n (\ p -> f p >> return n)
+{-# INLINE writeN #-}
+
+writeBuffer :: (Ptr Word8 -> IO Int) -> Buffer -> IO Buffer
+writeBuffer f (Buffer fp o u l) = do
+    n <- withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
+    return $! Buffer fp o (u+n) (l-n)
+{-# INLINE writeBuffer #-}
+
+-- | Ensure that @n@ bytes are available, and then use @f@ to write at
+-- most @n@ bytes into memory.  @f@ must return the actual number of
+-- bytes written.
+writeAtMost :: Int -> (Ptr Word8 -> IO Int) -> Builder
+writeAtMost n f = ensureFree n `append` withBuffer (writeBuffer f)
+{-# INLINE [0] writeAtMost #-}
 
 ------------------------------------------------------------------------
 -- Some nice rules for Builder
@@ -65,15 +73,15 @@ writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
 -- fire.
 {-# RULES
 
-"append/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()) ws.
-        append (writeN a f) (append (writeN b g) ws) =
-            append (writeN (a+b) (\p -> f p >> g (p `plusPtr` a))) ws
+"append/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
+                           (g::Ptr Word8 -> IO Int) ws.
+        append (writeAtMost a f) (append (writeAtMost b g) ws) =
+            append (writeAtMost (a+b) (\p -> f p >>= \n -> g (p `plusPtr` n))) ws
 
-"writeN/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()).
-        append (writeN a f) (writeN b g) =
-            writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
+"writeAtMost/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
+                           (g::Ptr Word8 -> IO Int).
+        append (writeAtMost a f) (writeAtMost b g) =
+            writeAtMost (a+b) (\p -> f p >>= \n -> g (p `plusPtr` n))
 
 "ensureFree/ensureFree" forall a b .
         append (ensureFree a) (ensureFree b) = ensureFree (max a b)
