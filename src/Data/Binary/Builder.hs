@@ -53,19 +53,10 @@ module Data.Binary.Builder (
 
   ) where
 
-import Foreign
-import Data.Monoid
 import Data.Word
+import Foreign
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
-
-#ifdef BYTESTRING_IN_BASE
-import Data.ByteString.Base (inlinePerformIO)
-import qualified Data.ByteString.Base as S
-#else
-import Data.ByteString.Internal (inlinePerformIO)
-import qualified Data.ByteString.Internal as S
-#endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base
@@ -76,43 +67,10 @@ import GHC.Word (uncheckedShiftRL64#)
 #endif
 #endif
 
-------------------------------------------------------------------------
-
--- | A 'Builder' is an efficient way to build lazy 'L.ByteString's.
--- There are several functions for constructing 'Builder's, but only one
--- to inspect them: to extract any data, you have to turn them into lazy
--- 'L.ByteString's using 'toLazyByteString'.
---
--- Internally, a 'Builder' constructs a lazy 'L.Bytestring' by filling byte
--- arrays piece by piece.  As each buffer is filled, it is \'popped\'
--- off, to become a new chunk of the resulting lazy 'L.ByteString'.
--- All this is hidden from the user of the 'Builder'.
-
-newtype Builder = Builder {
-        -- Invariant (from Data.ByteString.Lazy):
-        --      The lists include no null ByteStrings.
-        runBuilder :: (Buffer -> IO [S.ByteString])
-                   -> Buffer
-                   -> IO [S.ByteString]
-    }
-
-instance Monoid Builder where
-    mempty  = empty
-    {-# INLINE mempty #-}
-    mappend = append
-    {-# INLINE mappend #-}
-    mconcat = foldr mappend mempty
-    {-# INLINE mconcat #-}
+import Data.Binary.Builder.Common
+import Data.Binary.Builder.Internal
 
 ------------------------------------------------------------------------
-
--- | /O(1)./ The empty Builder, satisfying
---
---  * @'toLazyByteString' 'empty' = 'L.empty'@
---
-empty :: Builder
-empty = Builder (\ k b -> k b)
-{-# INLINE empty #-}
 
 -- | /O(1)./ A Builder taking a single byte, satisfying
 --
@@ -123,15 +81,6 @@ singleton = writeN 1 . flip poke
 {-# INLINE singleton #-}
 
 ------------------------------------------------------------------------
-
--- | /O(1)./ The concatenation of two Builders, an associative operation
--- with identity 'empty', satisfying
---
---  * @'toLazyByteString' ('append' x y) = 'L.append' ('toLazyByteString' x) ('toLazyByteString' y)@
---
-append :: Builder -> Builder -> Builder
-append (Builder f) (Builder g) = Builder (f . g)
-{-# INLINE [0] append #-}
 
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
@@ -153,11 +102,6 @@ fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
 
 ------------------------------------------------------------------------
 
--- Our internal buffer type
-data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
-                     {-# UNPACK #-} !Int                -- offset
-                     {-# UNPACK #-} !Int                -- used bytes
-                     {-# UNPACK #-} !Int                -- length left
 
 ------------------------------------------------------------------------
 
@@ -169,68 +113,11 @@ toLazyByteString :: Builder -> L.ByteString
 toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
     newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
 
--- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
--- yielding a new chunk in the result lazy 'L.ByteString'.
-flush :: Builder
-flush = Builder $ \ k buf@(Buffer p o u l) ->
-    if u == 0
-      then k buf
-      else let !b  = Buffer p (o+u) 0 l
-               !bs = S.PS p o u
-           in return $! bs : inlinePerformIO (k b)
-
 ------------------------------------------------------------------------
-
---
--- copied from Data.ByteString.Lazy
---
-defaultSize :: Int
-defaultSize = 32 * k - overhead
-    where k = 1024
-          overhead = 2 * sizeOf (undefined :: Int)
-
-------------------------------------------------------------------------
-
--- | Sequence an IO operation on the buffer
-withBuffer :: (Buffer -> IO Buffer) -> Builder
-withBuffer f = Builder $ \ k buf -> f buf >>= k
-{-# INLINE withBuffer #-}
-
--- | Get the size of the buffer
-withSize :: (Int -> Builder) -> Builder
-withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
-    runBuilder (f l) k buf
 
 -- | Map the resulting list of bytestrings.
 mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
 mapBuilder f = Builder (fmap f .)
-
-------------------------------------------------------------------------
-
--- | Ensure that there are at least @n@ many bytes available.
-ensureFree :: Int -> Builder
-ensureFree n = n `seq` withSize $ \ l ->
-    if n <= l then empty else
-        flush `append` withBuffer (const (newBuffer (max n defaultSize)))
-{-# INLINE [0] ensureFree #-}
-
--- | Ensure that @n@ many bytes are available, and then use @f@ to write some
--- bytes into the memory.
-writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
-writeN n f = ensureFree n `append` withBuffer (writeNBuffer n f)
-{-# INLINE [0] writeN #-}
-
-writeNBuffer :: Int -> (Ptr Word8 -> IO ()) -> Buffer -> IO Buffer
-writeNBuffer n f (Buffer fp o u l) = do
-    withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
-    return (Buffer fp o (u+n) (l-n))
-{-# INLINE writeNBuffer #-}
-
-newBuffer :: Int -> IO Buffer
-newBuffer size = do
-    fp <- S.mallocByteString size
-    return $! Buffer fp 0 0 size
-{-# INLINE newBuffer #-}
 
 ------------------------------------------------------------------------
 
@@ -408,32 +295,4 @@ shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
 shiftr_w16 = shiftR
 shiftr_w32 = shiftR
 shiftr_w64 = shiftR
-#endif
-
-------------------------------------------------------------------------
--- Some nice rules for Builder
-
-#if __GLASGOW_HASKELL__ >= 700
--- In versions of GHC prior to 7.0 these rules would make GHC believe
--- that 'writeN' and 'ensureFree' are recursive and the rules wouldn't
--- fire.
-{-# RULES
-
-"append/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()) ws.
-        append (writeN a f) (append (writeN b g) ws) =
-            append (writeN (a+b) (\p -> f p >> g (p `plusPtr` a))) ws
-
-"writeN/writeN" forall a b (f::Ptr Word8 -> IO ())
-                           (g::Ptr Word8 -> IO ()).
-        append (writeN a f) (writeN b g) =
-            writeN (a+b) (\p -> f p >> g (p `plusPtr` a))
-
-"ensureFree/ensureFree" forall a b .
-        append (ensureFree a) (ensureFree b) = ensureFree (max a b)
-
-"flush/flush"
-        append flush flush = flush
-
- #-}
 #endif
