@@ -1,4 +1,9 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE CPP, ExistentialQuantification #-}
+
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#include "MachDeps.h"
+#endif
+
 module Main (main) where
 
 import Control.DeepSeq
@@ -33,6 +38,8 @@ main = defaultMainWith defaultConfig
 
     , bench "small ByteString" $ whnf (run . fromByteString) smallByteString
     , bench "large ByteString" $ whnf (run . fromByteString) largeByteString
+    , bench "length-prefixed ByteString" $ whnf (run . lengthPrefixedBS)
+      smallByteString
 
     , bgroup "Host endian"
       [ bench "1MB of Word8 in chunks of 16" $ whnf (run . putWord8N16) n
@@ -71,6 +78,22 @@ from4Word8s :: [Word8] -> Builder
 from4Word8s [] = mempty
 from4Word8s (x:xs) = singleton x <> singleton x <> singleton x <> singleton x <>
                      from4Word8s xs
+
+-- Write 100 short, length-prefixed ByteStrings.
+lengthPrefixedBS :: S.ByteString -> Builder
+lengthPrefixedBS bs = loop 100
+  where loop n | n `seq` False = undefined
+        loop 0 = mempty
+        loop n =
+#if WORD_SIZE_IN_BITS == 32
+            putWord32be (fromIntegral $ S.length bs) <>
+#elif WORD_SIZE_IN_BITS == 64
+            putWord64be (fromIntegral $ S.length bs) <>
+#else
+# error Unsupported platform
+#endif
+            fromByteString bs <>
+            loop (n-1)
 
 putWord8N16 :: Int -> Builder
 putWord8N16 = loop 0
