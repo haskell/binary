@@ -76,12 +76,16 @@ writeAtMost n f = ensureFree n `append` withBuffer (writeBuffer f)
 "append/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
                            (g::Ptr Word8 -> IO Int) ws.
         append (writeAtMost a f) (append (writeAtMost b g) ws) =
-            append (writeAtMost (a+b) (\p -> f p >>= \n -> g (p `plusPtr` n))) ws
+            append (writeAtMost (a+b) (\p -> f p >>= \n ->
+                                        g (p `plusPtr` n) >>= \m ->
+                                        let s = n+m in s `seq` return s)) ws
 
 "writeAtMost/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
                            (g::Ptr Word8 -> IO Int).
         append (writeAtMost a f) (writeAtMost b g) =
-            writeAtMost (a+b) (\p -> f p >>= \n -> g (p `plusPtr` n))
+            writeAtMost (a+b) (\p -> f p >>= \n ->
+                                g (p `plusPtr` n) >>= \m ->
+                                let s = n+m in s `seq` return s)
 
 "ensureFree/ensureFree" forall a b .
         append (ensureFree a) (ensureFree b) = ensureFree (max a b)
