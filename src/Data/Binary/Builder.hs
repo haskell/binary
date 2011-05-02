@@ -51,6 +51,9 @@ module Data.Binary.Builder (
     , putWord32host         -- :: Word32 -> Builder
     , putWord64host         -- :: Word64 -> Builder
 
+      -- ** Unicode
+    , putCharUtf8
+
   ) where
 
 import Data.Word
@@ -263,6 +266,61 @@ putWord32host w32 = writeN (sizeOf (undefined :: Word32)) (\p -> poke (castPtr p
 putWord64host :: Word64 -> Builder
 putWord64host w = writeN (sizeOf (undefined :: Word64)) (\p -> poke (castPtr p) w)
 {-# INLINE putWord64host #-}
+
+------------------------------------------------------------------------
+-- Unicode
+
+-- Code lifted from the text package by Bryan O'Sullivan.
+
+-- | Write a character using UTF-8 encoding.
+putCharUtf8 :: Char -> Builder
+putCharUtf8 x = writeAtMost 4 $ \ p -> case undefined of
+    _ | n <= 0x7F   -> poke p c >> return 1
+      | n <= 0x07FF -> do
+          poke p a2
+          poke (p `plusPtr` 1) b2
+          return 2
+      | n <= 0xFFFF -> do
+          poke p a3
+          poke (p `plusPtr` 1) b3
+          poke (p `plusPtr` 2) c3
+          return 3
+      | otherwise   -> do
+          poke p a4
+          poke (p `plusPtr` 1) b4
+          poke (p `plusPtr` 2) c4
+          poke (p `plusPtr` 3) d4
+          return 4
+  where
+      n = ord x
+      c = fromIntegral n
+      (a2,b2) = ord2 x
+      (a3,b3,c3) = ord3 x
+      (a4,b4,c4,d4) = ord4 x
+
+ord2 :: Char -> (Word8,Word8)
+ord2 c = (x1,x2)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 6) + 0xC0
+    x2 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+ord3 :: Char -> (Word8,Word8,Word8)
+ord3 c = (x1,x2,x3)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 12) + 0xE0
+    x2 = fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80
+    x3 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+ord4 :: Char -> (Word8,Word8,Word8,Word8)
+ord4 c = (x1,x2,x3,x4)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 18) + 0xF0
+    x2 = fromIntegral $ ((n `shiftR` 12) .&. 0x3F) + 0x80
+    x3 = fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80
+    x4 = fromIntegral $ (n .&. 0x3F) + 0x80
 
 ------------------------------------------------------------------------
 -- Unchecked shifts
