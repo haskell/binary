@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      : Data.Binary.Builder.Common
+-- Module      : Data.Binary.Builder.Base
 -- Copyright   : Lennart Kolmodin, Ross Paterson
 -- License     : BSD3-style (see LICENSE)
 -- 
@@ -19,7 +19,7 @@
 #include "MachDeps.h"
 #endif
 
-module Data.Binary.Builder.Common (
+module Data.Binary.Builder.Base (
     -- * The Builder type
       Builder
     , toLazyByteString

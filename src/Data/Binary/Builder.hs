@@ -50,4 +50,4 @@ module Data.Binary.Builder (
 
   ) where
 
-import Data.Binary.Builder.Common
+import Data.Binary.Builder.Base

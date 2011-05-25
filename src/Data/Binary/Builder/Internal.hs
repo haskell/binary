@@ -21,4 +21,4 @@ module Data.Binary.Builder.Internal (
     , writeAtMost
     ) where
 
-import Data.Binary.Builder.Common
+import Data.Binary.Builder.Base

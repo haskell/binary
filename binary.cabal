@@ -50,7 +50,7 @@ library
                    Data.Binary.Builder
                    Data.Binary.Builder.Internal
 
-  other-modules:   Data.Binary.Builder.Common
+  other-modules:   Data.Binary.Builder.Base
 
   extensions:      CPP,
                    FlexibleContexts
