@@ -174,6 +174,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 toLazyByteString :: Builder -> L.ByteString
 toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
     newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
+{-# INLINE toLazyByteString #-}
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
