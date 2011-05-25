@@ -63,7 +63,6 @@ import Data.Binary.Get
 
 import Control.Monad
 import Foreign
-import System.IO
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L

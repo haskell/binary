@@ -139,9 +139,6 @@ append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
 {-# INLINE [0] append #-}
 
-{-# RULES
- #-}
-
 -- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
 --
 --  * @'toLazyByteString' ('fromByteString' bs) = 'L.fromChunks' [bs]@
