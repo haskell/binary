@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, CPP #-}
+{-# LANGUAGE BangPatterns, CPP, MagicHash #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -15,17 +15,52 @@
 --
 -----------------------------------------------------------------------------
 
-module Data.Binary.Builder.Common (
-      Buffer(..)
-    , newBuffer
-    , defaultSize
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#include "MachDeps.h"
+#endif
 
-    , Builder(..)
+module Data.Binary.Builder.Common (
+    -- * The Builder type
+      Builder
+    , toLazyByteString
+
+    -- * Constructing Builders
     , empty
+    , singleton
     , append
+    , fromByteString        -- :: S.ByteString -> Builder
+    , fromLazyByteString    -- :: L.ByteString -> Builder
+
+    -- * Flushing the buffer state
     , flush
+
+    -- * Derived Builders
+    -- ** Big-endian writes
+    , putWord16be           -- :: Word16 -> Builder
+    , putWord32be           -- :: Word32 -> Builder
+    , putWord64be           -- :: Word64 -> Builder
+
+    -- ** Little-endian writes
+    , putWord16le           -- :: Word16 -> Builder
+    , putWord32le           -- :: Word32 -> Builder
+    , putWord64le           -- :: Word64 -> Builder
+
+    -- ** Host-endian, unaligned writes
+    , putWordhost           -- :: Word -> Builder
+    , putWord16host         -- :: Word16 -> Builder
+    , putWord32host         -- :: Word32 -> Builder
+    , putWord64host         -- :: Word64 -> Builder
+
+      -- ** Unicode
+    , putCharUtf8
+    
+      -- * Low-level construction of Builders
+    , writeN
+    , writeAtMost
     ) where
 
+import qualified Data.ByteString      as S
+import qualified Data.ByteString.Lazy as L
 import Data.Monoid
 import Data.Word
 import Foreign
@@ -38,25 +73,14 @@ import Data.ByteString.Internal (inlinePerformIO)
 import qualified Data.ByteString.Internal as S
 #endif
 
--- Our internal buffer type
-data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
-                     {-# UNPACK #-} !Int                -- offset
-                     {-# UNPACK #-} !Int                -- used bytes
-                     {-# UNPACK #-} !Int                -- length left
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+import GHC.Base
+import GHC.Word (Word32(..),Word16(..),Word64(..))
 
-newBuffer :: Int -> IO Buffer
-newBuffer size = do
-    fp <- S.mallocByteString size
-    return $! Buffer fp 0 0 size
-{-# INLINE newBuffer #-}
-
---
--- copied from Data.ByteString.Lazy
---
-defaultSize :: Int
-defaultSize = 32 * k - overhead
-    where k = 1024
-          overhead = 2 * sizeOf (undefined :: Int)
+#if WORD_SIZE_IN_BITS < 64 && __GLASGOW_HASKELL__ >= 608
+import GHC.Word (uncheckedShiftRL64#)
+#endif
+#endif
 
 ------------------------------------------------------------------------
 
@@ -86,6 +110,8 @@ instance Monoid Builder where
     mconcat = foldr mappend mempty
     {-# INLINE mconcat #-}
 
+------------------------------------------------------------------------
+
 -- | /O(1)./ The empty Builder, satisfying
 --
 --  * @'toLazyByteString' 'empty' = 'L.empty'@
@@ -93,6 +119,16 @@ instance Monoid Builder where
 empty :: Builder
 empty = Builder (\ k b -> k b)
 {-# INLINE empty #-}
+
+-- | /O(1)./ A Builder taking a single byte, satisfying
+--
+--  * @'toLazyByteString' ('singleton' b) = 'L.singleton' b@
+--
+singleton :: Word8 -> Builder
+singleton = writeN 1 . flip poke
+{-# INLINE singleton #-}
+
+------------------------------------------------------------------------
 
 -- | /O(1)./ The concatenation of two Builders, an associative operation
 -- with identity 'empty', satisfying
@@ -102,6 +138,45 @@ empty = Builder (\ k b -> k b)
 append :: Builder -> Builder -> Builder
 append (Builder f) (Builder g) = Builder (f . g)
 {-# INLINE [0] append #-}
+
+{-# RULES
+ #-}
+
+-- | /O(1)./ A Builder taking a 'S.ByteString', satisfying
+--
+--  * @'toLazyByteString' ('fromByteString' bs) = 'L.fromChunks' [bs]@
+--
+fromByteString :: S.ByteString -> Builder
+fromByteString bs
+  | S.null bs = empty
+  | otherwise = flush `append` mapBuilder (bs :)
+{-# INLINE fromByteString #-}
+
+-- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
+--
+--  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
+--
+fromLazyByteString :: L.ByteString -> Builder
+fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
+{-# INLINE fromLazyByteString #-}
+
+------------------------------------------------------------------------
+
+-- Our internal buffer type
+data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
+                     {-# UNPACK #-} !Int                -- offset
+                     {-# UNPACK #-} !Int                -- used bytes
+                     {-# UNPACK #-} !Int                -- length left
+
+------------------------------------------------------------------------
+
+-- | /O(n)./ Extract a lazy 'L.ByteString' from a 'Builder'.
+-- The construction work takes place if and when the relevant part of
+-- the lazy 'L.ByteString' is demanded.
+--
+toLazyByteString :: Builder -> L.ByteString
+toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
+    newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
@@ -113,7 +188,326 @@ flush = Builder $ \ k buf@(Buffer p o u l) ->
                !bs = S.PS p o u
            in return $! bs : inlinePerformIO (k b)
 
+------------------------------------------------------------------------
+
+--
+-- copied from Data.ByteString.Lazy
+--
+defaultSize :: Int
+defaultSize = 32 * k - overhead
+    where k = 1024
+          overhead = 2 * sizeOf (undefined :: Int)
+
+------------------------------------------------------------------------
+
+-- | Sequence an IO operation on the buffer
+withBuffer :: (Buffer -> IO Buffer) -> Builder
+withBuffer f = Builder $ \ k buf -> f buf >>= k
+{-# INLINE withBuffer #-}
+
+-- | Get the size of the buffer
+withSize :: (Int -> Builder) -> Builder
+withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
+    runBuilder (f l) k buf
+
+-- | Map the resulting list of bytestrings.
+mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
+mapBuilder f = Builder (fmap f .)
+
+------------------------------------------------------------------------
+
+-- | Ensure that there are at least @n@ many bytes available.
+ensureFree :: Int -> Builder
+ensureFree n = n `seq` withSize $ \ l ->
+    if n <= l then empty else
+        flush `append` withBuffer (const (newBuffer (max n defaultSize)))
+{-# INLINE [0] ensureFree #-}
+
+-- | Ensure that @n@ bytes are available, and then use @f@ to write at
+-- most @n@ bytes into memory.  @f@ must return the actual number of
+-- bytes written.
+writeAtMost :: Int -> (Ptr Word8 -> IO Int) -> Builder
+writeAtMost n f = ensureFree n `append` withBuffer (writeBuffer f)
+{-# INLINE [0] writeAtMost #-}
+
+-- | Ensure that @n@ bytes are available, and then use @f@ to write
+-- exactly @n@ bytes into memory.
+writeN :: Int -> (Ptr Word8 -> IO ()) -> Builder
+writeN n f = writeAtMost n (\ p -> f p >> return n)
+{-# INLINE writeN #-}
+
+writeBuffer :: (Ptr Word8 -> IO Int) -> Buffer -> IO Buffer
+writeBuffer f (Buffer fp o u l) = do
+    n <- withForeignPtr fp (\p -> f (p `plusPtr` (o+u)))
+    return $! Buffer fp o (u+n) (l-n)
+{-# INLINE writeBuffer #-}
+
+newBuffer :: Int -> IO Buffer
+newBuffer size = do
+    fp <- S.mallocByteString size
+    return $! Buffer fp 0 0 size
+{-# INLINE newBuffer #-}
+
+------------------------------------------------------------------------
+
+--
+-- We rely on the fromIntegral to do the right masking for us.
+-- The inlining here is critical, and can be worth 4x performance
+--
+
+-- | Write a Word16 in big endian format
+putWord16be :: Word16 -> Builder
+putWord16be w = writeN 2 $ \p -> do
+    poke p               (fromIntegral (shiftr_w16 w 8) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (w)              :: Word8)
+{-# INLINE putWord16be #-}
+
+-- | Write a Word16 in little endian format
+putWord16le :: Word16 -> Builder
+putWord16le w = writeN 2 $ \p -> do
+    poke p               (fromIntegral (w)              :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w16 w 8) :: Word8)
+{-# INLINE putWord16le #-}
+
+-- putWord16le w16 = writeN 2 (\p -> poke (castPtr p) w16)
+
+-- | Write a Word32 in big endian format
+putWord32be :: Word32 -> Builder
+putWord32be w = writeN 4 $ \p -> do
+    poke p               (fromIntegral (shiftr_w32 w 24) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 w 16) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 w  8) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (w)               :: Word8)
+{-# INLINE putWord32be #-}
+
+--
+-- a data type to tag Put/Check. writes construct these which are then
+-- inlined and flattened. matching Checks will be more robust with rules.
+--
+
+-- | Write a Word32 in little endian format
+putWord32le :: Word32 -> Builder
+putWord32le w = writeN 4 $ \p -> do
+    poke p               (fromIntegral (w)               :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 w  8) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 w 16) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w32 w 24) :: Word8)
+{-# INLINE putWord32le #-}
+
+-- on a little endian machine:
+-- putWord32le w32 = writeN 4 (\p -> poke (castPtr p) w32)
+
+-- | Write a Word64 in big endian format
+putWord64be :: Word64 -> Builder
+#if WORD_SIZE_IN_BITS < 64
+--
+-- To avoid expensive 64 bit shifts on 32 bit machines, we cast to
+-- Word32, and write that
+--
+putWord64be w =
+    let a = fromIntegral (shiftr_w64 w 32) :: Word32
+        b = fromIntegral w                 :: Word32
+    in writeN 8 $ \p -> do
+    poke p               (fromIntegral (shiftr_w32 a 24) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 a 16) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 a  8) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (a)               :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (shiftr_w32 b 24) :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w32 b 16) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w32 b  8) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (b)               :: Word8)
+#else
+putWord64be w = writeN 8 $ \p -> do
+    poke p               (fromIntegral (shiftr_w64 w 56) :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w64 w 48) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w64 w 40) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w64 w 32) :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (shiftr_w64 w 24) :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w64 w 16) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w64 w  8) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (w)               :: Word8)
+#endif
+{-# INLINE putWord64be #-}
+
+-- | Write a Word64 in little endian format
+putWord64le :: Word64 -> Builder
+
+#if WORD_SIZE_IN_BITS < 64
+putWord64le w =
+    let b = fromIntegral (shiftr_w64 w 32) :: Word32
+        a = fromIntegral w                 :: Word32
+    in writeN 8 $ \p -> do
+    poke (p)             (fromIntegral (a)               :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w32 a  8) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w32 a 16) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w32 a 24) :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (b)               :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w32 b  8) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w32 b 16) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (shiftr_w32 b 24) :: Word8)
+#else
+putWord64le w = writeN 8 $ \p -> do
+    poke p               (fromIntegral (w)               :: Word8)
+    poke (p `plusPtr` 1) (fromIntegral (shiftr_w64 w  8) :: Word8)
+    poke (p `plusPtr` 2) (fromIntegral (shiftr_w64 w 16) :: Word8)
+    poke (p `plusPtr` 3) (fromIntegral (shiftr_w64 w 24) :: Word8)
+    poke (p `plusPtr` 4) (fromIntegral (shiftr_w64 w 32) :: Word8)
+    poke (p `plusPtr` 5) (fromIntegral (shiftr_w64 w 40) :: Word8)
+    poke (p `plusPtr` 6) (fromIntegral (shiftr_w64 w 48) :: Word8)
+    poke (p `plusPtr` 7) (fromIntegral (shiftr_w64 w 56) :: Word8)
+#endif
+{-# INLINE putWord64le #-}
+
+-- on a little endian machine:
+-- putWord64le w64 = writeN 8 (\p -> poke (castPtr p) w64)
+
+------------------------------------------------------------------------
+-- Unaligned, word size ops
+
+-- | /O(1)./ A Builder taking a single native machine word. The word is
+-- written in host order, host endian form, for the machine you're on.
+-- On a 64 bit machine the Word is an 8 byte value, on a 32 bit machine,
+-- 4 bytes. Values written this way are not portable to
+-- different endian or word sized machines, without conversion.
+--
+putWordhost :: Word -> Builder
+putWordhost w = writeN (sizeOf (undefined :: Word)) (\p -> poke (castPtr p) w)
+{-# INLINE putWordhost #-}
+
+-- | Write a Word16 in native host order and host endianness.
+-- 2 bytes will be written, unaligned.
+putWord16host :: Word16 -> Builder
+putWord16host w16 = writeN (sizeOf (undefined :: Word16)) (\p -> poke (castPtr p) w16)
+{-# INLINE putWord16host #-}
+
+-- | Write a Word32 in native host order and host endianness.
+-- 4 bytes will be written, unaligned.
+putWord32host :: Word32 -> Builder
+putWord32host w32 = writeN (sizeOf (undefined :: Word32)) (\p -> poke (castPtr p) w32)
+{-# INLINE putWord32host #-}
+
+-- | Write a Word64 in native host order.
+-- On a 32 bit machine we write two host order Word32s, in big endian form.
+-- 8 bytes will be written, unaligned.
+putWord64host :: Word64 -> Builder
+putWord64host w = writeN (sizeOf (undefined :: Word64)) (\p -> poke (castPtr p) w)
+{-# INLINE putWord64host #-}
+
+------------------------------------------------------------------------
+-- Unicode
+
+-- Code lifted from the text package by Bryan O'Sullivan.
+
+-- | Write a character using UTF-8 encoding.
+putCharUtf8 :: Char -> Builder
+putCharUtf8 x = writeAtMost 4 $ \ p -> case undefined of
+    _ | n <= 0x7F   -> poke p c >> return 1
+      | n <= 0x07FF -> do
+          poke p a2
+          poke (p `plusPtr` 1) b2
+          return 2
+      | n <= 0xFFFF -> do
+          poke p a3
+          poke (p `plusPtr` 1) b3
+          poke (p `plusPtr` 2) c3
+          return 3
+      | otherwise   -> do
+          poke p a4
+          poke (p `plusPtr` 1) b4
+          poke (p `plusPtr` 2) c4
+          poke (p `plusPtr` 3) d4
+          return 4
+  where
+      n = ord x
+      c = fromIntegral n
+      (a2,b2) = ord2 x
+      (a3,b3,c3) = ord3 x
+      (a4,b4,c4,d4) = ord4 x
+
+ord2 :: Char -> (Word8,Word8)
+ord2 c = (x1,x2)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 6) + 0xC0
+    x2 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+ord3 :: Char -> (Word8,Word8,Word8)
+ord3 c = (x1,x2,x3)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 12) + 0xE0
+    x2 = fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80
+    x3 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+ord4 :: Char -> (Word8,Word8,Word8,Word8)
+ord4 c = (x1,x2,x3,x4)
+  where
+    n = ord c
+    x1 = fromIntegral $ (n `shiftR` 18) + 0xF0
+    x2 = fromIntegral $ ((n `shiftR` 12) .&. 0x3F) + 0x80
+    x3 = fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80
+    x4 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+------------------------------------------------------------------------
+-- Unchecked shifts
+
+{-# INLINE shiftr_w16 #-}
+shiftr_w16 :: Word16 -> Int -> Word16
+{-# INLINE shiftr_w32 #-}
+shiftr_w32 :: Word32 -> Int -> Word32
+{-# INLINE shiftr_w64 #-}
+shiftr_w64 :: Word64 -> Int -> Word64
+
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+shiftr_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftRL#`   i)
+shiftr_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftRL#`   i)
+
+#if WORD_SIZE_IN_BITS < 64
+shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL64#` i)
+
+#if __GLASGOW_HASKELL__ <= 606
+-- Exported by GHC.Word in GHC 6.8 and higher
+foreign import ccall unsafe "stg_uncheckedShiftRL64"
+    uncheckedShiftRL64#     :: Word64# -> Int# -> Word64#
+#endif
+
+#else
+shiftr_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftRL#` i)
+#endif
+
+#else
+shiftr_w16 = shiftR
+shiftr_w32 = shiftR
+shiftr_w64 = shiftR
+#endif
+
+------------------------------------------------------------------------
+-- Some nice rules for Builder
+
+#if __GLASGOW_HASKELL__ >= 700
+-- In versions of GHC prior to 7.0 these rules would make GHC believe
+-- that 'writeN' and 'ensureFree' are recursive and the rules wouldn't
+-- fire.
 {-# RULES
+
+"append/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
+                           (g::Ptr Word8 -> IO Int) ws.
+        append (writeAtMost a f) (append (writeAtMost b g) ws) =
+            append (writeAtMost (a+b) (\p -> f p >>= \n ->
+                                        g (p `plusPtr` n) >>= \m ->
+                                        let s = n+m in s `seq` return s)) ws
+
+"writeAtMost/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
+                           (g::Ptr Word8 -> IO Int).
+        append (writeAtMost a f) (writeAtMost b g) =
+            writeAtMost (a+b) (\p -> f p >>= \n ->
+                                g (p `plusPtr` n) >>= \m ->
+                                let s = n+m in s `seq` return s)
+
+"ensureFree/ensureFree" forall a b .
+        append (ensureFree a) (ensureFree b) = ensureFree (max a b)
+ 
 "flush/flush"
         append flush flush = flush
  #-}
+#endif
