@@ -5,7 +5,7 @@
 -- Module      : Data.Binary.Builder.Base
 -- Copyright   : Lennart Kolmodin, Ross Paterson
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@dtek.chalmers.se>
 -- Stability   : experimental
 -- Portability : portable to Hugs and GHC
@@ -53,7 +53,7 @@ module Data.Binary.Builder.Base (
 
       -- ** Unicode
     , putCharUtf8
-    
+
       -- * Low-level construction of Builders
     , writeN
     , writeAtMost
@@ -371,26 +371,30 @@ putWord64le w = writeN 8 $ \p -> do
 -- different endian or word sized machines, without conversion.
 --
 putWordhost :: Word -> Builder
-putWordhost w = writeN (sizeOf (undefined :: Word)) (\p -> poke (castPtr p) w)
+putWordhost w =
+    writeN (sizeOf (undefined :: Word)) (\p -> poke (castPtr p) w)
 {-# INLINE putWordhost #-}
 
 -- | Write a Word16 in native host order and host endianness.
 -- 2 bytes will be written, unaligned.
 putWord16host :: Word16 -> Builder
-putWord16host w16 = writeN (sizeOf (undefined :: Word16)) (\p -> poke (castPtr p) w16)
+putWord16host w16 =
+    writeN (sizeOf (undefined :: Word16)) (\p -> poke (castPtr p) w16)
 {-# INLINE putWord16host #-}
 
 -- | Write a Word32 in native host order and host endianness.
 -- 4 bytes will be written, unaligned.
 putWord32host :: Word32 -> Builder
-putWord32host w32 = writeN (sizeOf (undefined :: Word32)) (\p -> poke (castPtr p) w32)
+putWord32host w32 =
+    writeN (sizeOf (undefined :: Word32)) (\p -> poke (castPtr p) w32)
 {-# INLINE putWord32host #-}
 
 -- | Write a Word64 in native host order.
 -- On a 32 bit machine we write two host order Word32s, in big endian form.
 -- 8 bytes will be written, unaligned.
 putWord64host :: Word64 -> Builder
-putWord64host w = writeN (sizeOf (undefined :: Word64)) (\p -> poke (castPtr p) w)
+putWord64host w =
+    writeN (sizeOf (undefined :: Word64)) (\p -> poke (castPtr p) w)
 {-# INLINE putWord64host #-}
 
 ------------------------------------------------------------------------
@@ -491,23 +495,24 @@ shiftr_w64 = shiftR
 {-# RULES
 
 "append/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
-                           (g::Ptr Word8 -> IO Int) ws.
-        append (writeAtMost a f) (append (writeAtMost b g) ws) =
-            append (writeAtMost (a+b) (\p -> f p >>= \n ->
-                                        g (p `plusPtr` n) >>= \m ->
-                                        let s = n+m in s `seq` return s)) ws
+                                (g::Ptr Word8 -> IO Int) ws.
+    append (writeAtMost a f) (append (writeAtMost b g) ws) =
+        append (writeAtMost (a+b) (\p -> f p >>= \n ->
+                                    g (p `plusPtr` n) >>= \m ->
+                                    let s = n+m in s `seq` return s)) ws
 
 "writeAtMost/writeAtMost" forall a b (f::Ptr Word8 -> IO Int)
-                           (g::Ptr Word8 -> IO Int).
-        append (writeAtMost a f) (writeAtMost b g) =
-            writeAtMost (a+b) (\p -> f p >>= \n ->
-                                g (p `plusPtr` n) >>= \m ->
-                                let s = n+m in s `seq` return s)
+                                     (g::Ptr Word8 -> IO Int).
+    append (writeAtMost a f) (writeAtMost b g) =
+        writeAtMost (a+b) (\p -> f p >>= \n ->
+                            g (p `plusPtr` n) >>= \m ->
+                            let s = n+m in s `seq` return s)
 
 "ensureFree/ensureFree" forall a b .
-        append (ensureFree a) (ensureFree b) = ensureFree (max a b)
- 
+    append (ensureFree a) (ensureFree b) = ensureFree (max a b)
+
 "flush/flush"
-        append flush flush = flush
+    append flush flush = flush
+
  #-}
 #endif
