@@ -68,9 +68,11 @@ import Foreign
 #ifdef BYTESTRING_IN_BASE
 import Data.ByteString.Base (inlinePerformIO)
 import qualified Data.ByteString.Base as S
+import qualified Data.ByteString.Lazy.Base as L
 #else
 import Data.ByteString.Internal (inlinePerformIO)
 import qualified Data.ByteString.Internal as S
+import qualified Data.ByteString.Lazy.Internal as L
 #endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
@@ -94,11 +96,9 @@ import GHC.Word (uncheckedShiftRL64#)
 -- All this is hidden from the user of the 'Builder'.
 
 newtype Builder = Builder {
-        -- Invariant (from Data.ByteString.Lazy):
-        --      The lists include no null ByteStrings.
-        runBuilder :: (Buffer -> IO [S.ByteString])
+        runBuilder :: (Buffer -> IO L.ByteString)
                    -> Buffer
-                   -> IO [S.ByteString]
+                   -> IO L.ByteString
     }
 
 instance Monoid Builder where
@@ -145,7 +145,7 @@ append (Builder f) (Builder g) = Builder (f . g)
 fromByteString :: S.ByteString -> Builder
 fromByteString bs
   | S.null bs = empty
-  | otherwise = flush `append` mapBuilder (bs :)
+  | otherwise = flush `append` mapBuilder (L.Chunk bs)
 {-# INLINE fromByteString #-}
 
 -- | /O(1)./ A Builder taking a lazy 'L.ByteString', satisfying
@@ -153,7 +153,7 @@ fromByteString bs
 --  * @'toLazyByteString' ('fromLazyByteString' bs) = bs@
 --
 fromLazyByteString :: L.ByteString -> Builder
-fromLazyByteString bss = flush `append` mapBuilder (L.toChunks bss ++)
+fromLazyByteString bss = flush `append` mapBuilder (bss `L.append`)
 {-# INLINE fromLazyByteString #-}
 
 ------------------------------------------------------------------------
@@ -171,19 +171,20 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- the lazy 'L.ByteString' is demanded.
 --
 toLazyByteString :: Builder -> L.ByteString
-toLazyByteString m = L.fromChunks $ unsafePerformIO $ do
-    newBuffer defaultSize >>= runBuilder (m `append` flush) (const (return []))
+toLazyByteString m = unsafePerformIO $ do
+    buf <- newBuffer defaultSize
+    runBuilder (m `append` flush) (const (return L.Empty)) buf
 {-# INLINE toLazyByteString #-}
 
 -- | /O(1)./ Pop the 'S.ByteString' we have constructed so far, if any,
 -- yielding a new chunk in the result lazy 'L.ByteString'.
 flush :: Builder
 flush = Builder $ \ k buf@(Buffer p o u l) ->
-    if u == 0
+    if u == 0  -- Invariant (from Data.ByteString.Lazy)
       then k buf
       else let !b  = Buffer p (o+u) 0 l
                !bs = S.PS p o u
-           in return $! bs : inlinePerformIO (k b)
+           in return $! L.Chunk bs (inlinePerformIO (k b))
 
 ------------------------------------------------------------------------
 
@@ -208,7 +209,7 @@ withSize f = Builder $ \ k buf@(Buffer _ _ _ l) ->
     runBuilder (f l) k buf
 
 -- | Map the resulting list of bytestrings.
-mapBuilder :: ([S.ByteString] -> [S.ByteString]) -> Builder
+mapBuilder :: (L.ByteString -> L.ByteString) -> Builder
 mapBuilder f = Builder (fmap f .)
 
 ------------------------------------------------------------------------
