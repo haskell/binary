@@ -16,7 +16,7 @@ module Data.Binary.Get (
     , skip
 
     -- * Utility
-    -- , bytesRead
+    , bytesRead
     , remaining
     , getBytes
     , isEmpty
