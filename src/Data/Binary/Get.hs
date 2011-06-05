@@ -11,6 +11,7 @@ module Data.Binary.Get (
     , Result(..)
     , runGet
     , runGetPartial
+    , runGetState -- DEPRECATED
 
     -- * Parsing
     , skip
@@ -141,6 +142,18 @@ instance (Show a) => Show (Result a) where
   show (Fail _ p msgs msg) = "Fail at position " ++ show p ++ ": " ++ show msgs ++ ": " ++ msg
   show (Partial _) = "Partial _"
   show (Done s p a) = "Done at position " ++ show p ++ ": " ++ show a
+
+{-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
+runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
+runGetState g lbs p = go (runCont g B.empty p (\i p stack msg -> Fail i p stack msg)
+                                              (\i p a -> Done i p a))
+                         (L.toChunks lbs)
+  where
+  go (Done s p a) lbs   = (a, L.fromChunks (s:lbs), p)
+  go (Partial f) (x:xs) = go (f $ Just x) xs
+  go (Partial f) []     = go (f Nothing) []
+  go (Fail _ _ _ msg) _ = error ("Data.Binary.Get.runGetState: " ++ msg)
+
 
 runGetPartial :: Get a -> Result a
 runGetPartial g = noMeansNo $
