@@ -71,7 +71,7 @@ import GHC.Word
 -- import GHC.Int
 #endif
 
--- Kolmodin 20100427: at zurihack we discussed of having partial take a
+-- Kolmodin 20100427: at zurihac we discussed of having partial take a
 -- "Maybe ByteString" and implemented it in this way.
 -- The reasoning was that you could accidently provide an empty bytestring,
 -- and it should not terminate the parsing (empty would mean eof).
@@ -233,6 +233,9 @@ lookAhead g = C $ \inp pos kf ks ->
                     Fail inp' p ss s -> kf inp' p ss s
   in go [] r0
 
+-- | Get the remaining input from the user by multiple Partial and count the
+-- bytes. Not recommended as it forces the remaining input and keeps it in
+-- memory.
 remaining :: Get Int
 remaining = C $ \ inp pos kf ks ->
   let loop acc = Partial $ \ minp ->
