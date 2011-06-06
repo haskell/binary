@@ -286,7 +286,8 @@ getLazyByteString n0 =
 readN :: Int -> Get B.ByteString
 readN n = C $ \inp pos kf ks -> do
   if B.length inp >= n
-    then ks (B.unsafeDrop n inp) (pos + fromIntegral n) inp
+    then let pos' = pos + fromIntegral n
+         in pos' `seq` ks (B.unsafeDrop n inp) pos' inp
     else runCont (demandInput >> readN n) inp pos kf ks
 
 ------------------------------------------------------------------------
