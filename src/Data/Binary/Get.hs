@@ -21,8 +21,6 @@ module Data.Binary.Get (
     , remaining
     , getBytes
     , isEmpty
-    -- , getS
-    -- , putS
     , feed
     , eof
 
@@ -230,12 +228,6 @@ isEmpty = C $ \inp pos _kf ks ->
 {-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
 getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
-
-getS :: Get B.ByteString
-getS = C $ \inp pos _kf ks -> ks inp pos inp
-
-putS :: B.ByteString -> Get ()
-putS inp = C $ \_inp pos _kf ks -> ks inp pos ()
 
 lookAhead :: Get a -> Get a
 lookAhead g = C $ \inp pos kf ks ->
