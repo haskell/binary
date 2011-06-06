@@ -13,18 +13,20 @@ module Data.Binary.Get (
     , runGetPartial
     , runGetState -- DEPRECATED
 
+    , feed
+    , eof
+
+
     -- * Parsing
     , skip
+    , lookAhead
+    , (<?>) -- labels
 
     -- * Utility
     , bytesRead
     , remaining
     , getBytes
     , isEmpty
-    , feed
-    , eof
-
-    , lookAhead
 
     -- * Parsing particular types
     , getWord8
@@ -51,7 +53,6 @@ module Data.Binary.Get (
     , getWord32host
     , getWord64host
 
-    , (<?>) -- labels
 
     ) where
 
@@ -79,9 +80,18 @@ import GHC.Word
 -- rare, as the RTS should only wake you up if you actually have some data
 -- to read from your fd.
 
+-- | The result of parsing.
 data Result a = Fail B.ByteString Int64 [String] String
+              -- ^ The parser ran into an error. The parser either used
+              -- 'fail' or was not provided enough input.
               | Partial (Maybe B.ByteString -> Result a)
+              -- ^ The parser has consumed the available input and needs
+              -- more to continue. Provide 'Just' if more input is available
+              -- and 'Nothing' otherwise, and you will get a new 'Result'.
               | Done B.ByteString Int64 a
+              -- ^ The parser has successfully finished. Except for the
+              -- output value you also get the unused input as well as the
+              -- count of used bytes.
 
 -- unrolled codensity/state monad
 newtype Get a = C { runCont :: forall r.
@@ -99,6 +109,21 @@ instance Monad Get where
   (>>=) = bindG
   fail = failG
 
+-- | Name a parser. If a parsing fails, the name will show up in the error
+-- message stack.
+--
+-- @
+--    let p n = ( do v <- 'getWord8'
+--                   if v == n
+--                    then return v
+--                    else fail \"oh noes!\"
+--              ) '<?>' (\"tried to get value \" ++ show n)
+--    in 'eof' $ 'runGetPartial' (p 1) `feed` 'pack' [0]
+-- @
+--
+-- @
+--    Fail at position 1: [\"tried to get value 1\"]: failed reading: oh noes!
+-- @
 (<?>) :: Get a -> String -> Get a
 p <?> msg = C $ \inp pos kf ks -> runCont p inp pos (\inp' pos' ss s -> kf inp' pos' (msg:ss) s) ks
 
@@ -111,7 +136,7 @@ bindG (C c) f = C $ \i pos kf ks -> c i pos kf (\i' pos a -> (runCont (f a)) i' 
 {-# INLINE bindG #-}
 
 failG :: String -> Get a
-failG str = C $ \i pos kf _ks -> kf i pos [] ("failed reading:" ++ str)
+failG str = C $ \i pos kf _ks -> kf i pos [] ("failed reading: " ++ str)
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
@@ -141,6 +166,11 @@ instance (Show a) => Show (Result a) where
   show (Partial _) = "Partial _"
   show (Done s p a) = "Done at position " ++ show p ++ ": " ++ show a
 
+-- | DEPRECATED. Provides compatibility with previous versions of this library.
+-- Run a 'Get' monad and provide both all the input and an initial position.
+-- Additional to the result of get it returns the number of consumed bytes
+-- and the unconsumed input.
+--
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState g lbs p = go (runCont g B.empty p (\i p stack msg -> Fail i p stack msg)
@@ -153,6 +183,8 @@ runGetState g lbs p = go (runCont g B.empty p (\i p stack msg -> Fail i p stack 
   go (Fail _ _ _ msg) _ = error ("Data.Binary.Get.runGetState: " ++ msg)
 
 
+-- | Run a 'Get' monad. See 'Result' for what to do next, like providing
+-- input, handling parser errors and to get the output value.
 runGetPartial :: Get a -> Result a
 runGetPartial g = noMeansNo $
   runCont g B.empty 0 (\i p stack msg -> Fail i p stack msg) (\i p a -> Done i p a)
@@ -175,6 +207,9 @@ noMeansNo r0 = go r0
       Partial f -> neverAgain (f Nothing)
       _ -> r
 
+-- | The simplest interface to run a 'Get' parser, also compatible with
+-- previous versions of the binary library. If the parser runs into an
+-- error, calling 'fail' or running out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feedAll (runGetPartial g) chunks
   where
@@ -184,6 +219,12 @@ runGet g bs = feedAll (runGetPartial g) chunks
   feedAll (Partial c) [] = feedAll (c Nothing) []
   feedAll (Fail _ _ _ msg) _ = error msg
 
+-- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
+-- will add the input to 'ByteString' of unconsumed input.
+--
+-- @
+--    'runGetPartial' myParser `feed` myInput1 `feed` myInput2
+-- @
 feed :: Result a -> B.ByteString -> Result a
 feed r inp =
   case r of
@@ -191,6 +232,7 @@ feed r inp =
     Partial f -> f (Just inp)
     Fail inp0 p ss s -> Fail (inp0 `B.append` inp) p ss s
 
+-- | Tell a 'Result' that there is no more input.
 eof :: Result a -> Result a
 eof r =
   case r of
@@ -241,14 +283,16 @@ lookAhead g = C $ \inp pos kf ks ->
 -- | Get the remaining input from the user by multiple Partial and count the
 -- bytes. Not recommended as it forces the remaining input and keeps it in
 -- memory.
-remaining :: Get Int
+remaining :: Get Int64
 remaining = C $ \ inp pos kf ks ->
   let loop acc = Partial $ \ minp ->
                   case minp of
-                    Nothing -> let all = B.concat (inp : (reverse acc)) in ks all pos (B.length all)
+                    Nothing -> let all = B.concat (inp : (reverse acc))
+                               in ks all pos (fromIntegral $ B.length all)
                     Just inp' -> loop (inp':acc)
   in loop []
 
+-- | Returns the total number of bytes read so far.
 bytesRead :: Get Int64
 bytesRead = C $ \inp pos kf ks -> ks inp pos pos
 ------------------------------------------------------------------------
