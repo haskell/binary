@@ -1,7 +1,7 @@
+{-# LANGUAGE BangPatterns, CPP, MagicHash #-}
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
-{-# LANGUAGE BangPatterns, CPP, MagicHash #-}
 
 -----------------------------------------------------------------------------
 -- |

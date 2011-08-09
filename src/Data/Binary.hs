@@ -1,7 +1,7 @@
+{-# LANGUAGE CPP, FlexibleInstances, FlexibleContexts #-}
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
-{-# LANGUAGE CPP, FlexibleInstances, FlexibleContexts #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary
