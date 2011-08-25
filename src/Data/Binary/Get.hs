@@ -1,5 +1,8 @@
 {-# LANGUAGE CPP, MagicHash, UnboxedTuples #-}
 -- MagicHash, UnboxedTuples for unboxed shifts
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
 
 -----------------------------------------------------------------------------
 -- |
