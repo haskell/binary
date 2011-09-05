@@ -20,7 +20,6 @@ module Data.Binary.Get (
     -- * Parsing
     , skip
     , lookAhead
-    , (<?>) -- labels
 
     -- * Utility
     , bytesRead
@@ -30,7 +29,7 @@ module Data.Binary.Get (
 
     -- * Parsing particular types
     , getWord8
-
+    
     -- ** ByteStrings
     , getByteString
     , getLazyByteString
@@ -81,7 +80,7 @@ import GHC.Word
 -- to read from your fd.
 
 -- | The result of parsing.
-data Result a = Fail B.ByteString Int64 [String] String
+data Result a = Fail B.ByteString Int64 String
               -- ^ The parser ran into an error. The parser either used
               -- 'fail' or was not provided enough input.
               | Partial (Maybe B.ByteString -> Result a)
@@ -97,11 +96,9 @@ data Result a = Fail B.ByteString Int64 [String] String
 newtype Get a = C { runCont :: forall r.
                                B.ByteString ->
                                Int64 ->
-                               Failure   r ->
                                Success a r ->
                                Result    r }
 
-type Failure   r = B.ByteString -> Int64 -> [String] -> String -> Result r
 type Success a r = B.ByteString -> Int64 -> a -> Result r
 
 instance Monad Get where
@@ -109,34 +106,16 @@ instance Monad Get where
   (>>=) = bindG
   fail = failG
 
--- | Name a parser. If a parsing fails, the name will show up in the error
--- message stack.
---
--- @
---    let p n = ( do v <- 'getWord8'
---                   if v == n
---                    then return v
---                    else fail \"oh noes!\"
---              ) '<?>' (\"tried to get value \" ++ show n)
---    in 'eof' $ 'runGetPartial' (p 1) `feed` 'pack' [0]
--- @
---
--- @
---    Fail at position 1: [\"tried to get value 1\"]: failed reading: oh noes!
--- @
-(<?>) :: Get a -> String -> Get a
-p <?> msg = C $ \inp pos kf ks -> runCont p inp pos (\inp' pos' ss s -> kf inp' pos' (msg:ss) s) ks
-
 returnG :: a -> Get a
-returnG a = C $ \s pos _kf ks -> ks s pos a
+returnG a = C $ \s pos ks -> ks s pos a
 {-# INLINE returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
-bindG (C c) f = C $ \i pos kf ks -> c i pos kf (\i' pos a -> (runCont (f a)) i' pos kf ks)
+bindG (C c) f = C $ \i pos ks -> c i pos (\i' pos a -> (runCont (f a)) i' pos ks)
 {-# INLINE bindG #-}
 
 failG :: String -> Get a
-failG str = C $ \i pos kf _ks -> kf i pos [] ("failed reading: " ++ str)
+failG str = C $ \i pos _ks -> Fail i pos str
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
@@ -146,7 +125,7 @@ apG d e = do
 {-# INLINE apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
-fmapG f m = C $ \i pos kf ks -> runCont m i pos kf (\i' pos' a -> ks i' pos' (f a))
+fmapG f m = C $ \i pos ks -> runCont m i pos (\i' pos' a -> ks i' pos' (f a))
 {-# INLINE fmapG #-}
 
 instance Applicative Get where
@@ -159,10 +138,10 @@ instance Functor Get where
 instance Functor Result where
   fmap f (Done s p a) = Done s p (f a)
   fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
-  fmap _ (Fail s p stack msg) = Fail s p stack msg
+  fmap _ (Fail s p msg) = Fail s p msg
 
 instance (Show a) => Show (Result a) where
-  show (Fail _ p msgs msg) = "Fail at position " ++ show p ++ ": " ++ show msgs ++ ": " ++ msg
+  show (Fail _ p msg) = "Fail at position " ++ show p ++ ": " ++ msg
   show (Partial _) = "Partial _"
   show (Done s p a) = "Done at position " ++ show p ++ ": " ++ show a
 
@@ -173,21 +152,20 @@ instance (Show a) => Show (Result a) where
 --
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
-runGetState g lbs p = go (runCont g B.empty p (\i p stack msg -> Fail i p stack msg)
-                                              (\i p a -> Done i p a))
+runGetState g lbs p = go (runCont g B.empty p (\i p a -> Done i p a))
                          (L.toChunks lbs)
   where
   go (Done s p a) lbs   = (a, L.fromChunks (s:lbs), p)
   go (Partial f) (x:xs) = go (f $ Just x) xs
   go (Partial f) []     = go (f Nothing) []
-  go (Fail _ _ _ msg) _ = error ("Data.Binary.Get.runGetState: " ++ msg)
+  go (Fail _ _ msg)   _ = error ("Data.Binary.Get.runGetState: " ++ msg)
 
 
 -- | Run a 'Get' monad. See 'Result' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
 runGetPartial :: Get a -> Result a
 runGetPartial g = noMeansNo $
-  runCont g B.empty 0 (\i p stack msg -> Fail i p stack msg) (\i p a -> Done i p a)
+  runCont g B.empty 0 (\i p a -> Done i p a)
 
 -- | Make sure we don't have to pass Nothing to a Partial twice.
 -- This way we don't need to pass around an EOF value in the Get monad, it
@@ -217,7 +195,7 @@ runGet g bs = feedAll (runGetPartial g) chunks
   feedAll (Done _ _ r) _ = r
   feedAll (Partial c) (x:xs) = feedAll (c (Just x)) xs
   feedAll (Partial c) [] = feedAll (c Nothing) []
-  feedAll (Fail _ _ _ msg) _ = error msg
+  feedAll (Fail _ _ msg) _ = error msg
 
 -- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
 -- will add the input to 'ByteString' of unconsumed input.
@@ -230,7 +208,7 @@ feed r inp =
   case r of
     Done inp0 p a -> Done (inp0 `B.append` inp) p a
     Partial f -> f (Just inp)
-    Fail inp0 p ss s -> Fail (inp0 `B.append` inp) p ss s
+    Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
 -- | Tell a 'Result' that there is no more input.
 eof :: Result a -> Result a
@@ -238,7 +216,7 @@ eof r =
   case r of
     Done _ _ _ -> r
     Partial f -> f Nothing
-    Fail _ _ _ _ -> r
+    Fail _ _ _ -> r
  
 prompt :: B.ByteString -> Result a -> (B.ByteString -> Result a) -> Result a
 prompt inp kf ks =
@@ -252,17 +230,17 @@ prompt inp kf ks =
 
 -- | Need more data.
 demandInput :: Get ()
-demandInput = C $ \inp pos kf ks ->
-  prompt inp (kf inp pos ["demandInput"] "not enough bytes") (\inp' -> ks inp' pos ())
+demandInput = C $ \inp pos ks ->
+  prompt inp (Fail inp pos "demandInput: not enough bytes") (\inp' -> ks inp' pos ())
 
 skip :: Int -> Get ()
-skip n = C $ \inp pos kf ks ->
+skip n = C $ \inp pos ks ->
   if B.length inp >= n
     then let pos' = pos + fromIntegral n in pos' `seq` ks (B.unsafeDrop n inp) pos' ()
-    else let pos' = pos + fromIntegral (B.length inp) in pos' `seq` runCont (demandInput >> skip (n - (B.length inp))) B.empty pos' kf ks
+    else let pos' = pos + fromIntegral (B.length inp) in pos' `seq` runCont (demandInput >> skip (n - (B.length inp))) B.empty pos' ks
 
 isEmpty :: Get Bool
-isEmpty = C $ \inp pos _kf ks ->
+isEmpty = C $ \inp pos ks ->
     if B.null inp
       then prompt inp (ks inp pos True) (\inp' -> ks inp' pos False)
       else ks inp pos False
@@ -272,19 +250,19 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 
 lookAhead :: Get a -> Get a
-lookAhead g = C $ \inp pos kf ks ->
-  let r0 = runGetPartial (g <?> "lookAhead") `feed` inp
+lookAhead g = C $ \inp pos ks ->
+  let r0 = runGetPartial g `feed` inp
       go acc r = case r of
                     Done _ _ a -> ks (B.concat (inp : reverse acc)) pos a
                     Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
-                    Fail inp' p ss s -> kf inp' p ss s
+                    Fail inp' p s -> Fail inp' p s
   in go [] r0
 
 -- | Get the remaining input from the user by multiple Partial and count the
 -- bytes. Not recommended as it forces the remaining input and keeps it in
 -- memory.
 remaining :: Get Int64
-remaining = C $ \ inp pos kf ks ->
+remaining = C $ \ inp pos ks ->
   let loop acc = Partial $ \ minp ->
                   case minp of
                     Nothing -> let all = B.concat (inp : (reverse acc))
@@ -294,7 +272,7 @@ remaining = C $ \ inp pos kf ks ->
 
 -- | Returns the total number of bytes read so far.
 bytesRead :: Get Int64
-bytesRead = C $ \inp pos kf ks -> ks inp pos pos
+bytesRead = C $ \inp pos ks -> ks inp pos pos
 ------------------------------------------------------------------------
 -- ByteStrings
 --
@@ -303,7 +281,7 @@ getByteString :: Int -> Get B.ByteString
 getByteString n = B.take n <$> readN n
 
 remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \inp pos _kf ks -> ks inp pos $! (B.length inp)
+remainingInCurrentChunk = C $ \inp pos ks -> ks inp pos $! (B.length inp)
 
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
@@ -318,25 +296,38 @@ getLazyByteString n0 =
   in fmap L.fromChunks (loop n0)
 
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
--- it will escape with @Partial@.
+-- the computation will escape with 'Partial'.
 readN :: Int -> Get B.ByteString
-readN n = C $ \inp pos kf ks -> do
+readN n = do
+  ensureN n
+  unsafeReadN n
+{-# INLINE readN #-}
+
+-- | Ensure that there are at least @n@ bytes available. If not, the computation will escape with 'Partial'.
+ensureN :: Int -> Get ()
+ensureN n = C $ \inp pos ks -> do
   if B.length inp >= n
-    then let pos' = pos + fromIntegral n
-         in pos' `seq` ks (B.unsafeDrop n inp) pos' inp
-    else runCont (demandInput >> readN n) inp pos kf ks
+    then ks inp pos ()
+    else runCont (demandInput >> ensureN n) inp pos ks
+
+unsafeReadN :: Int -> Get B.ByteString
+unsafeReadN n = C $ \inp pos ks -> do
+  let !pos' = pos + fromIntegral n
+  ks (B.unsafeDrop n inp) pos' inp
+
+readNWith :: Int -> (Ptr a -> IO a) -> Get a
+readNWith n f = do
+    s <- readN n
+    return . B.inlinePerformIO $ B.unsafeUseAsCString s (f . castPtr)
 
 ------------------------------------------------------------------------
 -- Primtives
 
 -- helper, get a raw Ptr onto a strict ByteString copied out of the
--- underlying lazy byteString. So many indirections from the raw parser
--- state that my head hurts...
+-- underlying lazy byteString.
 
 getPtr :: Storable a => Int -> Get a
-getPtr n = do
-    (fp,o,_) <- fmap B.toForeignPtr (readN n)
-    return . B.inlinePerformIO $ withForeignPtr fp $ \p -> peek (castPtr $ p `plusPtr` o)
+getPtr n = readNWith n peek
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
