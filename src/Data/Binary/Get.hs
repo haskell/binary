@@ -108,7 +108,7 @@ instance Monad Get where
 
 returnG :: a -> Get a
 returnG a = C $ \s pos ks -> ks s pos a
-{-# INLINE returnG #-}
+{-# INLINE [0] returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f = C $ \i pos ks -> c i pos (\i' pos a -> (runCont (f a)) i' pos ks)
@@ -117,12 +117,18 @@ bindG (C c) f = C $ \i pos ks -> c i pos (\i' pos a -> (runCont (f a)) i' pos ks
 failG :: String -> Get a
 failG str = C $ \i pos _ks -> Fail i pos str
 
+{-
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
   b <- d
   a <- e
   return (b a)
 {-# INLINE apG #-}
+-}
+
+apG :: Get (a -> b) -> Get a -> Get b
+apG (C f) (C a) = C $ \i pos ks -> f i pos (\i' pos' f' -> a i' pos' (\i'' pos'' a' -> ks i'' pos'' (f' a')))
+{-# INLINE [0] apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
 fmapG f m = C $ \i pos ks -> runCont m i pos (\i' pos' a -> ks i' pos' (f a))
@@ -130,7 +136,9 @@ fmapG f m = C $ \i pos ks -> runCont m i pos (\i' pos' a -> ks i' pos' (f a))
 
 instance Applicative Get where
   pure = returnG
+  {-# INLINE pure #-}
   (<*>) = apG
+  {-# INLINE (<*>) #-}
 
 instance Functor Get where
   fmap = fmapG
@@ -234,10 +242,8 @@ demandInput = C $ \inp pos ks ->
   prompt inp (Fail inp pos "demandInput: not enough bytes") (\inp' -> ks inp' pos ())
 
 skip :: Int -> Get ()
-skip n = C $ \inp pos ks ->
-  if B.length inp >= n
-    then let pos' = pos + fromIntegral n in pos' `seq` ks (B.unsafeDrop n inp) pos' ()
-    else let pos' = pos + fromIntegral (B.length inp) in pos' `seq` runCont (demandInput >> skip (n - (B.length inp))) B.empty pos' ks
+skip n = readN n (const ())
+{-# INLINE skip #-}
 
 isEmpty :: Get Bool
 isEmpty = C $ \inp pos ks ->
@@ -248,6 +254,7 @@ isEmpty = C $ \inp pos ks ->
 {-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
 getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
+{-# INLINE getBytes #-}
 
 lookAhead :: Get a -> Get a
 lookAhead g = C $ \inp pos ks ->
@@ -278,7 +285,8 @@ bytesRead = C $ \inp pos ks -> ks inp pos pos
 --
 
 getByteString :: Int -> Get B.ByteString
-getByteString n = B.take n <$> readN n
+getByteString n = readN n (B.take n)
+{-# INLINE getByteString #-}
 
 remainingInCurrentChunk :: Get Int
 remainingInCurrentChunk = C $ \inp pos ks -> ks inp pos $! (B.length inp)
@@ -297,11 +305,18 @@ getLazyByteString n0 =
 
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
 -- the computation will escape with 'Partial'.
-readN :: Int -> Get B.ByteString
-readN n = do
-  ensureN n
-  unsafeReadN n
-{-# INLINE readN #-}
+readN :: Int -> (B.ByteString -> a) -> Get a
+readN n f = ensureN n >> unsafeReadN n f
+{-# INLINE [1] readN #-}
+
+{-# RULES
+
+"readN/readN merge" forall n m f g.
+  apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs))
+
+"returnG/readN swap" forall f.
+  returnG f = readN 0 (const f)
+ #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
@@ -310,15 +325,16 @@ ensureN n = C $ \inp pos ks -> do
     then ks inp pos ()
     else runCont (demandInput >> ensureN n) inp pos ks
 
-unsafeReadN :: Int -> Get B.ByteString
-unsafeReadN n = C $ \inp pos ks -> do
+unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
+unsafeReadN n f = C $ \inp pos ks -> do
   let !pos' = pos + fromIntegral n
-  ks (B.unsafeDrop n inp) pos' inp
+  ks (B.unsafeDrop n inp) pos' (f inp)
+{- INLINE unsafeReadN -}
 
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith n f = do
-    s <- readN n
-    return . B.inlinePerformIO $ B.unsafeUseAsCString s (f . castPtr)
+    readN n $ \s -> B.inlinePerformIO $ B.unsafeUseAsCString s (f . castPtr)
+{-# INLINE readNWith #-}
 
 ------------------------------------------------------------------------
 -- Primtives
@@ -328,51 +344,54 @@ readNWith n f = do
 
 getPtr :: Storable a => Int -> Get a
 getPtr n = readNWith n peek
+{-# INLINE getPtr #-}
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = do
-    s <- readN 1
-    return $! B.unsafeHead s
+getWord8 = readN 1 B.unsafeHead
+{-# INLINE getWord8 #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
-getWord16be = do
-    s <- readN 2
-    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
-              (fromIntegral (s `B.unsafeIndex` 1))
-
+getWord16be =
+    readN 2 $ \s ->
+        (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
+        (fromIntegral (s `B.unsafeIndex` 1))
+{-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
-getWord16le = do
-    s <- readN 2
-    return $! (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
+getWord16le =
+    readN 2 $ \s ->
+              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
+{-# INLINE getWord16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
 getWord32be = do
-    s <- readN 4
-    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w32` 24) .|.
+    readN 4 $ \s ->
+              (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
+{-# INLINE getWord32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
 getWord32le = do
-    s <- readN 4
-    return $! (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w32` 24) .|.
+    readN 4 $ \s ->
+              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
+{-# INLINE getWord32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
 getWord64be = do
-    s <- readN 8
-    return $! (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w64` 56) .|.
+    readN 8 $ \s ->
+              (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 40) .|.
               (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w64` 32) .|.
@@ -380,12 +399,13 @@ getWord64be = do
               (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
+{-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
 getWord64le = do
-    s <- readN 8
-    return $! (fromIntegral (s `B.unsafeIndex` 7) `shiftl_w64` 56) .|.
+    readN 8 $ \s ->
+              (fromIntegral (s `B.unsafeIndex` 7) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 40) .|.
               (fromIntegral (s `B.unsafeIndex` 4) `shiftl_w64` 32) .|.
@@ -393,6 +413,7 @@ getWord64le = do
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
+{-# INLINE getWord64le #-}
 
 ------------------------------------------------------------------------
 -- Host-endian reads
@@ -402,18 +423,22 @@ getWord64le = do
 -- machine the Word is an 8 byte value, on a 32 bit machine, 4 bytes.
 getWordhost :: Get Word
 getWordhost = getPtr (sizeOf (undefined :: Word))
+{-# INLINE getWordhost #-}
 
 -- | /O(1)./ Read a 2 byte Word16 in native host order and host endianness.
 getWord16host :: Get Word16
 getWord16host = getPtr (sizeOf (undefined :: Word16))
+{-# INLINE getWord16host #-}
 
 -- | /O(1)./ Read a Word32 in native host order and host endianness.
 getWord32host :: Get Word32
 getWord32host = getPtr  (sizeOf (undefined :: Word32))
+{-# INLINE getWord32host #-}
 
 -- | /O(1)./ Read a Word64 in native host order and host endianess.
 getWord64host   :: Get Word64
 getWord64host = getPtr  (sizeOf (undefined :: Word64))
+{-# INLINE getWord64host #-}
 
 ------------------------------------------------------------------------
 -- Unchecked shifts
