@@ -323,7 +323,14 @@ ensureN :: Int -> Get ()
 ensureN n = C $ \inp pos ks -> do
   if B.length inp >= n
     then ks inp pos ()
-    else runCont (demandInput >> ensureN n) inp pos ks
+    else runCont (go n) inp pos ks
+  where -- might look a bit funny, but plays very well with GHC's inliner
+        -- GHC won't inline recursive functions, so we make ensureN non-recursive
+    go n = C $ \inp pos ks -> do
+      if B.length inp >= n
+        then ks inp pos ()
+        else runCont (demandInput >> go n) inp pos ks
+{-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
 unsafeReadN n f = C $ \inp pos ks -> do
