@@ -306,21 +306,24 @@ getLazyByteString n0 =
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
 -- the computation will escape with 'Partial'.
 readN :: Int -> (B.ByteString -> a) -> Get a
-readN n f = ensureN n >> unsafeReadN n f
-{-# INLINE [1] readN #-}
+readN !n f = ensureN n >> unsafeReadN n f
+{-# INLINE [0] readN #-}
 
 {-# RULES
 
 "readN/readN merge" forall n m f g.
   apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs))
 
-"returnG/readN swap" forall f.
+"returnG/readN swap" [~1] forall f.
   returnG f = readN 0 (const f)
+
+"readN 0/returnG swapback" [1] forall f.
+  readN 0 f = returnG (f B.empty)
  #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN n = C $ \inp pos ks -> do
+ensureN !n = C $ \inp pos ks -> do
   if B.length inp >= n
     then ks inp pos ()
     else runCont (go n) inp pos ks
@@ -333,7 +336,7 @@ ensureN n = C $ \inp pos ks -> do
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
-unsafeReadN n f = C $ \inp pos ks -> do
+unsafeReadN !n f = C $ \inp pos ks -> do
   let !pos' = pos + fromIntegral n
   ks (B.unsafeDrop n inp) pos' (f inp)
 {- INLINE unsafeReadN -}
@@ -358,46 +361,71 @@ getWord8 :: Get Word8
 getWord8 = readN 1 B.unsafeHead
 {-# INLINE getWord8 #-}
 
+-- force GHC to inline getWordXX
+{-# RULES
+"getWord8/readN" getWord8 = readN 1 B.unsafeHead
+"getWord16be/readN" getWord16be = readN 2 word16be
+"getWord16le/readN" getWord16le = readN 2 word16le
+"getWord32be/readN" getWord32be = readN 4 word32be
+"getWord32le/readN" getWord32le = readN 4 word32le
+"getWord64be/readN" getWord64be = readN 8 word64be
+"getWord64le/readN" getWord64le = readN 8 word64le
+ #-}
+
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
-getWord16be =
-    readN 2 $ \s ->
+getWord16be = readN 2 word16be
+
+word16be :: B.ByteString -> Word16
+word16be = \s ->
         (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
 {-# INLINE getWord16be #-}
+{-# INLINE word16be #-}
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
-getWord16le =
-    readN 2 $ \s ->
+getWord16le = readN 2 word16le
+
+word16le :: B.ByteString -> Word16
+word16le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord16le #-}
+{-# INLINE word16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
-getWord32be = do
-    readN 4 $ \s ->
+getWord32be = readN 4 word32be
+
+word32be :: B.ByteString -> Word32
+word32be = \s ->
               (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
 {-# INLINE getWord32be #-}
+{-# INLINE word32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
-getWord32le = do
-    readN 4 $ \s ->
+getWord32le = readN 4 word32le
+
+word32le :: B.ByteString -> Word32
+word32le = \s ->
               (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w32` 24) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord32le #-}
+{-# INLINE word32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
-getWord64be = do
-    readN 8 $ \s ->
+getWord64be = readN 8 word64be
+
+word64be :: B.ByteString -> Word64
+word64be = \s ->
               (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 40) .|.
@@ -407,11 +435,14 @@ getWord64be = do
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
 {-# INLINE getWord64be #-}
+{-# INLINE word64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
-getWord64le = do
-    readN 8 $ \s ->
+getWord64le = readN 8 word64le
+
+word64le :: B.ByteString -> Word64
+word64le = \s ->
               (fromIntegral (s `B.unsafeIndex` 7) `shiftl_w64` 56) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64` 48) .|.
               (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 40) .|.
@@ -421,6 +452,7 @@ getWord64le = do
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord64le #-}
+{-# INLINE word64le #-}
 
 ------------------------------------------------------------------------
 -- Host-endian reads
