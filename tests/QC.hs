@@ -73,6 +73,47 @@ prop_Word64host = roundTripWith putWord64host getWord64host
 
 prop_Wordhost = roundTripWith putWordhost getWordhost
 
+
+-- done, partial and fail
+
+-- | Test partial results.
+-- May or may not use the whole input, check conditions for the different
+-- outcomes.
+prop_partial :: L.ByteString -> Property
+prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skip ->
+  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+      parser = do
+        s <- getByteString (fromIntegral skip)
+        return (L.fromChunks [s])
+  in case result of
+       Partial _ -> L.length lbs < skip
+       Done remaining pos value ->
+         all id [ L.length value == skip
+                , L.append value (L.fromChunks [remaining]) == lbs
+                ]
+       Fail _ _ _ -> False
+
+-- | Fail a parser and make sure the result is sane.
+prop_fail :: L.ByteString -> String -> Property
+prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
+  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+      parser = do
+        -- use part of the input...
+        _ <- getByteString (fromIntegral pos)
+        -- ... then fail
+        fail msg
+  in case result of
+     Fail remaining pos' msg' ->
+       all id [ pos == pos'
+              , msg == msg'
+              , L.length lbs - pos == fromIntegral (B.length remaining)
+              , L.fromChunks [remaining] `L.isSuffixOf` lbs
+              ]
+     _ -> False -- wuut?
+
+feedAll r (x:xs) = feedAll (r `feed` x) xs
+feedAll r [] = r
+
 -- read too much:
 
 prop_readTooMuch x = mustThrowError $ x == a && x /= b
@@ -138,6 +179,11 @@ tests =
 
         , testGroup "Boundaries"
             [ testProperty "read to much" (p (prop_readTooMuch :: B Word8))
+            ]
+
+        , testGroup "Partial"
+            [ testProperty "partial" (p prop_partial)
+            , testProperty "fail"    (p prop_fail)
             ]
 
         , testGroup "Primitives"
