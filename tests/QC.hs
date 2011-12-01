@@ -21,9 +21,11 @@ import Data.Array (Array)
 import Data.Array.IArray
 import Data.Array.Unboxed (UArray)
 
+import Data.Word
+import Data.Int
+
 import qualified Control.OldException as C (catch,evaluate)
 import Control.Monad
-import Foreign
 import System.Environment
 import System.IO
 import System.IO.Unsafe
