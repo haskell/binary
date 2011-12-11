@@ -20,7 +20,7 @@ module Data.Binary.Get.Internal (
     -- , lookAhead
 
     -- * Utility
-    , bytesRead
+    -- , bytesRead
     , remaining
     , getBytes
     , isEmpty
@@ -58,26 +58,24 @@ import GHC.Word
 -- to read from your fd.
 
 -- | The result of parsing.
-data Result a = Fail B.ByteString Int64 String
+data Result a = Fail B.ByteString String
               -- ^ The parser ran into an error. The parser either used
               -- 'fail' or was not provided enough input.
               | Partial (Maybe B.ByteString -> Result a)
               -- ^ The parser has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
               -- and 'Nothing' otherwise, and you will get a new 'Result'.
-              | Done B.ByteString Int64 a
+              | Done B.ByteString a
               -- ^ The parser has successfully finished. Except for the
-              -- output value you also get the unused input as well as the
-              -- count of used bytes.
+              -- output value you also get the unused input.
 
 -- unrolled codensity/state monad
 newtype Get a = C { runCont :: forall r.
                                B.ByteString ->
-                               Int64 ->
                                Success a r ->
                                Result    r }
 
-type Success a r = B.ByteString -> Int64 -> a -> Result r
+type Success a r = B.ByteString -> a -> Result r
 
 instance Monad Get where
   return = returnG
@@ -85,15 +83,15 @@ instance Monad Get where
   fail = failG
 
 returnG :: a -> Get a
-returnG a = C $ \s pos ks -> ks s pos a
+returnG a = C $ \s ks -> ks s a
 {-# INLINE [0] returnG #-}
 
 bindG :: Get a -> (a -> Get b) -> Get b
-bindG (C c) f = C $ \i pos ks -> c i pos (\i' pos a -> (runCont (f a)) i' pos ks)
+bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
 {-# INLINE bindG #-}
 
 failG :: String -> Get a
-failG str = C $ \i pos _ks -> Fail i pos str
+failG str = C $ \i _ks -> Fail i str
 
 {-
 apG :: Get (a -> b) -> Get a -> Get b
@@ -105,11 +103,11 @@ apG d e = do
 -}
 
 apG :: Get (a -> b) -> Get a -> Get b
-apG (C f) (C a) = C $ \i pos ks -> f i pos (\i' pos' f' -> a i' pos' (\i'' pos'' a' -> ks i'' pos'' (f' a')))
+apG (C f) (C a) = C $ \i ks -> f i (\i' f' -> a i' (\i'' a' -> ks i'' (f' a')))
 {-# INLINE [0] apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
-fmapG f m = C $ \i pos ks -> runCont m i pos (\i' pos' a -> ks i' pos' (f a))
+fmapG f m = C $ \i ks -> runCont m i (\i' a -> ks i' (f a))
 {-# INLINE fmapG #-}
 
 instance Applicative Get where
@@ -122,20 +120,20 @@ instance Functor Get where
   fmap = fmapG
 
 instance Functor Result where
-  fmap f (Done s p a) = Done s p (f a)
+  fmap f (Done s a) = Done s (f a)
   fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
-  fmap _ (Fail s p msg) = Fail s p msg
+  fmap _ (Fail s msg) = Fail s msg
 
 instance (Show a) => Show (Result a) where
-  show (Fail _ p msg) = "Fail at position " ++ show p ++ ": " ++ msg
+  show (Fail _ msg) = "Fail: " ++ msg
   show (Partial _) = "Partial _"
-  show (Done s p a) = "Done at position " ++ show p ++ ": " ++ show a
+  show (Done s a) = "Done: " ++ show a
 
 -- | Run a 'Get' monad. See 'Result' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
 runGetPartial :: Get a -> Result a
 runGetPartial g = noMeansNo $
-  runCont g B.empty 0 (\i p a -> Done i p a)
+  runCont g B.empty (\i a -> Done i a)
 
 -- | Make sure we don't have to pass Nothing to a Partial twice.
 -- This way we don't need to pass around an EOF value in the Get monad, it
@@ -167,18 +165,18 @@ prompt inp kf ks =
 
 -- | Need more data.
 demandInput :: Get ()
-demandInput = C $ \inp pos ks ->
-  prompt inp (Fail inp pos "demandInput: not enough bytes") (\inp' -> ks inp' pos ())
+demandInput = C $ \inp ks ->
+  prompt inp (Fail inp "demandInput: not enough bytes") (\inp' -> ks inp' ())
 
 skip :: Int -> Get ()
 skip n = readN n (const ())
 {-# INLINE skip #-}
 
 isEmpty :: Get Bool
-isEmpty = C $ \inp pos ks ->
+isEmpty = C $ \inp ks ->
     if B.null inp
-      then prompt inp (ks inp pos True) (\inp' -> ks inp' pos False)
-      else ks inp pos False
+      then prompt inp (ks inp True) (\inp' -> ks inp' False)
+      else ks inp False
 
 {-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
 getBytes :: Int -> Get B.ByteString
@@ -187,12 +185,12 @@ getBytes = getByteString
 
 {-
 lookAhead :: Get a -> Get a
-lookAhead g = C $ \inp pos ks ->
+lookAhead g = C $ \inp ks ->
   let r0 = runGetPartial g `feed` inp
       go acc r = case r of
-                    Done _ _ a -> ks (B.concat (inp : reverse acc)) pos a
+                    Done _ a -> ks (B.concat (inp : reverse acc)) a
                     Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
-                    Fail inp' p s -> Fail inp' p s
+                    Fail inp' s -> Fail inp' s
   in go [] r0
 -}
 
@@ -200,17 +198,19 @@ lookAhead g = C $ \inp pos ks ->
 -- bytes. Not recommended as it forces the remaining input and keeps it in
 -- memory.
 remaining :: Get Int64
-remaining = C $ \ inp pos ks ->
+remaining = C $ \ inp ks ->
   let loop acc = Partial $ \ minp ->
                   case minp of
                     Nothing -> let all = B.concat (inp : (reverse acc))
-                               in ks all pos (fromIntegral $ B.length all)
+                               in ks all (fromIntegral $ B.length all)
                     Just inp' -> loop (inp':acc)
   in loop []
 
+{-
 -- | Returns the total number of bytes read so far.
 bytesRead :: Get Int64
-bytesRead = C $ \inp pos ks -> ks inp pos pos
+bytesRead = C $ \inp ks -> ks inp 0
+-}
 ------------------------------------------------------------------------
 -- ByteStrings
 --
@@ -220,7 +220,7 @@ getByteString n = readN n (B.take n)
 {-# INLINE getByteString #-}
 
 remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \inp pos ks -> ks inp pos $! (B.length inp)
+remainingInCurrentChunk = C $ \inp ks -> ks inp $! B.length inp
 
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
@@ -254,22 +254,21 @@ readN !n f = ensureN n >> unsafeReadN n f
 
 -- | Ensure that there are at least @n@ bytes available. If not, the computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN !n = C $ \inp pos ks -> do
+ensureN !n = C $ \inp ks -> do
   if B.length inp >= n
-    then ks inp pos ()
-    else runCont (go n) inp pos ks
+    then ks inp ()
+    else runCont (go n) inp ks
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
-    go n = C $ \inp pos ks -> do
+    go n = C $ \inp ks -> do
       if B.length inp >= n
-        then ks inp pos ()
-        else runCont (demandInput >> go n) inp pos ks
+        then ks inp ()
+        else runCont (demandInput >> go n) inp ks
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
-unsafeReadN !n f = C $ \inp pos ks -> do
-  let !pos' = pos + fromIntegral n
-  ks (B.unsafeDrop n inp) pos' (f inp)
+unsafeReadN !n f = C $ \inp ks -> do
+  ks (B.unsafeDrop n inp) (f inp)
 {- INLINE unsafeReadN -}
 
 readNWith :: Int -> (Ptr a -> IO a) -> Get a

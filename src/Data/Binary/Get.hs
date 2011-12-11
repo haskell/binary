@@ -8,7 +8,7 @@ module Data.Binary.Get (
 
     -- * The Get type
       Get
-    , I.Result(..)
+    , Result(..)
     , runGet
     , runGetPartial
     , runGetState -- DEPRECATED
@@ -21,7 +21,7 @@ module Data.Binary.Get (
     -- , lookAhead
 
     -- * Utility
-    , bytesRead
+    -- , bytesRead
     , remaining
     , getBytes
     , isEmpty
@@ -62,7 +62,7 @@ import qualified Data.ByteString.Lazy as L
 
 import Control.Applicative
 
-import Data.Binary.Get.Internal hiding ( Result(..) )
+import Data.Binary.Get.Internal hiding ( Result(..), runGetPartial )
 import qualified Data.Binary.Get.Internal as I
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
@@ -72,33 +72,64 @@ import GHC.Word
 -- import GHC.Int
 #endif
 
+-- | The result of parsing.
+data Result a = Fail B.ByteString Int64 String
+              -- ^ The parser ran into an error. The parser either used
+              -- 'fail' or was not provided enough input.
+              | Partial (Maybe B.ByteString -> Result a)
+              -- ^ The parser has consumed the available input and needs
+              -- more to continue. Provide 'Just' if more input is available
+              -- and 'Nothing' otherwise, and you will get a new 'Result'.
+              | Done B.ByteString Int64 a
+              -- ^ The parser has successfully finished. Except for the
+              -- output value you also get the unused input as well as the
+              -- count of used bytes.
+
+-- | Run a 'Get' monad. See 'Result' for what to do next, like providing
+-- input, handling parser errors and to get the output value.
+runGetPartial :: Get a -> Result a
+runGetPartial = calculateOffset . I.runGetPartial
+
+calculateOffset :: I.Result a -> Result a
+calculateOffset r = go r 0
+  where
+  go r !acc = case r of
+                I.Done inp a -> Done inp (acc - fromIntegral (B.length inp)) a
+                I.Fail inp s -> Fail inp (acc - fromIntegral (B.length inp)) s
+                I.Partial f ->
+                    Partial $ \ms ->
+                      case ms of
+                        Nothing -> go (f Nothing) acc
+                        Just i -> go (f ms) (acc + fromIntegral (B.length i))
+
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
 -- Run a 'Get' monad and provide both all the input and an initial position.
 -- Additional to the result of get it returns the number of consumed bytes
 -- and the unconsumed input.
---
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
-runGetState g lbs p = go (runCont g B.empty p (\i p a -> I.Done i p a))
-                         (L.toChunks lbs)
+runGetState g lbs pos' = go (runGetPartial g) (L.toChunks lbs)
   where
-  go (I.Done s p a) lbs   = (a, L.fromChunks (s:lbs), p)
-  go (I.Partial f) (x:xs) = go (f $ Just x) xs
-  go (I.Partial f) []     = go (f Nothing) []
-  go (I.Fail _ _ msg)   _ = error ("Data.Binary.Get.runGetState: " ++ msg)
+  go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
+  go (Partial f) (x:xs) = go (f $ Just x) xs
+  go (Partial f) []     = go (f Nothing) []
+  go (Fail _ pos msg) _ =
+    error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
 
 
 -- | The simplest interface to run a 'Get' parser, also compatible with
--- previous versions of the binary library. If the parser runs into an
+-- the @<0.6@ versions of the binary library. If the parser runs into an
 -- error, calling 'fail' or running out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feedAll (runGetPartial g) chunks
   where
   chunks = L.toChunks bs
-  feedAll (I.Done _ _ r) _ = r
-  feedAll (I.Partial c) (x:xs) = feedAll (c (Just x)) xs
-  feedAll (I.Partial c) [] = feedAll (c Nothing) []
-  feedAll (I.Fail _ _ msg) _ = error msg
+  feedAll (Done _ _ r) _ = r
+  feedAll (Partial c) (x:xs) = feedAll (c (Just x)) xs
+  feedAll (Partial c) [] = feedAll (c Nothing) []
+  feedAll (Fail _ pos msg) _ =
+    error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
+
 
 -- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
 -- will add the input to 'ByteString' of unconsumed input.
@@ -106,20 +137,20 @@ runGet g bs = feedAll (runGetPartial g) chunks
 -- @
 --    'runGetPartial' myParser `feed` myInput1 `feed` myInput2
 -- @
-feed :: I.Result a -> B.ByteString -> I.Result a
+feed :: Result a -> B.ByteString -> Result a
 feed r inp =
   case r of
-    I.Done inp0 p a -> I.Done (inp0 `B.append` inp) p a
-    I.Partial f -> f (Just inp)
-    I.Fail inp0 p s -> I.Fail (inp0 `B.append` inp) p s
+    Done inp0 p a -> Done (inp0 `B.append` inp) p a
+    Partial f -> f (Just inp)
+    Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
 -- | Tell a 'Result' that there is no more input.
-eof :: I.Result a -> I.Result a
+eof :: Result a -> Result a
 eof r =
   case r of
-    I.Done _ _ _ -> r
-    I.Partial f -> f Nothing
-    I.Fail _ _ _ -> r
+    Done _ _ _ -> r
+    Partial f -> f Nothing
+    Fail _ _ _ -> r
  
 ------------------------------------------------------------------------
 -- Primtives
