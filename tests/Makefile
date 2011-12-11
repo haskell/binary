@@ -7,7 +7,7 @@ interpreted:
 	runhaskell QC.hs 1000
 
 compiled:
-	$(ghc) --make -fhpc -O QC.hs -o qc -no-recomp -threaded -rtsopts -i../src -XCPP -package test-framework -package test-framework-quickcheck2 $(ghc-flags)
+	$(ghc) --make -fhpc -O QC.hs -o qc -fforce-recomp -threaded -rtsopts -i../src -XCPP -package test-framework -package test-framework-quickcheck2 $(ghc-flags)
 	rm -f qc.tix
 	./qc --maximum-generated-tests=1000 -j2 +RTS -N2
 
