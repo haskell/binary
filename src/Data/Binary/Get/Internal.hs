@@ -242,6 +242,9 @@ readN !n f = ensureN n >> unsafeReadN n f
 
 {-# RULES
 
+"<$> to <*>" forall f g.
+  (<$>) f g = returnG f <*> g
+
 "readN/readN merge" forall n m f g.
   apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs))
 
