@@ -46,7 +46,7 @@ module Data.Binary (
 
     -- * IO functions for serialisation
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
-    -- , decodeFile                -- :: Binary a => FilePath -> IO a
+    , decodeFile                -- :: Binary a => FilePath -> IO a
 
 -- Lazy put and get
 --  , lazyPut
@@ -267,14 +267,12 @@ encodeFile f v = L.writeFile f (encode v)
 -- it is up to the decoding instance to consume the rest of the data,
 -- or otherwise finalise the resource.
 --
-{-
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = do
     s <- L.readFile f
     return $ runGet (do v <- get
                         m <- isEmpty
                         m `seq` return v) s
--}
 
 -- needs bytestring 0.9.1.x to work 
 
