@@ -20,7 +20,6 @@ module Data.Binary.Get.Internal (
     -- , lookAhead
 
     -- * Utility
-    -- , bytesRead
     , remaining
     , getBytes
     , isEmpty
@@ -168,10 +167,13 @@ demandInput :: Get ()
 demandInput = C $ \inp ks ->
   prompt inp (Fail inp "demandInput: not enough bytes") (\inp' -> ks inp' ())
 
+-- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
 skip n = readN n (const ())
 {-# INLINE skip #-}
 
+-- | Test whether all input has been consumed, i.e. there are no remaining
+-- unparsed bytes.
 isEmpty :: Get Bool
 isEmpty = C $ \inp ks ->
     if B.null inp
@@ -194,9 +196,9 @@ lookAhead g = C $ \inp ks ->
   in go [] r0
 -}
 
--- | Get the remaining input from the user by multiple Partial and count the
--- bytes. Not recommended as it forces the remaining input and keeps it in
--- memory.
+-- | Get the number of bytes of remaining input. Note that this is an
+-- expensive function to use as in order to calculate how much input
+-- remains, all input has to be read and kept in-memory.
 remaining :: Get Int64
 remaining = C $ \ inp ks ->
   let loop acc = Partial $ \ minp ->
@@ -206,15 +208,12 @@ remaining = C $ \ inp ks ->
                     Just inp' -> loop (inp':acc)
   in loop []
 
-{-
--- | Returns the total number of bytes read so far.
-bytesRead :: Get Int64
-bytesRead = C $ \inp ks -> ks inp 0
--}
 ------------------------------------------------------------------------
 -- ByteStrings
 --
 
+-- | An efficient get method for strict ByteStrings. Fails if fewer than @n@
+-- bytes are left in the input.
 getByteString :: Int -> Get B.ByteString
 getByteString n = readN n (B.take n)
 {-# INLINE getByteString #-}
@@ -222,6 +221,8 @@ getByteString n = readN n (B.take n)
 remainingInCurrentChunk :: Get Int
 remainingInCurrentChunk = C $ \inp ks -> ks inp $! B.length inp
 
+-- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
+-- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 =
   let loop n = do
@@ -255,7 +256,8 @@ readN !n f = ensureN n >> unsafeReadN n f
   readN 0 f = returnG (f B.empty)
  #-}
 
--- | Ensure that there are at least @n@ bytes available. If not, the computation will escape with 'Partial'.
+-- | Ensure that there are at least @n@ bytes available. If not, the
+-- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
 ensureN !n = C $ \inp ks -> do
   if B.length inp >= n
