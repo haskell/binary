@@ -236,6 +236,9 @@ tests =
             , ("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
             , ("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
 
+            , ("(Maybe Int64, Bool, [Int])", p (test :: T (Maybe Int64, Bool, [Int])))
+            , ("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
+
     {-
             , ("IntSet",            p (test      :: T IntSet.IntSet          ))
             , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
@@ -251,28 +254,6 @@ tests =
             , ("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
             ]
-
-{-
-        ,("IntMap invariant",         p (prop_invariant :: B (IntMap.IntMap B.ByteString) ))
-
-        ,("Set Word32",      p (test :: T (Set.Set Word32)      ))
-        ,("Map Word16 Int",  p (test :: T (Map.Map Word16 Int)  ))
-
-        ,("(Maybe Int64, Bool, [Int])", p (test :: T (Maybe Int64, Bool, [Int])))
--}
-
-{-
---
--- Big tuples lack an Arbitrary instance in Hugs/QuickCheck
---
-
-        ,("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)",
-            p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
-
-        ,("(Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int)", p (roundTrip :: (Maybe Word32, Bool, [Int], Either Bool Word32, Int, Int) -> Bool))
-
-        ,("(Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int)", p (roundTrip :: (Maybe Word64, Bool, [Int], Either Bool Word64, Int, Int, Int) -> Bool))
--}
         ]
 
 -- GHC only:
