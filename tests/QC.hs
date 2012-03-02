@@ -114,6 +114,12 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
 feedAll r (x:xs) = feedAll (r `feed` x) xs
 feedAll r [] = r
 
+-- read negivative length
+prop_getByteString_negative :: Int -> Property
+prop_getByteString_negative n =
+  n < 1 ==>
+    runGet (getByteString n) L.empty == B.empty
+
 -- read too much:
 
 prop_readTooMuch x = mustThrowError $ x == a && x /= b
@@ -169,7 +175,8 @@ tests =
             ]
 
         , testGroup "Boundaries"
-            [ testProperty "read to much" (p (prop_readTooMuch :: B Word8))
+            [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
+            , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
             ]
 
         , testGroup "Partial"
