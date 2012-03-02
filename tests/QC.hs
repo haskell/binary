@@ -131,15 +131,6 @@ invariant_lbs (L.Chunk x xs) = not (B.null x) && invariant_lbs xs
 prop_invariant :: (Binary a) => a -> Bool
 prop_invariant = invariant_lbs . encode
 
--- be lazy!
-
--- doesn't do fair testing of lazy put/get.
--- tons of untested cases
-
--- lazyTrip :: (Binary a, Eq a) => a -> Property
--- lazyTrip a = forAll positiveList $ \xs ->
---     a == (runGet lazyGet . refragment xs . runPut . lazyPut $ a)
-
 -- refragment a lazy bytestring's chunks
 refragment :: [Int] -> L.ByteString -> L.ByteString
 refragment [] lps = lps
@@ -243,12 +234,8 @@ tests =
                     p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
 
             , ("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
-    --      , ("Lazy (Int, ByteString)",   p (lazyTrip :: T (Int, B.ByteString)   ))
             , ("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
-    --      , ("Lazy [(Int, ByteString)]", p (lazyTrip :: T [(Int, B.ByteString)] ))
 
-
-    --      , ("Lazy IntMap",       p (lazyTrip  :: T IntSet.IntSet          ))
     {-
             , ("IntSet",            p (test      :: T IntSet.IntSet          ))
             , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
