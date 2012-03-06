@@ -8,3 +8,7 @@
 /benchmarks/builder
 /dist/*
 /tests/qc
+GNUmakefile
+dist-boot
+dist-install
+ghc.mk
