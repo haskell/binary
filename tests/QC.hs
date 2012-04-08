@@ -76,7 +76,7 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- outcomes.
 prop_partial :: L.ByteString -> Property
 prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skip ->
-  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+  let result = feedLBS (runGetPartial parser) lbs
       parser = do
         s <- getByteString (fromIntegral skip)
         return (L.fromChunks [s])
@@ -91,7 +91,7 @@ prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skip ->
 -- | Fail a parser and make sure the result is sane.
 prop_fail :: L.ByteString -> String -> Property
 prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
-  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+  let result = feedLBS (runGetPartial parser) lbs
       parser = do
         -- use part of the input...
         _ <- getByteString (fromIntegral pos)
@@ -105,9 +105,6 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
               , L.fromChunks [remaining] `L.isSuffixOf` lbs
               ]
      _ -> False -- wuut?
-
-feedAll r (x:xs) = feedAll (r `feed` x) xs
-feedAll r [] = r
 
 -- read negative length
 prop_getByteString_negative :: Int -> Property
@@ -128,7 +125,7 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 
 prop_getLazyByteString :: L.ByteString -> Property
 prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
-  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+  let result = feedLBS (runGetPartial parser) lbs
       parser = getLazyByteString len
   in case result of
        Done remaining pos value ->
@@ -143,7 +140,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
   forAll (choose (0, count)) $ \pos ->
   let lbs = case L.splitAt pos (L.replicate count 65) of
               (start,end) -> refragment fragments $ L.concat [start, L.singleton 0, end]
-      result = eof $ feedAll (runGetPartial getLazyByteStringNul) (L.toChunks lbs)
+      result = eof $ feedLBS (runGetPartial getLazyByteStringNul) lbs
   in case result of
        Done remaining pos' value ->
          and [ value == L.take pos lbs
@@ -158,7 +155,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
 prop_getLazyByteStringNul_noNul :: Word16 -> [Int] -> Property
 prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
   let lbs = refragment fragments $ L.replicate count 65
-      result = eof $ feedAll (runGetPartial getLazyByteStringNul) (L.toChunks lbs)
+      result = eof $ feedLBS (runGetPartial getLazyByteStringNul) lbs
   in case result of
        Fail _ _ _ -> True
        _ -> False
@@ -167,7 +164,7 @@ prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
 
 prop_getRemainingLazyByteString :: L.ByteString -> Property
 prop_getRemainingLazyByteString lbs = property $
-  let result = eof $ feedAll (runGetPartial getRemainingLazyByteString) (L.toChunks lbs)
+  let result = eof $ feedLBS (runGetPartial getRemainingLazyByteString) lbs
   in case result of
     Done remaining pos value ->
       all id [ value == lbs

@@ -14,6 +14,7 @@ module Data.Binary.Get (
     , runGetState -- DEPRECATED
 
     , feed
+    , feedLBS
     , eof
 
     -- * Parsing
@@ -143,6 +144,12 @@ feed r inp =
     Done inp0 p a -> Done (inp0 `B.append` inp) p a
     Partial f -> f (Just inp)
     Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
+
+feedLBS :: Result a -> L.ByteString -> Result a
+feedLBS r0 = go r0 . L.toChunks
+  where
+  go r [] = r
+  go r (x:xs) = go (feed r x) xs
 
 -- | Tell a 'Result' that there is no more input.
 eof :: Result a -> Result a
