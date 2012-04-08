@@ -18,6 +18,10 @@ module Data.Binary.Get.Internal (
     -- * Parsing
     , skip
     -- , lookAhead
+    
+    , get
+    , put
+    , demandInput
 
     -- * Utility
     , remaining
@@ -26,9 +30,6 @@ module Data.Binary.Get.Internal (
 
     -- ** ByteStrings
     , getByteString
-    , getLazyByteString
-    -- , getLazyByteStringNul
-    -- , getRemainingLazyByteString
 
     ) where
 
@@ -219,22 +220,11 @@ getByteString n | n > 0 = readN n (B.unsafeTake n)
                 | otherwise = return B.empty
 {-# INLINE getByteString #-}
 
-remainingInCurrentChunk :: Get Int
-remainingInCurrentChunk = C $ \inp ks -> ks inp $! B.length inp
+get :: Get B.ByteString
+get = C $ \inp ks -> ks inp inp
 
--- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
--- bytes are left in the input.
-getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n0 =
-  let loop n = do
-        left <- remainingInCurrentChunk
-        if fromIntegral left >= n
-          then fmap (:[]) (getByteString (fromIntegral n))
-          else do now <- getByteString left
-                  demandInput
-                  remaining <- loop (n - fromIntegral left)
-                  return (now:remaining)
-  in fmap L.fromChunks (loop n0)
+put :: B.ByteString -> Get ()
+put s = C $ \_inp ks -> ks s ()
 
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
 -- the computation will escape with 'Partial'.

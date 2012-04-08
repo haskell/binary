@@ -32,8 +32,8 @@ module Data.Binary.Get (
     -- ** ByteStrings
     , getByteString
     , getLazyByteString
-    -- , getLazyByteStringNul
-    -- , getRemainingLazyByteString
+    , getLazyByteStringNul
+    , getRemainingLazyByteString
 
     -- ** Big-endian reads
     , getWord16be
@@ -152,6 +152,60 @@ eof r =
     Partial f -> f Nothing
     Fail _ _ _ -> r
  
+-- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
+-- bytes are left in the input.
+getLazyByteString :: Int64 -> Get L.ByteString
+getLazyByteString n0 = L.fromChunks <$> go n0
+  where
+  consume n str
+    | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
+    | otherwise = Left (fromIntegral (B.length str))
+  go n = do
+    str <- get
+    case consume n str of
+      Left used -> do
+        put B.empty
+        demandInput
+        fmap (str:) (go (n - used))
+      Right (want,rest) -> do
+        put rest
+        return [want]
+
+-- | Get a lazy ByteString that is terminated with a NUL byte.
+-- The returned string does not contain the NUL byte. Fails
+-- if it reaches the end of input without finding a NUL.
+getLazyByteStringNul :: Get L.ByteString
+getLazyByteStringNul = L.fromChunks <$> go
+  where
+  findNull str =
+    case B.break (==0) str of
+      (want,rest) | B.null rest -> Nothing
+                  | otherwise -> Just (want, B.drop 1 rest)
+  go = do
+    str <- get
+    case findNull str of
+      Nothing -> do
+        put B.empty
+        demandInput
+        fmap (str:) go
+      Just (want,rest) -> do
+        put rest
+        return [want]
+ 
+-- | Get the remaining bytes as a lazy ByteString.
+-- Note that this can be an expensive function to use as it forces reading
+-- all input and keeping the string in-memory.
+getRemainingLazyByteString :: Get L.ByteString
+getRemainingLazyByteString = L.fromChunks <$> go
+  where
+  go = do
+    str <- get
+    put B.empty
+    done <- isEmpty
+    if done
+      then return [str]
+      else fmap (str:) go
+
 ------------------------------------------------------------------------
 -- Primtives
 
