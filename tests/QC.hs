@@ -5,8 +5,6 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
--- import Parallel
-
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
@@ -31,10 +29,7 @@ import System.IO
 import System.IO.Unsafe
 
 import Test.QuickCheck
--- import QuickCheckUtils
 import Text.Printf
-
--- import qualified Data.Sequence as Seq
 
 import Test.Framework
 import Test.Framework.Providers.QuickCheck2
@@ -114,7 +109,7 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
 feedAll r (x:xs) = feedAll (r `feed` x) xs
 feedAll r [] = r
 
--- read negivative length
+-- read negative length
 prop_getByteString_negative :: Int -> Property
 prop_getByteString_negative n =
   n < 1 ==>
@@ -127,6 +122,59 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
     -- encode 'a', but try to read 'b' too
     (a,b) = decode (encode x)
     types = [a,b]
+
+
+-- String utilities
+
+prop_getLazyByteString :: L.ByteString -> Property
+prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
+  let result = feedAll (runGetPartial parser) (L.toChunks lbs)
+      parser = getLazyByteString len
+  in case result of
+       Done remaining pos value ->
+         all id [ value == L.take len lbs
+                , L.fromChunks [remaining] == L.drop len lbs
+                ]
+       Partial _ -> len > L.length lbs
+       _ -> False
+
+prop_getLazyByteStringNul :: Word16 -> [Int] -> Property
+prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
+  forAll (choose (0, count)) $ \pos ->
+  let lbs = case L.splitAt pos (L.replicate count 65) of
+              (start,end) -> refragment fragments $ L.concat [start, L.singleton 0, end]
+      result = eof $ feedAll (runGetPartial getLazyByteStringNul) (L.toChunks lbs)
+  in case result of
+       Done remaining pos' value ->
+         and [ value == L.take pos lbs
+             , pos + 1 == pos' -- 1 for the NUL
+             , L.fromChunks [remaining] == L.drop (pos + 1) lbs
+             ]
+       _ -> False
+  where
+  count = fromIntegral count0 -- to make the generated numbers a bit smaller
+
+-- | Same as prop_getLazyByteStringNul, but without any NULL in the string.
+prop_getLazyByteStringNul_noNul :: Word16 -> [Int] -> Property
+prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
+  let lbs = refragment fragments $ L.replicate count 65
+      result = eof $ feedAll (runGetPartial getLazyByteStringNul) (L.toChunks lbs)
+  in case result of
+       Fail _ _ _ -> True
+       _ -> False
+  where
+  count = fromIntegral count0 -- to make the generated numbers a bit smaller
+
+prop_getRemainingLazyByteString :: L.ByteString -> Property
+prop_getRemainingLazyByteString lbs = property $
+  let result = eof $ feedAll (runGetPartial getRemainingLazyByteString) (L.toChunks lbs)
+  in case result of
+    Done remaining pos value ->
+      all id [ value == lbs
+             , B.null remaining
+             , fromIntegral pos == L.length lbs
+             ]
+    _ -> False
 
 -- sanity:
 
@@ -195,6 +243,13 @@ tests =
             , testProperty "Word64le"   (p prop_Word64le)
             , testProperty "Word64host" (p prop_Word64host)
             , testProperty "Wordhost"   (p prop_Wordhost)
+            ]
+
+        , testGroup "String utils"
+            [ testProperty "getLazyByteString"          prop_getLazyByteString
+            , testProperty "getLazyByteStringNul"       prop_getLazyByteStringNul 
+            , testProperty "getLazyByteStringNul No Null" prop_getLazyByteStringNul_noNul
+            , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString 
             ]
 
         , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
