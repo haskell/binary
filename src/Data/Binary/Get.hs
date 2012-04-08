@@ -92,7 +92,7 @@ runGetPartial :: Get a -> Result a
 runGetPartial = calculateOffset . I.runGetPartial
 
 calculateOffset :: I.Result a -> Result a
-calculateOffset r = go r 0
+calculateOffset r0 = go r0 0
   where
   go r !acc = case r of
                 I.Done inp a -> Done inp (acc - fromIntegral (B.length inp)) a
@@ -109,7 +109,7 @@ calculateOffset r = go r 0
 -- and the unconsumed input.
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
-runGetState g lbs pos' = go (runGetPartial g) (L.toChunks lbs)
+runGetState g lbs0 pos' = go (runGetPartial g) (L.toChunks lbs0)
   where
   go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
   go (Partial f) (x:xs) = go (f $ Just x) xs
@@ -118,9 +118,8 @@ runGetState g lbs pos' = go (runGetPartial g) (L.toChunks lbs)
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
 
 
--- | The simplest interface to run a 'Get' parser, also compatible with
--- the @<0.6@ versions of the binary library. If the parser runs into an
--- error, calling 'fail' or running out of input, it will call 'error'.
+-- | The simplest interface to run a 'Get' parser. If the parser runs into
+-- an error, calling 'fail' or running out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feedAll (runGetPartial g) chunks
   where
