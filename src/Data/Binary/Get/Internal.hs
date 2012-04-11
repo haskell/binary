@@ -22,6 +22,7 @@ module Data.Binary.Get.Internal (
     , get
     , put
     , demandInput
+    , ensureN
 
     -- * Utility
     , remaining
