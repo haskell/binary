@@ -88,6 +88,7 @@ data Result a = Fail B.ByteString Int64 String
 
 -- | Run a 'Get' monad. See 'Result' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
+-- Hint: Use the helper functions 'feed', 'feedLBS' and 'eof'.
 runGetPartial :: Get a -> Result a
 runGetPartial = calculateOffset . I.runGetPartial
 
@@ -135,7 +136,7 @@ runGet g bs = feedAll (runGetPartial g) chunks
 -- will add the input to 'ByteString' of unconsumed input.
 --
 -- @
---    'runGetPartial' myParser `feed` myInput1 `feed` myInput2
+--    'runGetPartial' myParser \`feed\` myInput1 \`feed\` myInput2
 -- @
 feed :: Result a -> B.ByteString -> Result a
 feed r inp =
@@ -144,13 +145,21 @@ feed r inp =
     Partial f -> f (Just inp)
     Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
+
+-- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
+-- will add the input to 'ByteString' of unconsumed input.
+--
+-- @
+--    'runGetPartial' myParser \`feedLBS\` myLazyByteString
+-- @
 feedLBS :: Result a -> L.ByteString -> Result a
 feedLBS r0 = go r0 . L.toChunks
   where
   go r [] = r
   go r (x:xs) = go (feed r x) xs
 
--- | Tell a 'Result' that there is no more input.
+-- | Tell a 'Result' that there is no more input. This passes 'Nothing' to a
+-- 'Partial' result, otherwise returns the result unchanged.
 eof :: Result a -> Result a
 eof r =
   case r of

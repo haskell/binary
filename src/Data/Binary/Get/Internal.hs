@@ -128,7 +128,7 @@ instance Functor Result where
 instance (Show a) => Show (Result a) where
   show (Fail _ msg) = "Fail: " ++ msg
   show (Partial _) = "Partial _"
-  show (Done s a) = "Done: " ++ show a
+  show (Done _ a) = "Done: " ++ show a
 
 -- | Run a 'Get' monad. See 'Result' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
@@ -164,7 +164,7 @@ prompt inp kf ks =
              Nothing -> kf
     in loop
 
--- | Need more data.
+-- | Demand more input. If none available, fail.
 demandInput :: Get ()
 demandInput = C $ \inp ks ->
   prompt inp (Fail inp "demandInput: not enough bytes") (\inp' -> ks inp' ())
@@ -205,8 +205,8 @@ remaining :: Get Int64
 remaining = C $ \ inp ks ->
   let loop acc = Partial $ \ minp ->
                   case minp of
-                    Nothing -> let all = B.concat (inp : (reverse acc))
-                               in ks all (fromIntegral $ B.length all)
+                    Nothing -> let all_inp = B.concat (inp : (reverse acc))
+                               in ks all_inp (fromIntegral $ B.length all_inp)
                     Just inp' -> loop (inp':acc)
   in loop []
 
@@ -221,9 +221,11 @@ getByteString n | n > 0 = readN n (B.unsafeTake n)
                 | otherwise = return B.empty
 {-# INLINE getByteString #-}
 
+-- | Get the current chunk.
 get :: Get B.ByteString
 get = C $ \inp ks -> ks inp inp
 
+-- | Replace the current chunk.
 put :: B.ByteString -> Get ()
 put s = C $ \_inp ks -> ks s ()
 

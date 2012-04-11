@@ -83,9 +83,9 @@ prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skip ->
   in case result of
        Partial _ -> L.length lbs < skip
        Done remaining pos value ->
-         all id [ L.length value == skip
-                , L.append value (L.fromChunks [remaining]) == lbs
-                ]
+         and [ L.length value == skip
+             , L.append value (L.fromChunks [remaining]) == lbs
+             ]
        Fail _ _ _ -> False
 
 -- | Fail a parser and make sure the result is sane.
@@ -99,11 +99,11 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
         fail msg
   in case result of
      Fail remaining pos' msg' ->
-       all id [ pos == pos'
-              , msg == msg'
-              , L.length lbs - pos == fromIntegral (B.length remaining)
-              , L.fromChunks [remaining] `L.isSuffixOf` lbs
-              ]
+       and [ pos == pos'
+           , msg == msg'
+           , L.length lbs - pos == fromIntegral (B.length remaining)
+           , L.fromChunks [remaining] `L.isSuffixOf` lbs
+           ]
      _ -> False -- wuut?
 
 -- read negative length
@@ -129,9 +129,9 @@ prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
       parser = getLazyByteString len
   in case result of
        Done remaining pos value ->
-         all id [ value == L.take len lbs
-                , L.fromChunks [remaining] == L.drop len lbs
-                ]
+         and [ value == L.take len lbs
+             , L.fromChunks [remaining] == L.drop len lbs
+             ]
        Partial _ -> len > L.length lbs
        _ -> False
 
@@ -167,10 +167,10 @@ prop_getRemainingLazyByteString lbs = property $
   let result = eof $ feedLBS (runGetPartial getRemainingLazyByteString) lbs
   in case result of
     Done remaining pos value ->
-      all id [ value == lbs
-             , B.null remaining
-             , fromIntegral pos == L.length lbs
-             ]
+      and [ value == lbs
+          , B.null remaining
+          , fromIntegral pos == L.length lbs
+          ]
     _ -> False
 
 -- sanity:
