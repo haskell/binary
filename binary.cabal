@@ -47,9 +47,8 @@ library
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
                    Data.Binary.Get,
+                   Data.Binary.Get.Internal,
                    Data.Binary.Builder
-
-  other-modules:   Data.Binary.Get.Internal
 
   extensions:      CPP,
                    FlexibleContexts
