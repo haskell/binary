@@ -1,4 +1,8 @@
 {-# LANGUAGE CPP #-}
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Put
@@ -65,7 +69,7 @@ import Control.Applicative
 ------------------------------------------------------------------------
 
 -- XXX Strict in buffer only. 
-data PairS a = PairS a {-# UNPACK #-}!Builder
+data PairS a = PairS a !Builder
 
 sndS :: PairS a -> Builder
 sndS (PairS _ b) = b

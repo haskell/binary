@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, FlexibleInstances, FlexibleContexts #-}
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary
@@ -63,7 +66,6 @@ import Data.Binary.Get
 
 import Control.Monad
 import Foreign
-import System.IO
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L

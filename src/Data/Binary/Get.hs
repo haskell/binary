@@ -1,8 +1,23 @@
 {-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns #-}
+#if __GLASGOW_HASKELL__ >= 701
+{-# LANGUAGE Trustworthy #-}
+#endif
 
--- CPP C style pre-precessing, the #if defined lines
--- RankNTypes forall r. statement
--- MagicHash the (# unboxing #), also needs GHC.primitives
+-----------------------------------------------------------------------------
+-- |
+-- Module      : Data.Binary.Get
+-- Copyright   : Lennart Kolmodin
+-- License     : BSD3-style (see LICENSE)
+-- 
+-- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
+-- Stability   : experimental
+-- Portability : portable to Hugs and GHC.
+--
+-- The Get monad. A monad for efficiently building structures from
+-- encoded lazy ByteStrings.
+--
+-----------------------------------------------------------------------------
+
 
 module Data.Binary.Get (
 
@@ -29,7 +44,7 @@ module Data.Binary.Get (
 
     -- * Parsing particular types
     , getWord8
-    
+
     -- ** ByteStrings
     , getByteString
     , getLazyByteString
@@ -70,7 +85,6 @@ import qualified Data.Binary.Get.Internal as I
 -- needed for (# unboxing #) with magic hash
 import GHC.Base
 import GHC.Word
--- import GHC.Int
 #endif
 
 -- | The result of parsing.

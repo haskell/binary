@@ -11,32 +11,10 @@ compiled:
 	rm -f qc.tix
 	./qc --maximum-generated-tests=1000 -j2 +RTS -N2
 
-inplace-bench:: Benchmark.hs MemBench.hs CBenchmark.o
-	$(ghc) --make -O2 -fliberate-case-threshold=1000 -fasm -i../src Benchmark.hs CBenchmark.o -o inplace-bench -fforce-recomp $(ghc-flags)
-	./inplace-bench 100
-
-bench:: Benchmark.hs MemBench.hs CBenchmark.o
-	$(ghc) --make -O2 -fliberate-case-threshold=1000 -fasm Benchmark.hs CBenchmark.o -o bench -fforce-recomp $(ghc-flags)
-	./bench 100
-
-bench-nb::
-	$(ghc) --make -O2 -fliberate-case-threshold=1000 NewBenchmark.hs -fasm -o bench-nb $(ghc-flags)
-	./bench-nb 
-
-CBenchmark.o: CBenchmark.c
-	$(ghc) -c -optc -O3 $< -o $@ $(ghc-flags)
-
 hugs:
 	runhugs -98 QC.hs  
 
-
-HeapUse: HeapUse.hs
-	$(ghc) --make -O $^ -fasm -o $@ $(ghc-flags)
-
-heap: HeapUse
-	./HeapUse +RTS -M10M -t/dev/stderr -RTS
-
 clean:
-	rm -f *.o *.hi qc bench bench-nb *~
+	rm -f *.o *.hi qc *.tix *~
 
-.PHONY: clean inplace-bench bench bench-nb
+.PHONY: clean
