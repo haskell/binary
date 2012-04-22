@@ -275,8 +275,7 @@ ensureN !n = C $ \inp ks -> do
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
 unsafeReadN !n f = C $ \inp ks -> do
-  ks (B.unsafeDrop n inp) (f inp)
-{- INLINE unsafeReadN -}
+  ks (B.unsafeDrop n inp) $! f inp -- strict return
 
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith n f = do
