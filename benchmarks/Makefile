@@ -12,7 +12,7 @@ bench: Benchmark.hs MemBench.hs CBenchmark.o
 	$(ghc) $(ghc-flags) --make -O2 -fliberate-case-threshold=1000 Benchmark.hs CBenchmark.o -o $@ -fforce-recomp -i../src
 
 system-bench: Benchmark.hs MemBench.hs CBenchmark.o
-	$(ghc) $(ghc-flags) --make -O2 -fliberate-case-threshold=1000 Benchmark.hs CBenchmark.o -o $@ -fforce-recomp -package binary
+	$(ghc) $(ghc-flags) --make -O2 -fliberate-case-threshold=1000 Benchmark.hs CBenchmark.o -o $@ -fforce-recomp -no-user-package-conf
 
 .PHONY: run-bench
 run-bench: bench
