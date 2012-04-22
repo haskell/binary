@@ -93,17 +93,11 @@ bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
 failG :: String -> Get a
 failG str = C $ \i _ks -> Fail i str
 
-{-
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
   b <- d
   a <- e
   return (b a)
-{-# INLINE apG #-}
--}
-
-apG :: Get (a -> b) -> Get a -> Get b
-apG (C f) (C a) = C $ \i ks -> f i (\i' f' -> a i' (\i'' a' -> ks i'' (f' a')))
 {-# INLINE [0] apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
