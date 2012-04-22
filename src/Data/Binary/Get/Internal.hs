@@ -17,7 +17,6 @@ module Data.Binary.Get.Internal (
 
     -- * Parsing
     , skip
-    -- , lookAhead
     
     , get
     , put
@@ -187,16 +186,31 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 {-# INLINE getBytes #-}
 
-{-
-lookAhead :: Get a -> Get a
-lookAhead g = C $ \inp ks ->
+instance Alternative Get where
+  empty = C $ \inp ks -> Fail inp "Data.Binary.Get(Alternative).empty"
+  (<|>) f g = C $ \inp ks ->
+    let r0 = runCont (try f) inp (\inp' a -> Done inp' a)
+        go r = case r of
+                  Done inp' a -> ks inp' a
+                  Partial f -> Partial (go . f)
+                  Fail inp' str -> runCont g inp' ks
+    in go r0
+
+-- | Try to execute a Get. If it fails, the consumed input will be restored.
+try :: Get a -> Get a
+try g = C $ \inp ks ->
   let r0 = runGetPartial g `feed` inp
-      go acc r = case r of
-                    Done _ a -> ks (B.concat (inp : reverse acc)) a
+      go !acc r = case r of
+                    Done inp' a -> ks inp' a
                     Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
-                    Fail inp' s -> Fail inp' s
+                    Fail _ s -> Fail (B.concat (inp : reverse acc)) s
   in go [] r0
--}
+  where
+  feed r inp =
+    case r of
+      Done inp0 a -> Done (inp0 `B.append` inp) a
+      Partial f -> f (Just inp)
+      Fail inp0 s -> Fail (inp0 `B.append` inp) s
 
 -- | Get the number of bytes of remaining input. Note that this is an
 -- expensive function to use as in order to calculate how much input
