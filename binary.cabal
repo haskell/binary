@@ -4,7 +4,7 @@ license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
 maintainer:      Lennart Kolmodin, Don Stewart <dons@galois.com>
-homepage:        http://code.haskell.org/binary/
+homepage:        https://github.com/kolmodin/binary
 description:     Efficient, pure binary serialisation using lazy ByteStrings.
                  Haskell values may be encoded to and from binary formats, 
                  written to disk as binary, or sent over the network.
@@ -18,6 +18,10 @@ build-type:      Simple
 cabal-version:   >= 1.2
 tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0, GHC ==6.10.1
 extra-source-files: README index.html
+
+source-repository head
+  type: git
+  location: git://github.com/kolmodin/binary.git
 
 flag bytestring-in-base
 flag split-base
