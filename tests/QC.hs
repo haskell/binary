@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy.Internal as L
 
 -- import Data.Word
 import Data.Int
+import Data.Ratio
 
 import Control.Exception as C (catch,evaluate,SomeException)
 -- import Control.Monad
@@ -273,6 +274,9 @@ tests =
         , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
             [ ("()",         p (test :: T ()                     ))
             , ("Bool",       p (test :: T Bool                   ))
+            , ("Ordering",   p (test :: T Ordering               ))
+            , ("Ratio Int",  p (test :: T (Ratio Int)            ))
+
 
             , ("Word8",      p (test :: T Word8                  ))
             , ("Word16",     p (test :: T Word16                 ))
@@ -344,3 +348,6 @@ instance Arbitrary L.ByteString where
 
 instance Arbitrary B.ByteString where
   arbitrary = B.pack `fmap` arbitrary
+
+instance Arbitrary Ordering where
+  arbitrary = elements [minBound .. maxBound]
