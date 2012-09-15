@@ -37,12 +37,12 @@ import Foreign
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
-import qualified Data.ByteString.Lazy as L
 
 import Control.Applicative
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
+-- Do we still need these? Works without on modern GHCs.
 import GHC.Base
 import GHC.Word
 -- import GHC.Int
@@ -137,14 +137,14 @@ noMeansNo r0 = go r0
   where
   go r =
     case r of
-      Partial f -> Partial $ \ms ->
+      Partial k -> Partial $ \ms ->
                     case ms of
-                      Just _ -> go (f ms)
-                      Nothing -> neverAgain (f ms)
+                      Just _ -> go (k ms)
+                      Nothing -> neverAgain (k ms)
       _ -> r
   neverAgain r =
     case r of
-      Partial f -> neverAgain (f Nothing)
+      Partial k -> neverAgain (k Nothing)
       _ -> r
 
 prompt :: B.ByteString -> Result a -> (B.ByteString -> Result a) -> Result a
@@ -181,13 +181,13 @@ getBytes = getByteString
 {-# INLINE getBytes #-}
 
 instance Alternative Get where
-  empty = C $ \inp ks -> Fail inp "Data.Binary.Get(Alternative).empty"
+  empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
   (<|>) f g = C $ \inp ks ->
     let r0 = runCont (try f) inp (\inp' a -> Done inp' a)
         go r = case r of
                   Done inp' a -> ks inp' a
-                  Partial f -> Partial (go . f)
-                  Fail inp' str -> runCont g inp' ks
+                  Partial k -> Partial (go . k)
+                  Fail inp' _str -> runCont g inp' ks
     in go r0
 
 -- | Try to execute a Get. If it fails, the consumed input will be restored.
@@ -196,14 +196,14 @@ try g = C $ \inp ks ->
   let r0 = runGetPartial g `feed` inp
       go !acc r = case r of
                     Done inp' a -> ks inp' a
-                    Partial f -> Partial $ \minp -> go (maybe acc (:acc) minp) (f minp)
+                    Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                     Fail _ s -> Fail (B.concat (inp : reverse acc)) s
   in go [] r0
   where
   feed r inp =
     case r of
       Done inp0 a -> Done (inp0 `B.append` inp) a
-      Partial f -> f (Just inp)
+      Partial k -> k (Just inp)
       Fail inp0 s -> Fail (inp0 `B.append` inp) s
 
 -- | Get the number of bytes of remaining input. Note that this is an
@@ -261,10 +261,10 @@ readN !n f = ensureN n >> unsafeReadN n f
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN !n = C $ \inp ks -> do
-  if B.length inp >= n
+ensureN !n0 = C $ \inp ks -> do
+  if B.length inp >= n0
     then ks inp ()
-    else runCont (go n) inp ks
+    else runCont (go n0) inp ks
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
     go n = C $ \inp ks -> do

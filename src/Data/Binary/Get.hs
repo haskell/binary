@@ -72,7 +72,6 @@ module Data.Binary.Get (
 
 import Foreign
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 
