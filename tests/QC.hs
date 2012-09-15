@@ -305,7 +305,6 @@ tests =
             , ("[Int]",      p (test :: T [Int]                 ))
             , ("[Integer]",  p (test :: T [Integer]             ))
             , ("String",     p (test :: T String                ))
-
             , ("((), ())",           p (test :: T ((), ())        ))
             , ("(Word8, Word32)",    p (test :: T (Word8, Word32) ))
             , ("(Int8, Int32)",      p (test :: T (Int8,  Int32)  ))
@@ -314,15 +313,28 @@ tests =
             , ("Maybe Int8",         p (test :: T (Maybe Int8)        ))
             , ("Either Int8 Int16",  p (test :: T (Either Int8 Int16) ))
 
+            , ("(Int, ByteString)",
+                      p (test     :: T (Int, B.ByteString)   ))
+            , ("[(Int, ByteString)]",
+                      p (test     :: T [(Int, B.ByteString)] ))
+
+            , ("(Maybe Int64, Bool, [Int])",
+                      p (test :: T (Maybe Int64, Bool, [Int])))
             , ("(Maybe Word8, Bool, [Int], Either Bool Word8)",
-                    p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
+                      p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
+            , ("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)",
+                      p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
 
-            , ("(Int, ByteString)",        p (test     :: T (Int, B.ByteString)   ))
-            , ("[(Int, ByteString)]",      p (test     :: T [(Int, B.ByteString)] ))
-
-            , ("(Maybe Int64, Bool, [Int])", p (test :: T (Maybe Int64, Bool, [Int])))
-            , ("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)", p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
-
+            , ("(Int,Int,Int,Int,Int,Int)",
+                      p (test :: T (Int,Int,Int,Int,Int,Int)))
+            , ("(Int,Int,Int,Int,Int,Int,Int)",
+                      p (test :: T (Int,Int,Int,Int,Int,Int,Int)))
+            , ("(Int,Int,Int,Int,Int,Int,Int,Int)",
+                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int)))
+            , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int)",
+                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int)))
+            , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)",
+                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)))
     {-
             , ("IntSet",            p (test      :: T IntSet.IntSet          ))
             , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
@@ -351,3 +363,44 @@ instance Arbitrary B.ByteString where
 
 instance Arbitrary Ordering where
   arbitrary = elements [minBound .. maxBound]
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
+          Arbitrary f) =>
+         Arbitrary (a,b,c,d,e,f) where
+  arbitrary = do
+    (a,b,c,d,e) <- arbitrary
+    f <- arbitrary
+    return (a,b,c,d,e,f)
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
+          Arbitrary f, Arbitrary g) =>
+         Arbitrary (a,b,c,d,e,f,g) where
+  arbitrary = do
+    (a,b,c,d,e) <- arbitrary
+    (f,g) <- arbitrary
+    return (a,b,c,d,e,f,g)
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
+          Arbitrary f, Arbitrary g, Arbitrary h) =>
+         Arbitrary (a,b,c,d,e,f,g,h) where
+  arbitrary = do
+    (a,b,c,d,e) <- arbitrary
+    (f,g,h) <- arbitrary
+    return (a,b,c,d,e,f,g,h)
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
+          Arbitrary f, Arbitrary g, Arbitrary h, Arbitrary i) =>
+         Arbitrary (a,b,c,d,e,f,g,h,i) where
+  arbitrary = do
+    (a,b,c,d,e) <- arbitrary
+    (f,g,h,i) <- arbitrary
+    return (a,b,c,d,e,f,g,h,i)
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
+          Arbitrary f, Arbitrary g, Arbitrary h, Arbitrary i, Arbitrary j) =>
+         Arbitrary (a,b,c,d,e,f,g,h,i,j) where
+  arbitrary = do
+    (a,b,c,d,e) <- arbitrary
+    (f,g,h,i,j) <- arbitrary
+    return (a,b,c,d,e,f,g,h,i,j)
+
