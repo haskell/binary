@@ -111,11 +111,11 @@ calculateOffset r0 = go r0 0
   go r !acc = case r of
                 I.Done inp a -> Done inp (acc - fromIntegral (B.length inp)) a
                 I.Fail inp s -> Fail inp (acc - fromIntegral (B.length inp)) s
-                I.Partial f ->
+                I.Partial k ->
                     Partial $ \ms ->
                       case ms of
-                        Nothing -> go (f Nothing) acc
-                        Just i -> go (f ms) (acc + fromIntegral (B.length i))
+                        Nothing -> go (k Nothing) acc
+                        Just i -> go (k ms) (acc + fromIntegral (B.length i))
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
 -- Run a 'Get' monad and provide both all the input and an initial position.
@@ -126,8 +126,8 @@ runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState g lbs0 pos' = go (runGetPartial g) (L.toChunks lbs0)
   where
   go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
-  go (Partial f) (x:xs) = go (f $ Just x) xs
-  go (Partial f) []     = go (f Nothing) []
+  go (Partial k) (x:xs) = go (k $ Just x) xs
+  go (Partial k) []     = go (k Nothing) []
   go (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
 
@@ -139,8 +139,8 @@ runGet g bs = feedAll (runGetPartial g) chunks
   where
   chunks = L.toChunks bs
   feedAll (Done _ _ r) _ = r
-  feedAll (Partial c) (x:xs) = feedAll (c (Just x)) xs
-  feedAll (Partial c) [] = feedAll (c Nothing) []
+  feedAll (Partial k) (x:xs) = feedAll (k (Just x)) xs
+  feedAll (Partial k) [] = feedAll (k Nothing) []
   feedAll (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
 
@@ -155,7 +155,7 @@ feed :: Result a -> B.ByteString -> Result a
 feed r inp =
   case r of
     Done inp0 p a -> Done (inp0 `B.append` inp) p a
-    Partial f -> f (Just inp)
+    Partial k -> k (Just inp)
     Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
 
@@ -177,7 +177,7 @@ eof :: Result a -> Result a
 eof r =
   case r of
     Done _ _ _ -> r
-    Partial f -> f Nothing
+    Partial k -> k Nothing
     Fail _ _ _ -> r
  
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
