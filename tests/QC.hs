@@ -94,7 +94,7 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- outcomes.
 prop_partial :: L.ByteString -> Property
 prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
-  let result = feedLBS (runGetPartial parser) lbs
+  let result = pushChunks (runGetIncremental parser) lbs
       parser = do
         s <- getByteString (fromIntegral skipN)
         return (L.fromChunks [s])
@@ -109,7 +109,7 @@ prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
 -- | Fail a parser and make sure the result is sane.
 prop_fail :: L.ByteString -> String -> Property
 prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
-  let result = feedLBS (runGetPartial parser) lbs
+  let result = pushChunks (runGetIncremental parser) lbs
       parser = do
         -- use part of the input...
         _ <- getByteString (fromIntegral pos)
@@ -144,7 +144,7 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 
 prop_getLazyByteString :: L.ByteString -> Property
 prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
-  let result = feedLBS (runGetPartial parser) lbs
+  let result = pushChunks (runGetIncremental parser) lbs
       parser = getLazyByteString len
   in case result of
        Done unused _pos value ->
@@ -159,7 +159,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
   forAll (choose (0, count)) $ \pos ->
   let lbs = case L.splitAt pos (L.replicate count 65) of
               (start,end) -> refragment fragments $ L.concat [start, L.singleton 0, end]
-      result = eof $ feedLBS (runGetPartial getLazyByteStringNul) lbs
+      result = pushEndInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
   in case result of
        Done unused pos' value ->
          and [ value == L.take pos lbs
@@ -174,7 +174,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
 prop_getLazyByteStringNul_noNul :: Word16 -> [Int] -> Property
 prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
   let lbs = refragment fragments $ L.replicate count 65
-      result = eof $ feedLBS (runGetPartial getLazyByteStringNul) lbs
+      result = pushEndInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
   in case result of
        Fail _ _ _ -> True
        _ -> False
@@ -183,7 +183,7 @@ prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
 
 prop_getRemainingLazyByteString :: L.ByteString -> Property
 prop_getRemainingLazyByteString lbs = property $
-  let result = eof $ feedLBS (runGetPartial getRemainingLazyByteString) lbs
+  let result = pushEndInput $ pushChunks (runGetIncremental getRemainingLazyByteString) lbs
   in case result of
     Done unused pos value ->
       and [ value == lbs

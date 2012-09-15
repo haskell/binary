@@ -23,27 +23,26 @@ module Data.Binary.Get (
 
     -- * The Get type
       Get
-    , Result(..)
-    , runGet
-    , runGetPartial
+
+    -- * The lazy input interface
+    -- $lazyinterface
+    , runGet 
     , runGetState -- DEPRECATED
 
-    , feed
-    , feedLBS
-    , eof
+    -- * The incremental input interface
+    -- $incrementalinterface
+    , Decoder(..)
+    , runGetIncremental
+
+    -- ** Providing input
+    , pushChunk
+    , pushChunks
+    , pushEndInput
 
     -- * Parsing
     , skip
-    -- , lookAhead
-
-    -- * Utility
-    -- , bytesRead
-    , remaining
-    , getBytes
     , isEmpty
-
-    -- * Parsing particular types
-    , getWord8
+    -- , lookAhead
 
     -- ** ByteStrings
     , getByteString
@@ -51,23 +50,29 @@ module Data.Binary.Get (
     , getLazyByteStringNul
     , getRemainingLazyByteString
 
-    -- ** Big-endian reads
+    -- ** Decoding words
+    , getWord8
+
+    -- *** Big-endian decoding
     , getWord16be
     , getWord32be
     , getWord64be
 
-    -- ** Little-endian reads
+    -- *** Little-endian decoding
     , getWord16le
     , getWord32le
     , getWord64le
 
-    -- ** Host-endian, unaligned reads
+    -- *** Host-endian, unaligned decoding
     , getWordhost
     , getWord16host
     , getWord32host
     , getWord64host
 
-
+    -- * Deprecated functions
+    -- , bytesRead
+    , remaining -- DEPRECATED
+    , getBytes -- DEPRECATED
     ) where
 
 import Foreign
@@ -77,7 +82,7 @@ import qualified Data.ByteString.Lazy as L
 
 import Control.Applicative
 
-import Data.Binary.Get.Internal hiding ( Result(..), runGetPartial )
+import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
@@ -86,26 +91,43 @@ import GHC.Base
 import GHC.Word
 #endif
 
+-- $lazyinterface
+-- The lazy interface consumes a single lazy bytestring.
+-- It's the easiest interface to get started with, but has limitations.
+-- If the parser runs into an error, it will throw an exception using 'error'.
+-- It will also throw an error if the parser runs out of input.
+
+-- $incrementalinterface
+-- The incremental interface consumes a strict 'B.ByteString' at a time, each
+-- being part of the total amount of input. If your parser needs more input to
+-- finish it will return a 'Partial' with a continuation.
+-- If there is no more input, provide it 'Nothing'.
+
+-- 'Fail' will be returned if it runs into an error, together with a message,
+-- the position and the remaining input.
+-- If it succeeds it will return 'Done' with the resulting value,
+-- the position and the remaining input.
+
 -- | The result of parsing.
-data Result a = Fail B.ByteString Int64 String
+data Decoder a = Fail !B.ByteString {-# UNPACK #-} !Int64 String
               -- ^ The parser ran into an error. The parser either used
               -- 'fail' or was not provided enough input.
-              | Partial (Maybe B.ByteString -> Result a)
+              | Partial (Maybe B.ByteString -> Decoder a)
               -- ^ The parser has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
-              -- and 'Nothing' otherwise, and you will get a new 'Result'.
-              | Done B.ByteString Int64 a
+              -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
+              | Done !B.ByteString {-# UNPACK #-} !Int64 a
               -- ^ The parser has successfully finished. Except for the
               -- output value you also get the unused input as well as the
               -- count of used bytes.
 
--- | Run a 'Get' monad. See 'Result' for what to do next, like providing
+-- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
--- Hint: Use the helper functions 'feed', 'feedLBS' and 'eof'.
-runGetPartial :: Get a -> Result a
-runGetPartial = calculateOffset . I.runGetPartial
+-- Hint: Use the helper functions 'pushChunk', 'pushChunks' and 'pushEndInput'.
+runGetIncremental :: Get a -> Decoder a
+runGetIncremental = calculateOffset . I.runGetIncremental
 
-calculateOffset :: I.Result a -> Result a
+calculateOffset :: I.Decoder a -> Decoder a
 calculateOffset r0 = go r0 0
   where
   go r !acc = case r of
@@ -123,7 +145,7 @@ calculateOffset r0 = go r0 0
 -- and the unconsumed input.
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
-runGetState g lbs0 pos' = go (runGetPartial g) (L.toChunks lbs0)
+runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
   where
   go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
   go (Partial k) (x:xs) = go (k $ Just x) xs
@@ -135,7 +157,7 @@ runGetState g lbs0 pos' = go (runGetPartial g) (L.toChunks lbs0)
 -- | The simplest interface to run a 'Get' parser. If the parser runs into
 -- an error, calling 'fail' or running out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
-runGet g bs = feedAll (runGetPartial g) chunks
+runGet g bs = feedAll (runGetIncremental g) chunks
   where
   chunks = L.toChunks bs
   feedAll (Done _ _ r) _ = r
@@ -145,36 +167,35 @@ runGet g bs = feedAll (runGetPartial g) chunks
     error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
 
 
--- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
--- will add the input to 'ByteString' of unconsumed input.
+-- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
+-- will add the input to 'B.ByteString' of unconsumed input.
 --
 -- @
---    'runGetPartial' myParser \`feed\` myInput1 \`feed\` myInput2
+--    'runGetPartial' myParser \`pushChunk\` myInput1 \`pushChunk\` myInput2
 -- @
-feed :: Result a -> B.ByteString -> Result a
-feed r inp =
+pushChunk :: Decoder a -> B.ByteString -> Decoder a
+pushChunk r inp =
   case r of
     Done inp0 p a -> Done (inp0 `B.append` inp) p a
     Partial k -> k (Just inp)
     Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
 
--- | Feed a 'Result' with more input. If the 'Result' is 'Done' or 'Fail' it
--- will add the input to 'ByteString' of unconsumed input.
+-- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it -- will add the input to 'ByteString' of unconsumed input.
 --
 -- @
---    'runGetPartial' myParser \`feedLBS\` myLazyByteString
+--    'runGetPartial' myParser \`pushChunks\` myLazyByteString
 -- @
-feedLBS :: Result a -> L.ByteString -> Result a
-feedLBS r0 = go r0 . L.toChunks
+pushChunks :: Decoder a -> L.ByteString -> Decoder a
+pushChunks r0 = go r0 . L.toChunks
   where
   go r [] = r
-  go r (x:xs) = go (feed r x) xs
+  go r (x:xs) = go (pushChunk r x) xs
 
--- | Tell a 'Result' that there is no more input. This passes 'Nothing' to a
+-- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
 -- 'Partial' result, otherwise returns the result unchanged.
-eof :: Result a -> Result a
-eof r =
+pushEndInput :: Decoder a -> Decoder a
+pushEndInput r =
   case r of
     Done _ _ _ -> r
     Partial k -> k Nothing

@@ -9,8 +9,8 @@ module Data.Binary.Get.Internal (
     -- * The Get type
       Get
     , runCont
-    , Result(..)
-    , runGetPartial
+    , Decoder(..)
+    , runGetIncremental
 
     , readN
     , readNWith
@@ -58,14 +58,14 @@ import GHC.Word
 -- to read from your fd.
 
 -- | The result of parsing.
-data Result a = Fail B.ByteString String
+data Decoder a = Fail !B.ByteString String
               -- ^ The parser ran into an error. The parser either used
               -- 'fail' or was not provided enough input.
-              | Partial (Maybe B.ByteString -> Result a)
+              | Partial (Maybe B.ByteString -> Decoder a)
               -- ^ The parser has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
-              -- and 'Nothing' otherwise, and you will get a new 'Result'.
-              | Done B.ByteString a
+              -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
+              | Done !B.ByteString a
               -- ^ The parser has successfully finished. Except for the
               -- output value you also get the unused input.
 
@@ -73,9 +73,9 @@ data Result a = Fail B.ByteString String
 newtype Get a = C { runCont :: forall r.
                                B.ByteString ->
                                Success a r ->
-                               Result    r }
+                               Decoder    r }
 
-type Success a r = B.ByteString -> a -> Result r
+type Success a r = B.ByteString -> a -> Decoder r
 
 instance Monad Get where
   return = returnG
@@ -113,26 +113,26 @@ instance Applicative Get where
 instance Functor Get where
   fmap = fmapG
 
-instance Functor Result where
+instance Functor Decoder where
   fmap f (Done s a) = Done s (f a)
   fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
   fmap _ (Fail s msg) = Fail s msg
 
-instance (Show a) => Show (Result a) where
+instance (Show a) => Show (Decoder a) where
   show (Fail _ msg) = "Fail: " ++ msg
   show (Partial _) = "Partial _"
   show (Done _ a) = "Done: " ++ show a
 
--- | Run a 'Get' monad. See 'Result' for what to do next, like providing
+-- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling parser errors and to get the output value.
-runGetPartial :: Get a -> Result a
-runGetPartial g = noMeansNo $
+runGetIncremental :: Get a -> Decoder a
+runGetIncremental g = noMeansNo $
   runCont g B.empty (\i a -> Done i a)
 
 -- | Make sure we don't have to pass Nothing to a Partial twice.
 -- This way we don't need to pass around an EOF value in the Get monad, it
 -- can safely ask several times if it needs to.
-noMeansNo :: Result a -> Result a
+noMeansNo :: Decoder a -> Decoder a
 noMeansNo r0 = go r0
   where
   go r =
@@ -147,7 +147,7 @@ noMeansNo r0 = go r0
       Partial k -> neverAgain (k Nothing)
       _ -> r
 
-prompt :: B.ByteString -> Result a -> (B.ByteString -> Result a) -> Result a
+prompt :: B.ByteString -> Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
 prompt inp kf ks =
     let loop =
          Partial $ \sm ->
@@ -175,7 +175,8 @@ isEmpty = C $ \inp ks ->
       then prompt inp (ks inp True) (\inp' -> ks inp' False)
       else ks inp False
 
-{-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'" #-}
+-- | DEPRECATED. Same as 'getByteString'.
+{-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'." #-}
 getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 {-# INLINE getBytes #-}
@@ -193,7 +194,7 @@ instance Alternative Get where
 -- | Try to execute a Get. If it fails, the consumed input will be restored.
 try :: Get a -> Get a
 try g = C $ \inp ks ->
-  let r0 = runGetPartial g `feed` inp
+  let r0 = runGetIncremental g `feed` inp
       go !acc r = case r of
                     Done inp' a -> ks inp' a
                     Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
@@ -206,9 +207,9 @@ try g = C $ \inp ks ->
       Partial k -> k (Just inp)
       Fail inp0 s -> Fail (inp0 `B.append` inp) s
 
--- | Get the number of bytes of remaining input. Note that this is an
--- expensive function to use as in order to calculate how much input
--- remains, all input has to be read and kept in-memory.
+-- | DEPRECATED. Get the number of bytes of remaining input.
+-- Note that this is an expensive function to use as in order to calculate how much input remains, all input has to be read and kept in-memory.
+{-# DEPRECATED remaining "Don't do this." #-}
 remaining :: Get Int64
 remaining = C $ \ inp ks ->
   let loop acc = Partial $ \ minp ->
