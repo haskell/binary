@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fglasgow-exts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
 import Data.Binary
@@ -6,34 +6,34 @@ import Data.Binary.Put
 import Data.Binary.Get
 
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as B
-import qualified Data.ByteString.Unsafe as B
+-- import qualified Data.ByteString.Internal as B
+-- import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified Data.IntMap as IntMap
-import qualified Data.IntSet as IntSet
+-- import qualified Data.Map as Map
+-- import qualified Data.Set as Set
+-- import qualified Data.IntMap as IntMap
+-- import qualified Data.IntSet as IntSet
 
-import Data.Array (Array)
-import Data.Array.IArray
-import Data.Array.Unboxed (UArray)
+-- import Data.Array (Array)
+-- import Data.Array.IArray
+-- import Data.Array.Unboxed (UArray)
 
-import Data.Word
+-- import Data.Word
 import Data.Int
 
-import qualified Control.OldException as C (catch,evaluate)
-import Control.Monad
-import System.Environment
-import System.IO
+import Control.Exception as C (catch,evaluate,SomeException)
+-- import Control.Monad
+-- import System.Environment
+-- import System.IO
 import System.IO.Unsafe
 
 import Test.QuickCheck
-import Text.Printf
+-- import Text.Printf
 
 import Test.Framework
 import Test.Framework.Providers.QuickCheck2
-import Data.Monoid
+-- import Data.Monoid
 
 ------------------------------------------------------------------------
 
@@ -41,31 +41,48 @@ roundTrip :: (Eq a, Binary a) => a -> (L.ByteString -> L.ByteString) -> Bool
 roundTrip a f = a ==
     {-# SCC "decode.refragment.encode" #-} decode (f (encode a))
 
-roundTripWith put get x =
+roundTripWith ::  Eq a => (a -> Put) -> Get a -> a -> Property
+roundTripWith putter getter x =
     forAll positiveList $ \xs ->
-    x == runGet get (refragment xs (runPut (put x)))
+    x == runGet getter (refragment xs (runPut (putter x)))
 
 -- make sure that a test fails
 mustThrowError :: B a
 mustThrowError a = unsafePerformIO $
-    C.catch (do C.evaluate a
+    C.catch (do _ <- C.evaluate a
                 return False)
-            (\_ -> return True)
+            (\(_e :: SomeException) -> return True)
 
 -- low level ones:
 
+prop_Word16be :: Word16 -> Property
 prop_Word16be = roundTripWith putWord16be getWord16be
+
+prop_Word16le :: Word16 -> Property
 prop_Word16le = roundTripWith putWord16le getWord16le
+
+prop_Word16host :: Word16 -> Property
 prop_Word16host = roundTripWith putWord16host getWord16host
 
+prop_Word32be :: Word32 -> Property
 prop_Word32be = roundTripWith putWord32be getWord32be
+
+prop_Word32le :: Word32 -> Property
 prop_Word32le = roundTripWith putWord32le getWord32le
+
+prop_Word32host :: Word32 -> Property
 prop_Word32host = roundTripWith putWord32host getWord32host
 
+prop_Word64be :: Word64 -> Property
 prop_Word64be = roundTripWith putWord64be getWord64be
+
+prop_Word64le :: Word64 -> Property
 prop_Word64le = roundTripWith putWord64le getWord64le
+
+prop_Word64host :: Word64 -> Property
 prop_Word64host = roundTripWith putWord64host getWord64host
 
+prop_Wordhost :: Word -> Property
 prop_Wordhost = roundTripWith putWordhost getWordhost
 
 
@@ -75,16 +92,16 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- May or may not use the whole input, check conditions for the different
 -- outcomes.
 prop_partial :: L.ByteString -> Property
-prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skip ->
+prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
   let result = feedLBS (runGetPartial parser) lbs
       parser = do
-        s <- getByteString (fromIntegral skip)
+        s <- getByteString (fromIntegral skipN)
         return (L.fromChunks [s])
   in case result of
-       Partial _ -> L.length lbs < skip
-       Done remaining pos value ->
-         and [ L.length value == skip
-             , L.append value (L.fromChunks [remaining]) == lbs
+       Partial _ -> L.length lbs < skipN
+       Done unused _pos value ->
+         and [ L.length value == skipN
+             , L.append value (L.fromChunks [unused]) == lbs
              ]
        Fail _ _ _ -> False
 
@@ -98,11 +115,11 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
         -- ... then fail
         fail msg
   in case result of
-     Fail remaining pos' msg' ->
+     Fail unused pos' msg' ->
        and [ pos == pos'
            , msg == msg'
-           , L.length lbs - pos == fromIntegral (B.length remaining)
-           , L.fromChunks [remaining] `L.isSuffixOf` lbs
+           , L.length lbs - pos == fromIntegral (B.length unused)
+           , L.fromChunks [unused] `L.isSuffixOf` lbs
            ]
      _ -> False -- wuut?
 
@@ -114,11 +131,12 @@ prop_getByteString_negative n =
 
 -- read too much:
 
+prop_readTooMuch :: (Eq a, Binary a) => a -> Bool
 prop_readTooMuch x = mustThrowError $ x == a && x /= b
   where
     -- encode 'a', but try to read 'b' too
     (a,b) = decode (encode x)
-    types = [a,b]
+    _types = [a,b]
 
 
 -- String utilities
@@ -128,9 +146,9 @@ prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
   let result = feedLBS (runGetPartial parser) lbs
       parser = getLazyByteString len
   in case result of
-       Done remaining pos value ->
+       Done unused _pos value ->
          and [ value == L.take len lbs
-             , L.fromChunks [remaining] == L.drop len lbs
+             , L.fromChunks [unused] == L.drop len lbs
              ]
        Partial _ -> len > L.length lbs
        _ -> False
@@ -142,10 +160,10 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
               (start,end) -> refragment fragments $ L.concat [start, L.singleton 0, end]
       result = eof $ feedLBS (runGetPartial getLazyByteStringNul) lbs
   in case result of
-       Done remaining pos' value ->
+       Done unused pos' value ->
          and [ value == L.take pos lbs
              , pos + 1 == pos' -- 1 for the NUL
-             , L.fromChunks [remaining] == L.drop (pos + 1) lbs
+             , L.fromChunks [unused] == L.drop (pos + 1) lbs
              ]
        _ -> False
   where
@@ -166,9 +184,9 @@ prop_getRemainingLazyByteString :: L.ByteString -> Property
 prop_getRemainingLazyByteString lbs = property $
   let result = eof $ feedLBS (runGetPartial getRemainingLazyByteString) lbs
   in case result of
-    Done remaining pos value ->
+    Done unused pos value ->
       and [ value == lbs
-          , B.null remaining
+          , B.null unused
           , fromIntegral pos == L.length lbs
           ]
     _ -> False
@@ -191,9 +209,11 @@ refragment (x:xs) lps =
     L.append (L.fromChunks [B.concat . L.toChunks . L.take x' $ lps]) rest
 
 -- check identity of refragmentation
+prop_refragment :: L.ByteString -> [Int] -> Bool
 prop_refragment lps xs = lps == refragment xs lps
 
 -- check that refragmention still hold invariant
+prop_refragment_inv :: L.ByteString -> [Int] -> Bool
 prop_refragment_inv lps xs = invariant_lbs $ refragment xs lps
 
 main :: IO ()
@@ -213,6 +233,7 @@ test a  = forAll positiveList (roundTrip a . refragment)
 positiveList :: Gen [Int]
 positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
+tests :: [Test]
 tests =
         [ testGroup "Utils"
             [ testProperty "refragment id" (p prop_refragment)
