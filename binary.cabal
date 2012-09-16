@@ -15,8 +15,8 @@ synopsis:        Binary serialisation for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
-cabal-version:   >= 1.2
-tested-with:     GHC ==6.4.2, GHC ==6.6.1, GHC ==6.8.0, GHC ==6.10.1
+cabal-version:   >= 1.6
+tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
 extra-source-files: README index.html
 
 source-repository head
