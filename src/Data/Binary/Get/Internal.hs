@@ -226,7 +226,7 @@ try g = C $ \inp ks ->
 -- Note that this is an expensive function to use as in order to calculate how
 -- much input remains, all input has to be read and kept in-memory.
 -- The decoder keeps the input as a strict bytestring, so you are likely better
--- off by solving your problem in another way.
+-- off by calculating the remaining input in another way.
 {-# DEPRECATED remaining "This will force all remaining input, don't use it." #-}
 remaining :: Get Int64
 remaining = C $ \ inp ks ->
