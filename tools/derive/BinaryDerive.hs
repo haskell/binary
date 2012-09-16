@@ -45,7 +45,7 @@ derive x =
             else "  get =")
         ++ concatMap ((++"\n")) (map getDef constrs) ++
        (if length constrs > 1
-	    then "      _ -> fail \"no parse\""
+	    then "      _ -> fail \"no decoding\""
 	    else ""
        )
     getDef (n, (name, ps)) =

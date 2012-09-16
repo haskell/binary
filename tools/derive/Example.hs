@@ -69,4 +69,4 @@ instance Binary Main.Exp where
       5 -> get >>= \a -> get >>= \b -> return (ExpSub a b)
       6 -> get >>= \a -> return (ExpVar a)
       7 -> get >>= \a -> return (ExpInt a)
-      _ -> fail "no parse"
+      _ -> fail "no decoding"

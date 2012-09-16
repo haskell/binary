@@ -94,8 +94,8 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- outcomes.
 prop_partial :: L.ByteString -> Property
 prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
-  let result = pushChunks (runGetIncremental parser) lbs
-      parser = do
+  let result = pushChunks (runGetIncremental decoder) lbs
+      decoder = do
         s <- getByteString (fromIntegral skipN)
         return (L.fromChunks [s])
   in case result of
@@ -106,11 +106,11 @@ prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
              ]
        Fail _ _ _ -> False
 
--- | Fail a parser and make sure the result is sane.
+-- | Fail a decoder and make sure the result is sane.
 prop_fail :: L.ByteString -> String -> Property
 prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
-  let result = pushChunks (runGetIncremental parser) lbs
-      parser = do
+  let result = pushChunks (runGetIncremental decoder) lbs
+      decoder = do
         -- use part of the input...
         _ <- getByteString (fromIntegral pos)
         -- ... then fail
@@ -144,8 +144,8 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 
 prop_getLazyByteString :: L.ByteString -> Property
 prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
-  let result = pushChunks (runGetIncremental parser) lbs
-      parser = getLazyByteString len
+  let result = pushChunks (runGetIncremental decoder) lbs
+      decoder = getLazyByteString len
   in case result of
        Done unused _pos value ->
          and [ value == L.take len lbs

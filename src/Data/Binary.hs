@@ -100,7 +100,7 @@ import qualified Data.Foldable as Fold
 -- Show classes for textual representation of Haskell types, and is
 -- suitable for serialising Haskell values to disk, over the network.
 --
--- For parsing and generating simple external binary formats (e.g. C
+-- For decoding and generating simple external binary formats (e.g. C
 -- structures), Binary may be used, but in general is not suitable
 -- for complex protocols. Instead use the Put and Get primitives
 -- directly.

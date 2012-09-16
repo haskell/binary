@@ -93,13 +93,16 @@ import GHC.Word
 
 -- $lazyinterface
 -- The lazy interface consumes a single lazy bytestring.
--- It's the easiest interface to get started with, but has limitations.
--- If the parser runs into an error, it will throw an exception using 'error'.
--- It will also throw an error if the parser runs out of input.
+-- It's the easiest interface to get started with, but it has limitations.
+-- If the decoder runs into an error, it will throw an exception using 'error'.
+-- It will also throw an error if the decoder runs out of input.
+-- 
+-- There is no way to provide more input other than the initial data. To be
+-- able to incrementally give more data, see the incremental input interface.
 
 -- $incrementalinterface
 -- The incremental interface consumes a strict 'B.ByteString' at a time, each
--- being part of the total amount of input. If your parser needs more input to
+-- being part of the total amount of input. If your decoder needs more input to
 -- finish it will return a 'Partial' with a continuation.
 -- If there is no more input, provide it 'Nothing'.
 
@@ -108,21 +111,21 @@ import GHC.Word
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | The result of parsing.
+-- | The result of decoding.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !Int64 String
-              -- ^ The parser ran into an error. The parser either used
+              -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input.
               | Partial (Maybe B.ByteString -> Decoder a)
-              -- ^ The parser has consumed the available input and needs
+              -- ^ The decoder has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
               -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
               | Done !B.ByteString {-# UNPACK #-} !Int64 a
-              -- ^ The parser has successfully finished. Except for the
+              -- ^ The decoder has successfully finished. Except for the
               -- output value you also get the unused input as well as the
               -- count of used bytes.
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
--- input, handling parser errors and to get the output value.
+-- input, handling decoder errors and to get the output value.
 -- Hint: Use the helper functions 'pushChunk', 'pushChunks' and 'pushEndInput'.
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental = calculateOffset . I.runGetIncremental
@@ -154,7 +157,7 @@ runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
 
 
--- | The simplest interface to run a 'Get' parser. If the parser runs into
+-- | The simplest interface to run a 'Get' decoder. If the decoder runs into
 -- an error, calling 'fail' or running out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feedAll (runGetIncremental g) chunks

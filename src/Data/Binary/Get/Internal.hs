@@ -51,22 +51,22 @@ import GHC.Word
 -- Kolmodin 20100427: at zurihac we discussed of having partial take a
 -- "Maybe ByteString" and implemented it in this way.
 -- The reasoning was that you could accidently provide an empty bytestring,
--- and it should not terminate the parsing (empty would mean eof).
+-- and it should not terminate the decoding (empty would mean eof).
 -- However, I'd say that it's also a risk that you get stuck in a loop,
 -- where you keep providing an empty string. Anyway, no new input should be
 -- rare, as the RTS should only wake you up if you actually have some data
 -- to read from your fd.
 
--- | The result of parsing.
+-- | The result of decoding.
 data Decoder a = Fail !B.ByteString String
-              -- ^ The parser ran into an error. The parser either used
+              -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input.
               | Partial (Maybe B.ByteString -> Decoder a)
-              -- ^ The parser has consumed the available input and needs
+              -- ^ The decoder has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
               -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
               | Done !B.ByteString a
-              -- ^ The parser has successfully finished. Except for the
+              -- ^ The decoder has successfully finished. Except for the
               -- output value you also get the unused input.
 
 -- unrolled codensity/state monad
@@ -124,7 +124,7 @@ instance (Show a) => Show (Decoder a) where
   show (Done _ a) = "Done: " ++ show a
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
--- input, handling parser errors and to get the output value.
+-- input, handling decoding errors and to get the output value.
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental g = noMeansNo $
   runCont g B.empty (\i a -> Done i a)
@@ -168,7 +168,7 @@ skip n = readN n (const ())
 {-# INLINE skip #-}
 
 -- | Test whether all input has been consumed, i.e. there are no remaining
--- unparsed bytes.
+-- undecoded bytes.
 isEmpty :: Get Bool
 isEmpty = C $ \inp ks ->
     if B.null inp
