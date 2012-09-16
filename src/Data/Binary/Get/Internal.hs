@@ -17,6 +17,7 @@ module Data.Binary.Get.Internal (
 
     -- * Parsing
     , skip
+    , bytesRead
     
     , get
     , put
@@ -68,6 +69,11 @@ data Decoder a = Fail !B.ByteString String
               | Done !B.ByteString a
               -- ^ The decoder has successfully finished. Except for the
               -- output value you also get the unused input.
+              | BytesRead {-# UNPACK #-} !Int64 (Int64 -> Decoder a)
+              -- ^ The decoder needs to know the current position in the input.
+              -- Given the number of bytes remaning in the decoder, the outer
+              -- decoder runner needs to calculate the position and
+              -- resume the decoding.
 
 -- unrolled codensity/state monad
 newtype Get a = C { runCont :: forall r.
@@ -115,13 +121,15 @@ instance Functor Get where
 
 instance Functor Decoder where
   fmap f (Done s a) = Done s (f a)
-  fmap f (Partial c) = Partial (\bs -> fmap f (c bs))
+  fmap f (Partial k) = Partial (fmap f . k)
   fmap _ (Fail s msg) = Fail s msg
+  fmap f (BytesRead b k) = BytesRead b (fmap f . k)
 
 instance (Show a) => Show (Decoder a) where
   show (Fail _ msg) = "Fail: " ++ msg
   show (Partial _) = "Partial _"
   show (Done _ a) = "Done: " ++ show a
+  show (BytesRead _ _) = "BytesRead"
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling decoding errors and to get the output value.
@@ -157,6 +165,10 @@ prompt inp kf ks =
              Nothing -> kf
     in loop
 
+-- | Get the total number of bytes read to this point.
+bytesRead :: Get Int64
+bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
+
 -- | Demand more input. If none available, fail.
 demandInput :: Get ()
 demandInput = C $ \inp ks ->
@@ -189,6 +201,7 @@ instance Alternative Get where
                   Done inp' a -> ks inp' a
                   Partial k -> Partial (go . k)
                   Fail inp' _str -> runCont g inp' ks
+                  BytesRead unused k -> BytesRead unused (go . k)
     in go r0
 
 -- | Try to execute a Get. If it fails, the consumed input will be restored.
@@ -199,6 +212,7 @@ try g = C $ \inp ks ->
                     Done inp' a -> ks inp' a
                     Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                     Fail _ s -> Fail (B.concat (inp : reverse acc)) s
+                    BytesRead unused k -> BytesRead unused (go acc . k)
   in go [] r0
   where
   feed r inp =
@@ -206,10 +220,11 @@ try g = C $ \inp ks ->
       Done inp0 a -> Done (inp0 `B.append` inp) a
       Partial k -> k (Just inp)
       Fail inp0 s -> Fail (inp0 `B.append` inp) s
+      BytesRead unused k -> BytesRead unused (\i -> k i `feed` inp)
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how much input remains, all input has to be read and kept in-memory.
-{-# DEPRECATED remaining "Don't do this." #-}
+{-# DEPRECATED remaining "Don't use this." #-}
 remaining :: Get Int64
 remaining = C $ \ inp ks ->
   let loop acc = Partial $ \ minp ->

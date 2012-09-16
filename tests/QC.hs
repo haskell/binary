@@ -5,6 +5,8 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
+import Control.Monad (unless)
+
 import qualified Data.ByteString as B
 -- import qualified Data.ByteString.Internal as B
 -- import qualified Data.ByteString.Unsafe as B
@@ -130,8 +132,39 @@ prop_getByteString_negative n =
   n < 1 ==>
     runGet (getByteString n) L.empty == B.empty
 
--- read too much:
 
+prop_bytesRead :: L.ByteString -> Property
+prop_bytesRead lbs =
+  forAll (makeChunks 0 totalLength) $ \chunkSizes ->
+  let result = pushChunks (runGetIncremental decoder) lbs
+      decoder = do
+        -- Read some data and invoke bytesRead several times.
+        -- Each time, check that the values are what we expect.
+        flip mapM_ chunkSizes $ \(total, step) -> do
+          _ <- getByteString (fromIntegral step)
+          n <- bytesRead
+          unless (n == total) $ fail "unexpected position"
+        bytesRead
+  in case result of
+       Done unused pos value ->
+         and [ value == totalLength
+             , pos == value
+             , B.null unused
+             ]
+       Partial _ -> False
+       Fail _ _ _ -> False
+  where
+    totalLength = L.length lbs
+    makeChunks total i
+      | i == 0 = return []
+      | otherwise = do
+          n <- choose (0,i)
+          let total' = total + n
+          rest <- makeChunks total' (i - n)
+          return ((total',n):rest)
+
+
+-- read too much
 prop_readTooMuch :: (Eq a, Binary a) => a -> Bool
 prop_readTooMuch x = mustThrowError $ x == a && x /= b
   where
@@ -249,6 +282,7 @@ tests =
         , testGroup "Partial"
             [ testProperty "partial" (p prop_partial)
             , testProperty "fail"    (p prop_fail)
+            , testProperty "bytesRead" (p prop_bytesRead)
             ]
 
         , testGroup "Primitives"

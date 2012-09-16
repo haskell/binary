@@ -42,6 +42,7 @@ module Data.Binary.Get (
     -- * Parsing
     , skip
     , isEmpty
+    , bytesRead
     -- , lookAhead
 
     -- ** ByteStrings
@@ -70,7 +71,6 @@ module Data.Binary.Get (
     , getWord64host
 
     -- * Deprecated functions
-    -- , bytesRead
     , remaining -- DEPRECATED
     , getBytes -- DEPRECATED
     ) where
@@ -141,6 +141,8 @@ calculateOffset r0 = go r0 0
                       case ms of
                         Nothing -> go (k Nothing) acc
                         Just i -> go (k ms) (acc + fromIntegral (B.length i))
+                I.BytesRead unused k ->
+                    go (k (acc - unused)) acc 
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
 -- Run a 'Get' monad and provide both all the input and an initial position.
