@@ -53,7 +53,7 @@ hs_wordwrite !ptr bytes = loop 0 0
   where iterations = bytes `div` sizeOf (undefined :: CULong)
         loop :: Int -> CULong -> IO ()
         loop !i !n | i == iterations = return ()
-                   | otherwise = do pokeByteOff ptr i n
+                   | otherwise = do pokeElemOff ptr i n
                                     loop (i+1) (n+1)
 
 hs_wordread  :: Ptr CULong -> Int -> IO CULong
@@ -61,7 +61,7 @@ hs_wordread !ptr bytes = loop 0 0
   where iterations = bytes `div` sizeOf (undefined :: CULong)
         loop :: Int -> CULong -> IO CULong
         loop !i !n | i == iterations = return n
-                   | otherwise = do x <- peekByteOff ptr i
+                   | otherwise = do x <- peekElemOff ptr i
                                     loop (i+1) (n+x)
 
 

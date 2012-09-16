@@ -1,5 +1,5 @@
 name:            binary
-version:         0.5.1.1
+version:         0.6.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
@@ -51,7 +51,8 @@ library
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
                    Data.Binary.Get,
-                   Data.Binary.Builder
+                   Data.Binary.Get.Internal,
+                   Data.Binary.Builder,
                    Data.Binary.Builder.Internal
 
   other-modules:   Data.Binary.Builder.Base

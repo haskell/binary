@@ -20,7 +20,9 @@ import Data.Word (Word8)
 
 import Data.Binary.Builder
 
+#if __GLASGOW_HASKELL__ < 706
 instance NFData S.ByteString
+#endif
 
 data B = forall a. NFData a => B a
 
