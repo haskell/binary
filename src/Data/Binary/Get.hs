@@ -111,7 +111,7 @@ import GHC.Word
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | The result of decoding.
+-- | A decoder procuced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !Int64 String
               -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input.
@@ -145,9 +145,9 @@ calculateOffset r0 = go r0 0
                     go (k (acc - unused)) acc 
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
--- Run a 'Get' monad and provide both all the input and an initial position.
--- Additional to the result of get it returns the number of consumed bytes
--- and the unconsumed input.
+-- Run a 'Get' monad and return a tuple with thee values.
+-- The first value is the result of the decoder. The second and third are the
+-- unused input, and the number of consumed bytes.
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
 runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
@@ -198,7 +198,7 @@ pushChunks r0 = go r0 . L.toChunks
   go r (x:xs) = go (pushChunk r x) xs
 
 -- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
--- 'Partial' result, otherwise returns the result unchanged.
+-- 'Partial' decoder, otherwise returns the decoder unchanged.
 pushEndInput :: Decoder a -> Decoder a
 pushEndInput r =
   case r of

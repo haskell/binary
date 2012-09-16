@@ -58,7 +58,7 @@ import GHC.Word
 -- rare, as the RTS should only wake you up if you actually have some data
 -- to read from your fd.
 
--- | The result of decoding.
+-- | A decoder procuced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString String
               -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input.
