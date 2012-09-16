@@ -22,7 +22,9 @@ import Control.Applicative
 import Data.Binary.Get
 import Data.Binary ( get )
 
+#if __GLASGOW_HASKELL__ < 706
 instance NFData S.ByteString
+#endif
 
 main :: IO ()
 main = do
