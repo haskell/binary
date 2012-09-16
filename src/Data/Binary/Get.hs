@@ -130,7 +130,8 @@ data Decoder a = Fail !B.ByteString {-# UNPACK #-} !Int64 String
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling decoder errors and to get the output value.
--- Hint: Use the helper functions 'pushChunk', 'pushChunks' and 'pushEndInput'.
+-- Hint: Use the helper functions 'pushChunk', 'pushChunks' and
+-- 'pushEndOfInput'.
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental = calculateOffset . I.runGetIncremental
 
