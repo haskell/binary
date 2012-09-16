@@ -68,6 +68,8 @@ import Data.Monoid
 import Data.Word
 import Foreign
 
+import System.IO.Unsafe as IO ( unsafePerformIO )
+
 #ifdef BYTESTRING_IN_BASE
 import Data.ByteString.Base (inlinePerformIO)
 import qualified Data.ByteString.Base as S
@@ -174,7 +176,7 @@ data Buffer = Buffer {-# UNPACK #-} !(ForeignPtr Word8)
 -- the lazy 'L.ByteString' is demanded.
 --
 toLazyByteString :: Builder -> L.ByteString
-toLazyByteString m = unsafePerformIO $ do
+toLazyByteString m = IO.unsafePerformIO $ do
     buf <- newBuffer defaultSize
     runBuilder (m `append` flush) (const (return L.Empty)) buf
 {-# INLINE toLazyByteString #-}
