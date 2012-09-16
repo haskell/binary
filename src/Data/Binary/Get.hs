@@ -37,7 +37,7 @@ module Data.Binary.Get (
     -- ** Providing input
     , pushChunk
     , pushChunks
-    , pushEndInput
+    , pushEndOfInput
 
     -- * Parsing
     , skip
@@ -199,8 +199,8 @@ pushChunks r0 = go r0 . L.toChunks
 
 -- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
 -- 'Partial' decoder, otherwise returns the decoder unchanged.
-pushEndInput :: Decoder a -> Decoder a
-pushEndInput r =
+pushEndOfInput :: Decoder a -> Decoder a
+pushEndOfInput r =
   case r of
     Done _ _ _ -> r
     Partial k -> k Nothing

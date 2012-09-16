@@ -192,7 +192,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
   forAll (choose (0, count)) $ \pos ->
   let lbs = case L.splitAt pos (L.replicate count 65) of
               (start,end) -> refragment fragments $ L.concat [start, L.singleton 0, end]
-      result = pushEndInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
+      result = pushEndOfInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
   in case result of
        Done unused pos' value ->
          and [ value == L.take pos lbs
@@ -207,7 +207,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
 prop_getLazyByteStringNul_noNul :: Word16 -> [Int] -> Property
 prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
   let lbs = refragment fragments $ L.replicate count 65
-      result = pushEndInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
+      result = pushEndOfInput $ pushChunks (runGetIncremental getLazyByteStringNul) lbs
   in case result of
        Fail _ _ _ -> True
        _ -> False
@@ -216,7 +216,7 @@ prop_getLazyByteStringNul_noNul count0 fragments = count >= 0 ==>
 
 prop_getRemainingLazyByteString :: L.ByteString -> Property
 prop_getRemainingLazyByteString lbs = property $
-  let result = pushEndInput $ pushChunks (runGetIncremental getRemainingLazyByteString) lbs
+  let result = pushEndOfInput $ pushChunks (runGetIncremental getRemainingLazyByteString) lbs
   in case result of
     Done unused pos value ->
       and [ value == lbs
