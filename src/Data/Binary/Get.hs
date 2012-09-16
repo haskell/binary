@@ -3,6 +3,10 @@
 {-# LANGUAGE Trustworthy #-}
 #endif
 
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#include "MachDeps.h"
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Get
