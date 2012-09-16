@@ -395,9 +395,6 @@ instance Arbitrary L.ByteString where
 instance Arbitrary B.ByteString where
   arbitrary = B.pack `fmap` arbitrary
 
-instance Arbitrary Ordering where
-  arbitrary = elements [minBound .. maxBound]
-
 instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d, Arbitrary e,
           Arbitrary f) =>
          Arbitrary (a,b,c,d,e,f) where
