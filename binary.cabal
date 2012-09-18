@@ -47,8 +47,15 @@ test-suite qc
   type:  exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: QC.hs
-  build-depends: base >= 3.0, array, bytestring >= 0.9, containers,
-                 test-framework-quickcheck2, test-framework, QuickCheck>=2.5
+  build-depends:
+    array,
+    base >= 3.0,
+    bytestring >= 0.9,
+    containers,
+    random>=1.0.1.0,
+    test-framework,
+    test-framework-quickcheck2,
+    QuickCheck>=2.5
 
   if flag(development)
     ghc-options: -fhpc -Wall
