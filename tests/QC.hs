@@ -95,18 +95,20 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- May or may not use the whole input, check conditions for the different
 -- outcomes.
 prop_partial :: L.ByteString -> Property
-prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
+prop_partial lbs = forAll (choose (0, lbs_len * 2)) $ \skipN ->
   let result = pushChunks (runGetIncremental decoder) lbs
       decoder = do
-        s <- getByteString (fromIntegral skipN)
+        s <- getByteString skipN
         return (L.fromChunks [s])
   in case result of
-       Partial _ -> L.length lbs < skipN
+       Partial _ -> L.length lbs < fromIntegral skipN
        Done unused _pos value ->
-         and [ L.length value == skipN
+         and [ L.length value == fromIntegral skipN
              , L.append value (L.fromChunks [unused]) == lbs
              ]
        Fail _ _ _ -> False
+  where
+  lbs_len = fromIntegral (L.length lbs)
 
 -- | Fail a decoder and make sure the result is sane.
 prop_fail :: L.ByteString -> String -> Property
