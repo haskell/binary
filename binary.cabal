@@ -15,7 +15,7 @@ synopsis:        Binary serialisation for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
-cabal-version:   >= 1.6
+cabal-version:   >= 1.8
 tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
 extra-source-files: README index.html
 
@@ -26,6 +26,8 @@ source-repository head
 flag bytestring-in-base
 flag split-base
 flag applicative-in-base
+flag development
+  default: False
 
 library
   if flag(bytestring-in-base)
@@ -62,5 +64,15 @@ library
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
---  if impl(ghc < 6.5)
---    ghc-options:   -fallow-undecidable-instances
+test-suite qc
+  type:  exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: QC.hs
+  build-depends: base >= 3.0, bytestring >= 0.9, containers,
+                 test-framework-quickcheck2, test-framework, QuickCheck>=2.5
+
+  if flag(development)
+    ghc-options: -fhpc -Wall
+    hs-source-dirs: src
+  else
+    build-depends: binary
