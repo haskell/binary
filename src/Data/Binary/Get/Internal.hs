@@ -41,12 +41,10 @@ import qualified Data.ByteString.Unsafe as B
 
 import Control.Applicative
 
-#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#if __GLASGOW_HASKELL__ < 704 && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
 -- Do we still need these? Works without on modern GHCs.
 import GHC.Base
-import GHC.Word
--- import GHC.Int
 #endif
 
 -- Kolmodin 20100427: at zurihac we discussed of having partial take a
