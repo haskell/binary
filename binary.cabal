@@ -23,33 +23,12 @@ source-repository head
   type: git
   location: git://github.com/kolmodin/binary.git
 
-flag bytestring-in-base
-flag split-base
-flag applicative-in-base
 flag development
   default: False
 
 library
-  if flag(bytestring-in-base)
-    -- bytestring was in base-2.0 and 2.1.1
-    build-depends: base >= 2.0 && < 2.2
-    cpp-options: -DBYTESTRING_IN_BASE
-  else
-    -- in base 1.0 and 3.0 bytestring is a separate package
-    build-depends: base < 2.0 || >= 3, bytestring >= 0.9
-
-  if flag(split-base)
-    build-depends:   base >= 3.0, containers, array
-  else
-    build-depends:   base < 3.0
-
-  if flag(applicative-in-base)
-    build-depends: base >= 2.0
-    cpp-options: -DAPPLICATIVE_IN_BASE
-  else
-    build-depends: base < 2.0
+  build-depends:   base >= 3.0, bytestring >= 0.9, containers, array
   hs-source-dirs:  src
-
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
                    Data.Binary.Get,
@@ -68,7 +47,7 @@ test-suite qc
   type:  exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: QC.hs
-  build-depends: base >= 3.0, bytestring >= 0.9, containers,
+  build-depends: base >= 3.0, array, bytestring >= 0.9, containers,
                  test-framework-quickcheck2, test-framework, QuickCheck>=2.5
 
   if flag(development)
