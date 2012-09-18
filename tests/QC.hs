@@ -95,20 +95,18 @@ prop_Wordhost = roundTripWith putWordhost getWordhost
 -- May or may not use the whole input, check conditions for the different
 -- outcomes.
 prop_partial :: L.ByteString -> Property
-prop_partial lbs = forAll (choose (0, lbs_len * 2)) $ \skipN ->
+prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
   let result = pushChunks (runGetIncremental decoder) lbs
       decoder = do
-        s <- getByteString skipN
+        s <- getByteString (fromIntegral skipN)
         return (L.fromChunks [s])
   in case result of
-       Partial _ -> L.length lbs < fromIntegral skipN
+       Partial _ -> L.length lbs < skipN
        Done unused _pos value ->
-         and [ L.length value == fromIntegral skipN
+         and [ L.length value == skipN
              , L.append value (L.fromChunks [unused]) == lbs
              ]
        Fail _ _ _ -> False
-  where
-  lbs_len = fromIntegral (L.length lbs)
 
 -- | Fail a decoder and make sure the result is sane.
 prop_fail :: L.ByteString -> String -> Property
@@ -238,19 +236,19 @@ prop_invariant = invariant_lbs . encode
 
 -- refragment a lazy bytestring's chunks
 refragment :: [Int] -> L.ByteString -> L.ByteString
-refragment [] lps = lps
-refragment (x:xs) lps =
+refragment [] lbs = lbs
+refragment (x:xs) lbs =
     let x' = fromIntegral . (+1) . abs $ x
-        rest = refragment xs (L.drop x' lps) in
-    L.append (L.fromChunks [B.concat . L.toChunks . L.take x' $ lps]) rest
+        rest = refragment xs (L.drop x' lbs) in
+    L.append (L.fromChunks [B.concat . L.toChunks . L.take x' $ lbs]) rest
 
 -- check identity of refragmentation
 prop_refragment :: L.ByteString -> [Int] -> Bool
-prop_refragment lps xs = lps == refragment xs lps
+prop_refragment lbs xs = lbs == refragment xs lbs
 
 -- check that refragmention still hold invariant
 prop_refragment_inv :: L.ByteString -> [Int] -> Bool
-prop_refragment_inv lps xs = invariant_lbs $ refragment xs lps
+prop_refragment_inv lbs xs = invariant_lbs $ refragment xs lbs
 
 main :: IO ()
 main = defaultMain tests
