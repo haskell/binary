@@ -5,6 +5,7 @@ import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
 
+import Control.Applicative
 import Control.Monad (unless)
 
 import qualified Data.ByteString as B
@@ -164,6 +165,29 @@ prop_bytesRead lbs =
           return ((total',n):rest)
 
 
+-- | We're trying to guarantee that the Decoder will not ask for more input
+-- with Partial if it has been given Nothing once.
+-- In this test we're making the decoder return 'Partial' to get more
+-- input, and to get knownledge of the current position using 'BytesRead'.
+-- Both of these operations, when used with the <|> operator, result internally
+-- in that the decoder return with Partial and BytesRead multiple times,
+-- in which case we need to keep track of if the user has passed Nothing to a
+-- Partial in the past.
+prop_partialOnlyOnce :: Property
+prop_partialOnlyOnce = property $
+  let result = runGetIncremental (decoder <|> decoder)
+      decoder = do
+        0 <- bytesRead
+        _ <- getWord8 -- this will make the decoder return with Partial
+        return "shouldn't get here"
+  in case result of
+       -- we expect Partial followed by Fail
+       Partial k -> case k Nothing of -- push down a Nothing
+                      Fail _ _ _ -> True
+                      Partial _ -> error $ "partial twice! oh noes!"
+                      Done _ _ _ -> error $ "we're not supposed to be done."
+       _ -> error $ "not partial, error!"
+
 -- read too much
 prop_readTooMuch :: (Eq a, Binary a) => a -> Bool
 prop_readTooMuch x = mustThrowError $ x == a && x /= b
@@ -283,6 +307,7 @@ tests =
             [ testProperty "partial" (p prop_partial)
             , testProperty "fail"    (p prop_fail)
             , testProperty "bytesRead" (p prop_bytesRead)
+            , testProperty "partial only once" (p prop_partialOnlyOnce)
             ]
 
         , testGroup "Primitives"

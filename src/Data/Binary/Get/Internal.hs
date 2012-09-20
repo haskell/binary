@@ -147,11 +147,15 @@ noMeansNo r0 = go r0
                     case ms of
                       Just _ -> go (k ms)
                       Nothing -> neverAgain (k ms)
-      _ -> r
+      BytesRead n k -> BytesRead n (go . k)
+      Done _ _ -> r
+      Fail _ _ -> r
   neverAgain r =
     case r of
       Partial k -> neverAgain (k Nothing)
-      _ -> r
+      BytesRead n k -> BytesRead n (neverAgain . k)
+      Fail _ _ -> r
+      Done _ _ -> r
 
 prompt :: B.ByteString -> Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
 prompt inp kf ks =
