@@ -27,7 +27,7 @@ flag development
   default: False
 
 library
-  build-depends:   base >= 3.0, bytestring >= 0.9, containers, array
+  build-depends:   base >= 3.0 && < 5, bytestring >= 0.9, containers, array
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
@@ -49,7 +49,7 @@ test-suite qc
   main-is: QC.hs
   build-depends:
     array,
-    base >= 3.0,
+    base >= 3.0 && < 5,
     bytestring >= 0.9,
     containers,
     random>=1.0.1.0,
@@ -58,7 +58,7 @@ test-suite qc
     QuickCheck>=2.5
 
   if flag(development)
-    ghc-options: -fhpc -Wall
+    ghc-options: -Wall
     hs-source-dirs: src
   else
     build-depends: binary
