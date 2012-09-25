@@ -15,15 +15,15 @@
 -- Binary serialisation of Haskell values to and from lazy ByteStrings.
 -- The Binary library provides methods for encoding Haskell values as
 -- streams of bytes directly in memory. The resulting @ByteString@ can
--- then be written to disk, sent over the network, or futher processed
+-- then be written to disk, sent over the network, or further processed
 -- (for example, compressed with gzip).
 --
 -- The 'Binary' package is notable in that it provides both pure, and
 -- high performance serialisation.
 --
 -- Values are always encoded in network order (big endian) form, and
--- encoded data should be portable across machine endianess, word size,
--- or compiler version. For example, data encoded using the Binary class
+-- encoded data should be portable across machine endianness, word size,
+-- or compiler version. For example, data encoded using the @Binary@ class
 -- could be written from GHC, and read back in Hugs.
 --
 -----------------------------------------------------------------------------
@@ -423,7 +423,7 @@ roll   = foldr unstep 0
 
 -- TODO  This instance is not architecture portable.  GMP stores numbers as
 -- arrays of machine sized words, so the byte format is not portable across
--- architectures with different endianess and word size.
+-- architectures with different endianness and word size.
 
 import Data.ByteString.Base (toForeignPtr,unsafePackAddress, memcpy)
 import GHC.Base     hiding (ord, chr)
