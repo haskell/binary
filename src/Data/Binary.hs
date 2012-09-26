@@ -7,23 +7,23 @@
 -- Module      : Data.Binary
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : unstable
 -- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
 --
--- Binary serialisation of Haskell values to and from lazy ByteStrings.
+-- Binary serialisation of Haskell values to and from lazy 'ByteString's.
 -- The Binary library provides methods for encoding Haskell values as
--- streams of bytes directly in memory. The resulting @ByteString@ can
+-- streams of bytes directly in memory. The resulting 'ByteString' can
 -- then be written to disk, sent over the network, or further processed
 -- (for example, compressed with gzip).
 --
--- The 'Binary' package is notable in that it provides both pure, and
+-- The @Binary@ package is notable in that it provides both pure, and
 -- high performance serialisation.
 --
 -- Values are always encoded in network order (big endian) form, and
 -- encoded data should be portable across machine endianness, word size,
--- or compiler version. For example, data encoded using the @Binary@ class
+-- or compiler version. For example, data encoded using the 'Binary' class
 -- could be written from GHC, and read back in Hugs.
 --
 -----------------------------------------------------------------------------
@@ -95,14 +95,14 @@ import qualified Data.Foldable as Fold
 
 ------------------------------------------------------------------------
 
--- | The @Binary@ class provides 'put' and 'get', methods to encode and
--- decode a Haskell value to a lazy ByteString. It mirrors the Read and
--- Show classes for textual representation of Haskell types, and is
+-- | The 'Binary' class provides 'put' and 'get', methods to encode and
+-- decode a Haskell value to a lazy 'ByteString'. It mirrors the 'Read' and
+-- 'Show' classes for textual representation of Haskell types, and is
 -- suitable for serialising Haskell values to disk, over the network.
 --
 -- For decoding and generating simple external binary formats (e.g. C
 -- structures), Binary may be used, but in general is not suitable
--- for complex protocols. Instead use the Put and Get primitives
+-- for complex protocols. Instead use the 'Put' and 'Get' primitives
 -- directly.
 --
 -- Instances of Binary should satisfy the following property:
@@ -214,7 +214,7 @@ class Binary t where
 -- > OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
 --
 -- We can also directly serialise a value to and from a Handle, or a file:
--- 
+--
 -- > > v <- decodeFile  "/tmp/exp.txt" :: IO Exp
 -- > OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
 --
@@ -265,7 +265,7 @@ encodeFile f v = L.writeFile f (encode v)
 --
 -- After contructing the data from the input file, 'decodeFile' checks
 -- if the file is empty, and in doing so will force the associated file
--- handle closed, if it is indeed empty. If the file is not empty, 
+-- handle closed, if it is indeed empty. If the file is not empty,
 -- it is up to the decoding instance to consume the rest of the data,
 -- or otherwise finalise the resource.
 --
@@ -276,7 +276,7 @@ decodeFile f = do
                         m <- isEmpty
                         m `seq` return v) s
 
--- needs bytestring 0.9.1.x to work 
+-- needs bytestring 0.9.1.x to work
 
 ------------------------------------------------------------------------
 -- Lazy put and get
