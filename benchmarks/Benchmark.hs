@@ -22,7 +22,10 @@ data Endian
 
 main :: IO ()
 main = do
-  mb <- getArgs >>= readIO . head
+  args <- getArgs
+  mb <- case args of
+          (arg:_) -> readIO arg
+          _ -> return 100
   memBench (mb*10) 
   putStrLn ""
   putStrLn "Binary (de)serialisation benchmarks:"

@@ -62,3 +62,42 @@ test-suite qc
     hs-source-dirs: src
   else
     build-depends: binary
+
+benchmark bench
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: Benchmark.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    binary,
+    bytestring
+  c-sources: benchmarks/CBenchmark.c
+  include-dirs: benchmarks
+  ghc-options: -O2
+
+benchmark get
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: Get.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    binary,
+    bytestring,
+    criterion,
+    deepseq,
+    mtl
+  ghc-options: -O2
+
+benchmark builder
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: Builder.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    binary,
+    bytestring,
+    criterion,
+    deepseq,
+    mtl
+  ghc-options: -O2
+
