@@ -147,7 +147,7 @@ calculateOffset r0 = go r0 0
                         Nothing -> go (k Nothing) acc
                         Just i -> go (k ms) (acc + fromIntegral (B.length i))
                 I.BytesRead unused k ->
-                    go (k (acc - unused)) acc 
+                    go (k $! (acc - unused)) acc
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
 -- Run a 'Get' monad and return a tuple with thee values.

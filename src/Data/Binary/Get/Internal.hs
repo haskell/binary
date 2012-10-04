@@ -222,7 +222,8 @@ try g = C $ \inp ks ->
       Done inp0 a -> Done (inp0 `B.append` inp) a
       Partial k -> k (Just inp)
       Fail inp0 s -> Fail (inp0 `B.append` inp) s
-      BytesRead unused k -> BytesRead unused (\i -> k i `feed` inp)
+      BytesRead unused k -> BytesRead (unused + fromIntegral (B.length inp))
+                                      (\i -> k i `feed` inp)
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
