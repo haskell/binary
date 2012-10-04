@@ -29,18 +29,17 @@ instance NFData S.ByteString
 main :: IO ()
 main = do
   evaluate $ rnf [
-#if defined(ALTERNATIVE)
-    -- rnf brackets,
-#endif
-    rnf oneMegabyte
-    -- rnf oneMegabyteLBS]
+    rnf brackets,
+    rnf oneMegabyte,
+    rnf oneMegabyteLBS
      ]
   defaultMain
     [
-#if defined(ALTERNATIVE)
-      bench "brackets 100k" $ whnf (runTest bracketParser) brackets,
-#endif
-      bench "getStruct4 1MB struct of 4 word32 strict" $
+      bench "brackets 100k one chunk input" $
+        whnf (runTest bracketParser) brackets
+    , bench "brackets 100k in 1024 100 byte chunks" $
+        whnf (runTest bracketParser) bracketsInChunks
+    , bench "getStruct4 1MB struct of 4 word32 strict" $
         whnf (runTest (getStruct4Strict mega)) oneMegabyteLBS
     , bench "getStruct4 1MB struct of 4 word32" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
@@ -77,10 +76,10 @@ oneMegabyteLBS = L.fromChunks [oneMegabyte]
 mega = 1024 * 1024
 
 -- 100k of brackets
-#if defined(ALTERNATIVE)
 bracketTest inp = runTest bracketParser inp
 
 brackets = L.fromChunks [C8.concat (replicate 1024 "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))")]
+bracketsInChunks = L.fromChunks (replicate 1024 "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))")
 
 bracketParser = cont <|> end
   where
@@ -90,7 +89,6 @@ bracketParser = cont <|> end
                            41 <- getWord8
                            return $! n + 1)
             return $! sum v
-#endif
 
 -- Struct strict
 

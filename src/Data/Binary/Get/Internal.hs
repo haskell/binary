@@ -209,21 +209,13 @@ instance Alternative Get where
 -- | Try to execute a Get. If it fails, the consumed input will be restored.
 try :: Get a -> Get a
 try g = C $ \inp ks ->
-  let r0 = runGetIncremental g `feed` inp
+  let r0 = runCont g inp (\inp' a -> Done inp' a)
       go !acc r = case r of
                     Done inp' a -> ks inp' a
                     Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                     Fail _ s -> Fail (B.concat (inp : reverse acc)) s
                     BytesRead unused k -> BytesRead unused (go acc . k)
   in go [] r0
-  where
-  feed r inp =
-    case r of
-      Done inp0 a -> Done (inp0 `B.append` inp) a
-      Partial k -> k (Just inp)
-      Fail inp0 s -> Fail (inp0 `B.append` inp) s
-      BytesRead unused k -> BytesRead (unused + fromIntegral (B.length inp))
-                                      (\i -> k i `feed` inp)
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
