@@ -205,6 +205,12 @@ instance Alternative Get where
                   Fail inp' _str -> runCont g inp' ks
                   BytesRead unused k -> BytesRead unused (go . k)
     in go r0
+  some p = (:) <$> p <*> many p
+  many p = do
+    v <- (Just <$> p) <|> pure Nothing
+    case v of
+      Nothing -> pure []
+      Just x -> (:) x <$> many p
 
 -- | Try to execute a Get. If it fails, the consumed input will be restored.
 try :: Get a -> Get a
