@@ -57,11 +57,8 @@ test-suite qc
     test-framework-quickcheck2,
     QuickCheck>=2.5
 
-  if flag(development)
-    ghc-options: -Wall
-    hs-source-dirs: src
-  else
-    build-depends: binary
+  ghc-options: -Wall
+  hs-source-dirs: src
 
 benchmark bench
   type: exitcode-stdio-1.0
