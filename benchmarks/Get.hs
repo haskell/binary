@@ -22,8 +22,10 @@ import Control.Applicative
 import Data.Binary.Get
 import Data.Binary ( get )
 
-#if __GLASGOW_HASKELL__ < 706
+#if !MIN_VERSION_bytestring(0,10,0)
 instance NFData S.ByteString
+instance NFData L.ByteString where
+  rnf = rnf . L.toChunks
 #endif
 
 main :: IO ()
