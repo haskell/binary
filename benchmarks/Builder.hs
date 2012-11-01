@@ -24,14 +24,14 @@ import Data.Binary.Builder
 instance NFData S.ByteString
 #endif
 
-data B = forall a. NFData a => B a
-
-instance NFData B where
-    rnf (B b) = rnf b
-
 main :: IO ()
-main = defaultMainWith defaultConfig
-    (liftIO . evaluate $ rnf [B word8s, B smallByteString, B largeByteString])
+main = do
+  evaluate $ rnf
+    [ rnf word8s
+    , rnf smallByteString
+    , rnf largeByteString
+    ]
+  defaultMain
     [ -- Test GHC loop optimization of continuation based code.
       bench "[Word8]" $ whnf (run . fromWord8s) word8s
 
