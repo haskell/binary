@@ -2,6 +2,9 @@
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
+#ifdef GENERICS
+{-# LANGUAGE DefaultSignatures #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Class
@@ -20,6 +23,11 @@ module Data.Binary.Class (
 
     -- * The Binary class
       Binary(..)
+
+#ifdef GENERICS
+    -- * Support for generics
+    , GBinary(..)
+#endif
 
     ) where
 
@@ -49,6 +57,10 @@ import qualified Data.Tree as T
 
 import Data.Array.Unboxed
 
+#ifdef GENERICS
+import GHC.Generics
+#endif
+
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -58,6 +70,12 @@ import qualified Data.Foldable as Fold
 #endif
 
 ------------------------------------------------------------------------
+
+#ifdef GENERICS
+class GBinary f where
+    gput :: f t -> Put
+    gget :: Get (f t)
+#endif
 
 -- | The 'Binary' class provides 'put' and 'get', methods to encode and
 -- decode a Haskell value to a lazy 'ByteString'. It mirrors the 'Read' and
@@ -81,6 +99,14 @@ class Binary t where
     put :: t -> Put
     -- | Decode a value in the Get monad
     get :: Get t
+
+#ifdef GENERICS
+    default put :: (Generic a, GBinary (Rep a)) => a -> Put
+    put = gput . from
+
+    default get :: (Generic a, GBinary (Rep a)) => Get a
+    get = to `fmap` gget
+#endif
 
 ------------------------------------------------------------------------
 -- Simple instances

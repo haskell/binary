@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE CPP #-}
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
@@ -33,6 +33,11 @@ module Data.Binary (
     -- * The Binary class
       Binary(..)
 
+#ifdef GENERICS
+    -- * Generic support
+    -- $generics
+    , GBinary(..)
+#endif
     -- $example
 
     -- * The Get and Put monads
@@ -64,6 +69,9 @@ import Data.Word
 import Data.Binary.Class
 import Data.Binary.Put
 import Data.Binary.Get
+#ifdef GENERICS
+import Data.Binary.Generic ()
+#endif
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
@@ -238,3 +246,21 @@ decodeFile f = do
 
 -- lazyGet :: (Binary a) => Get a
 -- lazyGet = fmap decode get
+
+-- $generics
+--
+-- Beginning with GHC 7.2, it is possible to use binary serialization
+-- without writing any instance boilerplate code.
+--
+-- > {-# LANGUAGE DeriveGeneric #-}
+-- >
+-- > import Data.Binary
+-- > import GHC.Generics (Generic)
+-- >
+-- > data Foo = Foo
+-- >          deriving (Show, Generic)
+-- >
+-- > instance Binary Foo
+--
+-- This mechanism makes use of GHC's efficient built-in generics
+-- support.
