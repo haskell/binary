@@ -106,11 +106,15 @@ import GHC.Word
 -- able to incrementally give more data, see the incremental input interface.
 
 -- $incrementalinterface
+-- The incremental interface gives you more control over how input is
+-- provided during parsing. This lets you e.g. interleave parsing and
+-- I\/O.
+--
 -- The incremental interface consumes a strict 'B.ByteString' at a time, each
 -- being part of the total amount of input. If your decoder needs more input to
 -- finish it will return a 'Partial' with a continuation.
 -- If there is no more input, provide it 'Nothing'.
-
+--
 -- 'Fail' will be returned if it runs into an error, together with a message,
 -- the position and the remaining input.
 -- If it succeeds it will return 'Done' with the resulting value,
@@ -119,15 +123,16 @@ import GHC.Word
 -- | A decoder procuced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
               -- ^ The decoder ran into an error. The decoder either used
-              -- 'fail' or was not provided enough input.
+              -- 'fail' or was not provided enough input. Contains any
+              -- unconsumed input and the number of bytes consumed.
               | Partial (Maybe B.ByteString -> Decoder a)
               -- ^ The decoder has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
               -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
               | Done !B.ByteString {-# UNPACK #-} !ByteOffset a
               -- ^ The decoder has successfully finished. Except for the
-              -- output value you also get the unused input as well as the
-              -- count of used bytes.
+              -- output value you also get any unused input as well as the
+              -- number of bytes consumed.
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling decoder errors and to get the output value.
