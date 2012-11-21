@@ -258,8 +258,9 @@ decodeFile f = do
 -- > import GHC.Generics (Generic)
 -- >
 -- > data Foo = Foo
--- >          deriving (Show, Generic)
+-- >          deriving (Generic)
 -- >
+-- > -- GHC will automatically fill out the instance
 -- > instance Binary Foo
 --
 -- This mechanism makes use of GHC's efficient built-in generics
