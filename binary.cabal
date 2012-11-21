@@ -39,9 +39,6 @@ library
   other-modules:   Data.Binary.Builder.Base,
                    Data.Binary.Class
 
-  extensions:      CPP,
-                   FlexibleContexts
-
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
 test-suite qc
