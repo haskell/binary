@@ -6,7 +6,7 @@ author:          Lennart Kolmodin <kolmodin@gmail.com>
 maintainer:      Lennart Kolmodin, Don Stewart <dons@galois.com>
 homepage:        https://github.com/kolmodin/binary
 description:     Efficient, pure binary serialisation using lazy ByteStrings.
-                 Haskell values may be encoded to and from binary formats, 
+                 Haskell values may be encoded to and from binary formats,
                  written to disk as binary, or sent over the network.
                  Serialisation speeds of over 1 G\/sec have been observed,
                  so this library should be suitable for high performance
@@ -36,10 +36,12 @@ library
                    Data.Binary.Builder,
                    Data.Binary.Builder.Internal
 
-  other-modules:   Data.Binary.Builder.Base
+  other-modules:   Data.Binary.Builder.Base,
+                   Data.Binary.Class
 
-  extensions:      CPP,
-                   FlexibleContexts
+  if impl(ghc >= 7.2.1)
+    cpp-options: -DGENERICS
+    other-modules: Data.Binary.Generic
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
@@ -97,4 +99,3 @@ benchmark builder
     deepseq,
     mtl
   ghc-options: -O2
-
