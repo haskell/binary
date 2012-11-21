@@ -101,10 +101,10 @@ class Binary t where
     get :: Get t
 
 #ifdef GENERICS
-    default put :: (Generic a, GBinary (Rep a)) => a -> Put
+    default put :: (Generic t, GBinary (Rep t)) => t -> Put
     put = gput . from
 
-    default get :: (Generic a, GBinary (Rep a)) => Get a
+    default get :: (Generic t, GBinary (Rep t)) => Get t
     get = to `fmap` gget
 #endif
 
