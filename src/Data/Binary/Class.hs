@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE CPP, FlexibleContexts #-}
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
