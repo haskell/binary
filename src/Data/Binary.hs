@@ -32,13 +32,14 @@ module Data.Binary (
 
     -- * The Binary class
       Binary(..)
+    -- ** Example
+    -- $example
 
 #ifdef GENERICS
     -- * Generic support
     -- $generics
     , GBinary(..)
 #endif
-    -- $example
 
     -- * The Get and Put monads
     , Get
