@@ -42,6 +42,9 @@ library
   if impl(ghc >= 7.2.1)
     cpp-options: -DGENERICS
     other-modules: Data.Binary.Generic
+    if impl(ghc <= 7.6)
+      -- prior to ghc-7.4 generics lived in ghc-prim
+      build-depends: ghc-prim
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
