@@ -31,7 +31,8 @@ module Data.Binary.Get (
     -- * The lazy input interface
     -- $lazyinterface
     , runGet 
-    , runGetState -- DEPRECATED
+    , runGetOrFail
+    , ByteOffset
 
     -- * The incremental input interface
     -- $incrementalinterface
@@ -75,6 +76,7 @@ module Data.Binary.Get (
     , getWord64host
 
     -- * Deprecated functions
+    , runGetState -- DEPRECATED
     , remaining -- DEPRECATED
     , getBytes -- DEPRECATED
     ) where
@@ -96,37 +98,41 @@ import GHC.Word
 #endif
 
 -- $lazyinterface
--- The lazy interface consumes a single lazy bytestring.
--- It's the easiest interface to get started with, but it has limitations.
--- If the decoder runs into an error, it will throw an exception using 'error'.
--- It will also throw an error if the decoder runs out of input.
+-- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
+-- interface to get started with, but it doesn't support interleaving I\/O and
+-- parsing, unless lazy I/O is used.
 -- 
 -- There is no way to provide more input other than the initial data. To be
 -- able to incrementally give more data, see the incremental input interface.
 
 -- $incrementalinterface
+-- The incremental interface gives you more control over how input is
+-- provided during parsing. This lets you e.g. interleave parsing and
+-- I\/O.
+--
 -- The incremental interface consumes a strict 'B.ByteString' at a time, each
 -- being part of the total amount of input. If your decoder needs more input to
 -- finish it will return a 'Partial' with a continuation.
 -- If there is no more input, provide it 'Nothing'.
-
+--
 -- 'Fail' will be returned if it runs into an error, together with a message,
 -- the position and the remaining input.
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
 -- | A decoder procuced by running a 'Get' monad.
-data Decoder a = Fail !B.ByteString {-# UNPACK #-} !Int64 String
+data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
               -- ^ The decoder ran into an error. The decoder either used
-              -- 'fail' or was not provided enough input.
+              -- 'fail' or was not provided enough input. Contains any
+              -- unconsumed input and the number of bytes consumed.
               | Partial (Maybe B.ByteString -> Decoder a)
               -- ^ The decoder has consumed the available input and needs
               -- more to continue. Provide 'Just' if more input is available
               -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
-              | Done !B.ByteString {-# UNPACK #-} !Int64 a
+              | Done !B.ByteString {-# UNPACK #-} !ByteOffset a
               -- ^ The decoder has successfully finished. Except for the
-              -- output value you also get the unused input as well as the
-              -- count of used bytes.
+              -- output value you also get any unused input as well as the
+              -- number of bytes consumed.
 
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling decoder errors and to get the output value.
@@ -154,7 +160,7 @@ calculateOffset r0 = go r0 0
 -- The first value is the result of the decoder. The second and third are the
 -- unused input, and the number of consumed bytes.
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
-runGetState :: Get a -> L.ByteString -> Int64 -> (a, L.ByteString, Int64)
+runGetState :: Get a -> L.ByteString -> ByteOffset -> (a, L.ByteString, ByteOffset)
 runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
   where
   go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
@@ -163,9 +169,25 @@ runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
   go (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
 
+-- | Run a 'Get' monad and return 'Left' on failure and 'Right' on
+-- success. In both cases any unconsumed input and the number of bytes
+-- consumed is returned. In the case of failure, a human-readable
+-- error message is included as well.
+runGetOrFail :: Get a -> L.ByteString
+             -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
+runGetOrFail g bs = feedAll (runGetIncremental g) chunks
+  where
+  chunks = L.toChunks bs
+  feedAll (Done x pos r) xs = Right ((L.fromChunks (x:xs)), pos, r)
+  feedAll (Partial k) (x:xs) = feedAll (k (Just x)) xs
+  feedAll (Partial k) [] = feedAll (k Nothing) []
+  feedAll (Fail x pos msg) xs = Left ((L.fromChunks (x:xs)), pos, msg)
+
+-- | An offset, counted in bytes.
+type ByteOffset = Int64
 
 -- | The simplest interface to run a 'Get' decoder. If the decoder runs into
--- an error, calling 'fail' or running out of input, it will call 'error'.
+-- an error, calls 'fail', or runs out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
 runGet g bs = feedAll (runGetIncremental g) chunks
   where
