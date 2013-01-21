@@ -460,11 +460,11 @@ instance Binary ByteString where
 ------------------------------------------------------------------------
 -- Maps and Sets
 
-instance (Ord a, Binary a) => Binary (Set.Set a) where
+instance (Binary a) => Binary (Set.Set a) where
     put s = put (Set.size s) >> mapM_ put (Set.toAscList s)
     get   = liftM Set.fromDistinctAscList get
 
-instance (Ord k, Binary k, Binary e) => Binary (Map.Map k e) where
+instance (Binary k, Binary e) => Binary (Map.Map k e) where
     put m = put (Map.size m) >> mapM_ put (Map.toAscList m)
     get   = liftM Map.fromDistinctAscList get
 
