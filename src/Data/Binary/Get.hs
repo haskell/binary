@@ -85,6 +85,7 @@ import Foreign
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Internal as L
 
 import Control.Applicative
 
@@ -161,13 +162,22 @@ calculateOffset r0 = go r0 0
 -- unused input, and the number of consumed bytes.
 {-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> ByteOffset -> (a, L.ByteString, ByteOffset)
-runGetState g lbs0 pos' = go (runGetIncremental g) (L.toChunks lbs0)
+runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
   where
-  go (Done s pos a) lbs = (a, L.fromChunks (s:lbs), pos+pos')
-  go (Partial k) (x:xs) = go (k $ Just x) xs
-  go (Partial k) []     = go (k Nothing) []
+  go (Done s pos a) lbs = (a, L.chunk s lbs, pos+pos')
+  go (Partial k) lbs = go (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
   go (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
+  takeHeadChunk :: L.ByteString -> Maybe B.ByteString
+  takeHeadChunk lbs =
+    case lbs of
+      (L.Chunk bs _) -> Just bs
+      _ -> Nothing
+  dropHeadChunk :: L.ByteString -> L.ByteString
+  dropHeadChunk lbs =
+    case lbs of
+      (L.Chunk _ lbs') -> lbs'
+      L.Empty -> L.Empty
 
 -- | Run a 'Get' monad and return 'Left' on failure and 'Right' on
 -- success. In both cases any unconsumed input and the number of bytes
