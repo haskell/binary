@@ -168,16 +168,18 @@ runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
   go (Partial k) lbs = go (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
   go (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
-  takeHeadChunk :: L.ByteString -> Maybe B.ByteString
-  takeHeadChunk lbs =
-    case lbs of
-      (L.Chunk bs _) -> Just bs
-      _ -> Nothing
-  dropHeadChunk :: L.ByteString -> L.ByteString
-  dropHeadChunk lbs =
-    case lbs of
-      (L.Chunk _ lbs') -> lbs'
-      L.Empty -> L.Empty
+
+takeHeadChunk :: L.ByteString -> Maybe B.ByteString
+takeHeadChunk lbs =
+  case lbs of
+    (L.Chunk bs _) -> Just bs
+    _ -> Nothing
+
+dropHeadChunk :: L.ByteString -> L.ByteString
+dropHeadChunk lbs =
+  case lbs of
+    (L.Chunk _ lbs') -> lbs'
+    _ -> L.Empty
 
 -- | Run a 'Get' monad and return 'Left' on failure and 'Right' on
 -- success. In both cases any unconsumed input and the number of bytes
@@ -185,13 +187,11 @@ runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
 -- error message is included as well.
 runGetOrFail :: Get a -> L.ByteString
              -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
-runGetOrFail g bs = feedAll (runGetIncremental g) chunks
+runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
   where
-  chunks = L.toChunks bs
-  feedAll (Done x pos r) xs = Right ((L.fromChunks (x:xs)), pos, r)
-  feedAll (Partial k) (x:xs) = feedAll (k (Just x)) xs
-  feedAll (Partial k) [] = feedAll (k Nothing) []
-  feedAll (Fail x pos msg) xs = Left ((L.fromChunks (x:xs)), pos, msg)
+  feedAll (Done bs pos x) lbs = Right (L.chunk bs lbs, pos, x)
+  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
+  feedAll (Fail x pos msg) xs = Left (L.chunk x xs, pos, msg)
 
 -- | An offset, counted in bytes.
 type ByteOffset = Int64
@@ -199,12 +199,10 @@ type ByteOffset = Int64
 -- | The simplest interface to run a 'Get' decoder. If the decoder runs into
 -- an error, calls 'fail', or runs out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
-runGet g bs = feedAll (runGetIncremental g) chunks
+runGet g lbs0 = feedAll (runGetIncremental g) lbs0
   where
-  chunks = L.toChunks bs
-  feedAll (Done _ _ r) _ = r
-  feedAll (Partial k) (x:xs) = feedAll (k (Just x)) xs
-  feedAll (Partial k) [] = feedAll (k Nothing) []
+  feedAll (Done _ _ x) _ = x
+  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
   feedAll (Fail _ pos msg) _ =
     error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
 
@@ -223,7 +221,8 @@ pushChunk r inp =
     Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
 
 
--- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it -- will add the input to 'ByteString' of unconsumed input.
+-- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
+-- will add the input to 'ByteString' of unconsumed input.
 --
 -- @
 --    'runGetPartial' myParser \`pushChunks\` myLazyByteString
@@ -233,6 +232,7 @@ pushChunks r0 = go r0 . L.toChunks
   where
   go r [] = r
   go r (x:xs) = go (pushChunk r x) xs
+  -- TODO: this will result in O(n^2) once r becomes Done or Fail.
 
 -- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
 -- 'Partial' decoder, otherwise returns the decoder unchanged.
