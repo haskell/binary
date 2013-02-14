@@ -231,8 +231,9 @@ pushChunks :: Decoder a -> L.ByteString -> Decoder a
 pushChunks r0 = go r0 . L.toChunks
   where
   go r [] = r
-  go r (x:xs) = go (pushChunk r x) xs
-  -- TODO: this will result in O(n^2) once r becomes Done or Fail.
+  go (Done inp pos a) xs = Done (B.concat (inp:xs)) pos a
+  go (Fail inp pos s) xs = Fail (B.concat (inp:xs)) pos s
+  go (Partial k) (x:xs) = go (k (Just x)) xs
 
 -- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
 -- 'Partial' decoder, otherwise returns the decoder unchanged.
