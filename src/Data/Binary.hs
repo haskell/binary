@@ -55,10 +55,12 @@ module Data.Binary (
     -- * Binary serialisation
     , encode                    -- :: Binary a => a -> ByteString
     , decode                    -- :: Binary a => ByteString -> a
+    , decodeOrFail
 
     -- * IO functions for serialisation
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
+    , decodeFileOrFail
 
 -- Lazy put and get
 --  , lazyPut
@@ -77,8 +79,11 @@ import Data.Binary.Get
 import Data.Binary.Generic ()
 #endif
 
+import qualified Data.ByteString as B ( hGet, length )
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Internal as L ( defaultChunkSize )
+import System.IO ( withBinaryFile, IOMode(ReadMode) )
 
 ------------------------------------------------------------------------
 
@@ -169,6 +174,16 @@ encode = runPut . put
 decode :: Binary a => ByteString -> a
 decode = runGet get
 
+-- | Decode a value from a lazy ByteString. Returning 'Left' on failure and
+-- 'Right' on success. In both cases the unconsumed input and the number of
+-- consumed bytes is returned. In case of failure, a human-readable error
+-- message will be returned as well.
+decodeOrFail :: Binary a => L.ByteString
+             -> Either (L.ByteString, ByteOffset, String)
+                       (L.ByteString, ByteOffset, a)
+decodeOrFail = runGetOrFail get
+
+
 ------------------------------------------------------------------------
 -- Convenience IO operations
 
@@ -186,29 +201,25 @@ encodeFile :: Binary a => FilePath -> a -> IO ()
 encodeFile f v = L.writeFile f (encode v)
 
 -- | Lazily reconstruct a value previously written to a file.
---
--- This is just a convenience function, it's defined simply as:
---
--- > decodeFile f = return . decode =<< B.readFile f
---
--- So for example if you wanted to decompress as well, you could use:
---
--- > return . decode . decompress =<< B.readFile f
---
--- After contructing the data from the input file, 'decodeFile' checks
--- if the file is empty, and in doing so will force the associated file
--- handle closed, if it is indeed empty. If the file is not empty,
--- it is up to the decoding instance to consume the rest of the data,
--- or otherwise finalise the resource.
---
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = do
-    s <- L.readFile f
-    return $ runGet (do v <- get
-                        m <- isEmpty
-                        m `seq` return v) s
+  result <- decodeFileOrFail f
+  case result of
+    Right x -> return x
+    Left (_,str) -> error str
 
--- needs bytestring 0.9.1.x to work
+decodeFileOrFail :: Binary a => FilePath -> IO (Either (ByteOffset, String) a)
+decodeFileOrFail f =
+  withBinaryFile f ReadMode $ \h -> do
+    feed (runGetIncremental get) h
+  where -- TODO: put in Data.Binary.Get and name pushFromHandle?
+    feed (Done _ _ x) _ = return (Right x)
+    feed (Fail _ pos str) _ = return (Left (pos, str))
+    feed (Partial k) h = do
+      chunk <- B.hGet h L.defaultChunkSize
+      case B.length chunk of
+        0 -> feed (k Nothing) h
+        _ -> feed (k (Just chunk)) h
 
 ------------------------------------------------------------------------
 -- Lazy put and get
