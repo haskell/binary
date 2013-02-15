@@ -10,7 +10,7 @@
 --
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : unstable
--- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances
+-- Portability : portable to Hugs and GHC. Requires the FFI and some flexible instances.
 --
 -- Binary serialisation of Haskell values to and from lazy 'ByteString's.
 -- The Binary library provides methods for encoding Haskell values as
@@ -61,10 +61,6 @@ module Data.Binary (
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
     , decodeFileOrFail
-
--- Lazy put and get
---  , lazyPut
---  , lazyGet
 
     , module Data.Word -- useful
 
@@ -170,7 +166,6 @@ encode = runPut . put
 {-# INLINE encode #-}
 
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
---
 decode :: Binary a => ByteString -> a
 decode = runGet get
 
@@ -187,7 +182,7 @@ decodeOrFail = runGetOrFail get
 ------------------------------------------------------------------------
 -- Convenience IO operations
 
--- | Lazily serialise a value to a file
+-- | Lazily serialise a value to a file.
 --
 -- This is just a convenience function, it's defined simply as:
 --
@@ -200,7 +195,8 @@ decodeOrFail = runGetOrFail get
 encodeFile :: Binary a => FilePath -> a -> IO ()
 encodeFile f v = L.writeFile f (encode v)
 
--- | Lazily reconstruct a value previously written to a file.
+-- | Decode a value from a file. In case of errors, 'error' will
+-- be called with the error message.
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = do
   result <- decodeFileOrFail f
@@ -208,6 +204,9 @@ decodeFile f = do
     Right x -> return x
     Left (_,str) -> error str
 
+-- | Decode a value from a file. In case of success, the value will be returned
+-- in 'Right'. In case of decoder errors, the error message together with
+-- the byte offset will be returned.
 decodeFileOrFail :: Binary a => FilePath -> IO (Either (ByteOffset, String) a)
 decodeFileOrFail f =
   withBinaryFile f ReadMode $ \h -> do
@@ -222,14 +221,6 @@ decodeFileOrFail f =
         _ -> feed (k (Just chunk)) h
 
 ------------------------------------------------------------------------
--- Lazy put and get
-
--- lazyPut :: (Binary a) => a -> Put
--- lazyPut a = put (encode a)
-
--- lazyGet :: (Binary a) => Get a
--- lazyGet = fmap decode get
-
 -- $generics
 --
 -- Beginning with GHC 7.2, it is possible to use binary serialization
