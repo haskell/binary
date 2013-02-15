@@ -65,6 +65,21 @@ test-suite qc
   ghc-options: -Wall
   hs-source-dirs: src
 
+test-suite read-write-file
+  type:  exitcode-stdio-1.0
+  hs-source-dirs: tests
+  main-is: File.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    bytestring >= 0.9,
+    binary,
+    Cabal,
+    directory,
+    filepath,
+    HUnit
+
+  ghc-options: -Wall
+
 benchmark bench
   type: exitcode-stdio-1.0
   hs-source-dirs: benchmarks
