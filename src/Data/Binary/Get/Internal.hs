@@ -28,6 +28,7 @@ module Data.Binary.Get.Internal (
     , remaining
     , getBytes
     , isEmpty
+    , lookAhead
 
     -- ** ByteStrings
     , getByteString
@@ -222,6 +223,28 @@ try g = C $ \inp ks ->
                     Fail _ s -> Fail (B.concat (inp : reverse acc)) s
                     BytesRead unused k -> BytesRead unused (go acc . k)
   in go [] r0
+
+runAndKeepTrack :: Get a -> Get (Decoder a, [B.ByteString])
+runAndKeepTrack g = C $ \inp ks ->
+  let r0 = runCont g inp (\inp' a -> Done inp' a)
+      go !acc r = case r of
+                    Done inp' a -> ks inp (Done inp' a, reverse acc)
+                    Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                    Fail inp' s -> ks inp (Fail inp' s, reverse acc)
+                    BytesRead unused k -> BytesRead unused (go acc . k)
+  in go [] r0
+
+pushBack :: [B.ByteString] -> Get ()
+pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
+
+lookAhead :: Get a -> Get a
+lookAhead g = do
+  (decoder, bs) <- runAndKeepTrack g
+  case decoder of
+    Done _ a -> pushBack bs >> return a
+    Fail inp s -> C $ \_ _ -> Fail inp s
+    _ -> error "Binary: impossible"
+
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how

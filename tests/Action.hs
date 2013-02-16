@@ -13,6 +13,7 @@ import Arbitrary()
 data Action
   = GetByteString Int
   | Try [Action] [Action]
+  | LookAhead [Action]
   | BytesRead
   | Fail
   deriving (Show, Eq)
@@ -23,6 +24,7 @@ instance Arbitrary Action where
       GetByteString n -> [ GetByteString n' | n' <- shrink n, n > 0 ]
       BytesRead -> []
       Fail -> []
+      LookAhead a -> a ++ [ LookAhead a' | a' <- shrink a ]
       Try a b ->
         [ Try a' b' | a' <- shrink a, b' <- shrink b ]
         ++ [ Try a' b | a' <- shrink a ]
@@ -34,6 +36,7 @@ willFail (x:xs) =
   case x of
     GetByteString _ -> willFail xs
     Try a b -> (willFail a && willFail b) || willFail xs
+    LookAhead a -> willFail a || willFail xs
     BytesRead -> willFail xs
     Fail -> True
 
@@ -45,6 +48,7 @@ max_len (x:xs) =
     BytesRead -> max_len xs
     Fail -> 0
     Try a b -> max (max_len a) (max_len b) + max_len xs
+    LookAhead a -> max (max_len a) (max_len xs)
 
 actual_len :: [Action] -> Maybe Int
 actual_len = go 0
@@ -55,6 +59,7 @@ actual_len = go 0
       GetByteString n -> go (s+n) xs
       Fail -> Nothing
       BytesRead -> go s xs
+      LookAhead _ -> go s xs
       Try a b | not (willFail a) -> liftA2 (+) (go s a) (actual_len xs)
               | not (willFail b) -> liftA2 (+) (go s b) (actual_len xs)
               | otherwise -> Nothing
@@ -85,6 +90,9 @@ eval = go 0
           then go pos xs
           else error $ "expected " ++ show pos ++ " but got " ++ show pos'
       Fail -> fail "fail"
+      LookAhead a -> do
+        _ <- Binary.lookAhead (go pos a)
+        go pos xs
       Try a b -> do
         len <- leg pos a <|> leg pos b
         case len of
@@ -103,4 +111,6 @@ gen_actions = sized (go False)
                        , do t1 <- go True (s `div` 2)
                             t2 <- go inTry (s `div` 2)
                             (:) (Try t1 t2) <$> go inTry (s `div` 2)
+                       , do t <- go inTry (s-1)
+                            (:) (LookAhead t) <$> go inTry (s-1)
                        ] ++ [ return [Fail] | inTry ]
