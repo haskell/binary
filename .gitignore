@@ -12,3 +12,4 @@ GNUmakefile
 dist-boot
 dist-install
 ghc.mk
+.cabal-sandbox
