@@ -198,14 +198,12 @@ getBytes = getByteString
 
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
-  (<|>) f g = C $ \inp ks ->
-    let r0 = runCont (try f) inp (\inp' a -> Done inp' a)
-        go r = case r of
-                  Done inp' a -> ks inp' a
-                  Partial k -> Partial (go . k)
-                  Fail inp' _str -> runCont g inp' ks
-                  BytesRead unused k -> BytesRead unused (go . k)
-    in go r0
+  (<|>) f g = do
+    (decoder, bs) <- runAndKeepTrack f
+    case decoder of
+      Done inp x -> C $ \_ ks -> ks inp x
+      Fail _ _ -> pushBack bs >> g
+      _ -> error "Binary: impossible"
   some p = (:) <$> p <*> many p
   many p = do
     v <- (Just <$> p) <|> pure Nothing
@@ -213,17 +211,11 @@ instance Alternative Get where
       Nothing -> pure []
       Just x -> (:) x <$> many p
 
--- | Try to execute a Get. If it fails, the consumed input will be restored.
-try :: Get a -> Get a
-try g = C $ \inp ks ->
-  let r0 = runCont g inp (\inp' a -> Done inp' a)
-      go !acc r = case r of
-                    Done inp' a -> ks inp' a
-                    Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
-                    Fail _ s -> Fail (B.concat (inp : reverse acc)) s
-                    BytesRead unused k -> BytesRead unused (go acc . k)
-  in go [] r0
-
+-- | Run a decoder and keep track of all the input it consumes.
+-- Once it's finished, return the final decoder (always 'Done' or 'Fail'), 
+-- and unconsume all the the input the decoder required to run.
+-- Any additional chunks which was required to run the decoder
+-- will also be returned.
 runAndKeepTrack :: Get a -> Get (Decoder a, [B.ByteString])
 runAndKeepTrack g = C $ \inp ks ->
   let r0 = runCont g inp (\inp' a -> Done inp' a)
@@ -233,9 +225,11 @@ runAndKeepTrack g = C $ \inp ks ->
                     Fail inp' s -> ks inp (Fail inp' s, reverse acc)
                     BytesRead unused k -> BytesRead unused (go acc . k)
   in go [] r0
+{-# INLINE runAndKeepTrack #-}
 
 pushBack :: [B.ByteString] -> Get ()
 pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
+{-# INLINE pushBack #-}
 
 lookAhead :: Get a -> Get a
 lookAhead g = do
