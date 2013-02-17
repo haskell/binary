@@ -62,7 +62,7 @@ test-suite qc
     test-framework-quickcheck2,
     QuickCheck>=2.5
 
-  ghc-options: -Wall
+  ghc-options: -Wall -O2
   hs-source-dirs: src
 
 test-suite read-write-file
