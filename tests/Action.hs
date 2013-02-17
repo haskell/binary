@@ -2,8 +2,10 @@
 module Action where
 
 import Control.Applicative
+import Control.Monad
 import Test.QuickCheck
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 
 import qualified Data.Binary.Get as Binary
@@ -21,7 +23,7 @@ data Action
 instance Arbitrary Action where
   shrink action =
     case action of
-      GetByteString n -> [ GetByteString n' | n' <- shrink n, n > 0 ]
+      GetByteString n -> [ GetByteString n' | n' <- shrink n, n >= 0 ]
       BytesRead -> []
       Fail -> []
       LookAhead a -> a ++ [ LookAhead a' | a' <- shrink a ]
@@ -73,17 +75,28 @@ prop_action =
   forAllShrink gen_actions shrink $ \ actions ->
     forAll arbitrary $ \ lbs ->
       L.length lbs >= fromIntegral (max_len actions) ==>
-        case Binary.runGet (eval actions) lbs of
+        let allInput = B.concat (L.toChunks lbs) in
+        case Binary.runGet (eval allInput actions) lbs of
           () -> True
 
-eval :: [Action] -> Binary.Get ()
-eval = go 0
+-- | Evaluate (run) the model.
+-- First argument is all the input that will be used when executing
+-- this decoder. It is used in this function to compare the expected
+-- value with the actual value from the decoder functions.
+-- The second argument is the model - the actions we will evaluate.
+eval :: B.ByteString -> [Action] -> Binary.Get ()
+eval str = go 0
   where
   go _ [] = return ()
   go pos (x:xs) =
     case x of
-      GetByteString n ->
-        Binary.getByteString n >> go (pos+n) xs
+      GetByteString n -> do
+        -- Run the operation in the Get monad...
+        actual <- Binary.getByteString n
+        let expected = B.take n . B.drop pos $ str
+        -- ... and compare that we got what we expected.
+        when (actual /= expected) $ error "actual /= expected"
+        go (pos+n) xs
       BytesRead -> do
         pos' <- Binary.bytesRead
         if (pos == fromIntegral pos')
@@ -111,6 +124,6 @@ gen_actions = sized (go False)
                        , do t1 <- go True (s `div` 2)
                             t2 <- go inTry (s `div` 2)
                             (:) (Try t1 t2) <$> go inTry (s `div` 2)
-                       , do t <- go inTry (s-1)
+                       , do t <- go inTry (s`div`2)
                             (:) (LookAhead t) <$> go inTry (s-1)
                        ] ++ [ return [Fail] | inTry ]
