@@ -16,6 +16,8 @@ data Action
   = GetByteString Int
   | Try [Action] [Action]
   | LookAhead [Action]
+  -- | First argument is True if this action returns Just, otherwise False.
+  | LookAheadM Bool [Action]
   | BytesRead
   | Fail
   deriving (Show, Eq)
@@ -27,6 +29,7 @@ instance Arbitrary Action where
       BytesRead -> []
       Fail -> []
       LookAhead a -> a ++ [ LookAhead a' | a' <- shrink a ]
+      LookAheadM b a -> a ++ [ LookAheadM b a' | a' <- shrink a]
       Try a b ->
         [ Try a' b' | a' <- shrink a, b' <- shrink b ]
         ++ [ Try a' b | a' <- shrink a ]
@@ -39,6 +42,7 @@ willFail (x:xs) =
     GetByteString _ -> willFail xs
     Try a b -> (willFail a && willFail b) || willFail xs
     LookAhead a -> willFail a || willFail xs
+    LookAheadM _ a -> willFail a || willFail xs
     BytesRead -> willFail xs
     Fail -> True
 
@@ -51,6 +55,9 @@ max_len (x:xs) =
     Fail -> 0
     Try a b -> max (max_len a) (max_len b) + max_len xs
     LookAhead a -> max (max_len a) (max_len xs)
+    LookAheadM b a | willFail a -> max_len a
+                   | b -> max_len a + max_len xs
+                   | otherwise -> max (max_len a) (max_len xs)
 
 actual_len :: [Action] -> Maybe Int
 actual_len = go 0
@@ -62,6 +69,9 @@ actual_len = go 0
       Fail -> Nothing
       BytesRead -> go s xs
       LookAhead _ -> go s xs
+      LookAheadM b a | willFail a -> Nothing
+                     | b -> liftA2 (+) (go s a) (actual_len xs)
+                     | otherwise -> go s xs
       Try a b | not (willFail a) -> liftA2 (+) (go s a) (actual_len xs)
               | not (willFail b) -> liftA2 (+) (go s b) (actual_len xs)
               | otherwise -> Nothing
@@ -106,6 +116,13 @@ eval str = go 0
       LookAhead a -> do
         _ <- Binary.lookAhead (go pos a)
         go pos xs
+      LookAheadM b a -> do
+        let f True = leg pos a
+            f False = go pos a >> return Nothing
+        len <- Binary.lookAheadM (f b)
+        case len of
+          Nothing -> go pos xs
+          Just offset -> go (pos+offset) xs
       Try a b -> do
         len <- leg pos a <|> leg pos b
         case len of
@@ -126,4 +143,7 @@ gen_actions = sized (go False)
                             (:) (Try t1 t2) <$> go inTry (s `div` 2)
                        , do t <- go inTry (s`div`2)
                             (:) (LookAhead t) <$> go inTry (s-1)
+                       , do t <- go inTry (s`div`2)
+                            b <- arbitrary
+                            (:) (LookAheadM b t) <$> go inTry (s-1)
                        ] ++ [ return [Fail] | inTry ]

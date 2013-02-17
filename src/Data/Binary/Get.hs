@@ -49,6 +49,7 @@ module Data.Binary.Get (
     , isEmpty
     , bytesRead
     , lookAhead
+    , lookAheadM
 
     -- ** ByteStrings
     , getByteString
