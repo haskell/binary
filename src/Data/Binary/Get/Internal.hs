@@ -247,6 +247,7 @@ lookAheadM g = do
     Done _ Nothing -> pushBack bs >> return Nothing
     Done inp (Just x) -> C $ \_ ks -> ks inp (Just x)
     Fail inp s -> C $ \_ _ -> Fail inp s
+    _ -> error "Binary: impossible"
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
