@@ -13,7 +13,8 @@ import qualified Data.Binary.Get as Binary
 import Arbitrary()
 
 data Action
-  = GetByteString Int
+  = Actions [Action]
+  | GetByteString Int
   | Try [Action] [Action]
   | LookAhead [Action]
   -- | First argument is True if this action returns Just, otherwise False.
@@ -25,13 +26,17 @@ data Action
 instance Arbitrary Action where
   shrink action =
     case action of
+      Actions [a] -> [a]
+      Actions as -> [ Actions as' | as' <- shrink as ]
       GetByteString n -> [ GetByteString n' | n' <- shrink n, n >= 0 ]
       BytesRead -> []
       Fail -> []
-      LookAhead a -> a ++ [ LookAhead a' | a' <- shrink a ]
-      LookAheadM b a -> a ++ [ LookAheadM b a' | a' <- shrink a]
+      LookAhead a -> Actions a : [ LookAhead a' | a' <- shrink a ]
+      LookAheadM b a -> Actions a : [ LookAheadM b a' | a' <- shrink a]
+      Try [Fail] b -> Actions b : [ Try [Fail] b' | b' <- shrink b ]
       Try a b ->
-        [ Try a' b' | a' <- shrink a, b' <- shrink b ]
+        (if not (willFail a) then [Actions a] else [])
+        ++ [ Try a' b' | a' <- shrink a, b' <- shrink b ]
         ++ [ Try a' b | a' <- shrink a ]
         ++ [ Try a b' | b' <- shrink b ]
 
@@ -39,6 +44,7 @@ willFail :: [Action] -> Bool
 willFail [] = False
 willFail (x:xs) =
   case x of
+    Actions x' -> willFail x' || willFail xs
     GetByteString _ -> willFail xs
     Try a b -> (willFail a && willFail b) || willFail xs
     LookAhead a -> willFail a || willFail xs
@@ -50,6 +56,7 @@ max_len :: [Action] -> Int
 max_len [] = 0
 max_len (x:xs) =
   case x of
+    Actions x' -> max_len x' + max_len xs
     GetByteString n -> n + max_len xs
     BytesRead -> max_len xs
     Fail -> 0
@@ -60,21 +67,24 @@ max_len (x:xs) =
                    | otherwise -> max (max_len a) (max_len xs)
 
 actual_len :: [Action] -> Maybe Int
-actual_len = go 0
+actual_len [] = Just 0
+actual_len (x:xs) =
+  case x of
+    Actions x' -> (+) <$> actual_len x' <*> rest
+    GetByteString n -> (n+) <$> rest
+    Fail -> Nothing
+    BytesRead -> rest
+    LookAhead a | willFail a -> Nothing
+                | otherwise -> rest
+    LookAheadM b a | willFail a -> Nothing
+                   | b -> (+) <$> actual_len a <*> rest
+                   | otherwise -> rest
+    Try a b | not (willFail a) -> (+) <$> actual_len a <*> rest
+            | not (willFail b) -> (+) <$> actual_len b <*> rest
+            | otherwise -> Nothing
+
   where
-  go !s [] = Just s
-  go !s (x:xs) =
-    case x of
-      GetByteString n -> go (s+n) xs
-      Fail -> Nothing
-      BytesRead -> go s xs
-      LookAhead _ -> go s xs
-      LookAheadM b a | willFail a -> Nothing
-                     | b -> liftA2 (+) (go s a) (actual_len xs)
-                     | otherwise -> go s xs
-      Try a b | not (willFail a) -> liftA2 (+) (go s a) (actual_len xs)
-              | not (willFail b) -> liftA2 (+) (go s b) (actual_len xs)
-              | otherwise -> Nothing
+    rest = actual_len xs
 
 -- | Build binary programs and compare running them to running a (hopefully)
 -- identical model.
@@ -100,6 +110,7 @@ eval str = go 0
   go _ [] = return ()
   go pos (x:xs) =
     case x of
+      Actions a -> go pos (a++xs)
       GetByteString n -> do
         -- Run the operation in the Get monad...
         actual <- Binary.getByteString n
