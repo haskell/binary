@@ -79,7 +79,7 @@ data Decoder a = Fail !B.ByteString String
 newtype Get a = C { runCont :: forall r.
                                B.ByteString ->
                                Success a r ->
-                               Decoder    r }
+                               Decoder   r }
 
 type Success a r = B.ByteString -> a -> Decoder r
 
@@ -232,6 +232,8 @@ pushBack :: [B.ByteString] -> Get ()
 pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
 {-# INLINE pushBack #-}
 
+-- | Run the given decoder, but without consuming its input. If the given
+-- decoder fails, then so will this function.
 lookAhead :: Get a -> Get a
 lookAhead g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -240,6 +242,9 @@ lookAhead g = do
     Fail inp s -> C $ \_ _ -> Fail inp s
     _ -> error "Binary: impossible"
 
+-- | Run the given decoder, and only consume its input if it returns 'Just'.
+-- If 'Nothing' is returned, the input will be unconsumed.
+-- If the given decoder fails, then so will this function.
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM g = do
   (decoder, bs) <- runAndKeepTrack g
