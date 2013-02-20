@@ -97,9 +97,11 @@ benchmark get
   hs-source-dirs: benchmarks
   main-is: Get.hs
   build-depends:
+    attoparsec,
     base >= 3.0 && < 5,
     binary,
     bytestring,
+    cereal,
     criterion,
     deepseq,
     mtl

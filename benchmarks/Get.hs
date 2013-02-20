@@ -4,7 +4,7 @@
 #include "MachDeps.h"
 #endif
 
-module Main (main) where
+module Main where
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
@@ -21,6 +21,11 @@ import Data.Word (Word8, Word16, Word32)
 import Control.Applicative
 import Data.Binary.Get
 import Data.Binary ( get )
+
+import qualified Data.Serialize.Get as Cereal
+import qualified Data.Serialize as Cereal
+
+import qualified Data.Attoparsec.ByteString as A
 
 #if !MIN_VERSION_bytestring(0,10,0)
 instance NFData S.ByteString
@@ -41,12 +46,18 @@ main = do
         whnf (runTest bracketParser) brackets
     , bench "brackets 100k in 1024 100 byte chunks" $
         whnf (runTest bracketParser) bracketsInChunks
-    , bench "getStruct4 1MB struct of 4 word32 strict" $
-        whnf (runTest (getStruct4Strict mega)) oneMegabyteLBS
-    , bench "getStruct4 1MB struct of 4 word32" $
+    , bench "Binary getStruct4 1MB struct of 4 word8" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 1 byte" $
+    , bench "Cereal getStruct4 1MB struct of 4 word8" $
+        whnf (runCereal (getStruct4_cereal mega)) oneMegabyte
+    , bench "Atto getStruct4 1MB struct of 4 word8" $
+        whnf (runAtto (getStruct4_atto mega)) oneMegabyte
+    , bench "Binary getWord8 1MB chunk size 1 byte" $
         whnf (runTest (getWord8N1 mega)) oneMegabyteLBS
+    , bench "Cereal getWord8 1MB chunk size 1 byte" $
+        whnf (runCereal (getWord8N1_cereal mega)) oneMegabyte
+    , bench "Attoparsec getWord8 1MB chunk size 1 byte" $
+        whnf (runAtto (getWord8N1_atto mega)) oneMegabyte
     , bench "getWord8 1MB chunk size 2 bytes" $
         whnf (runTest (getWord8N2 mega)) oneMegabyteLBS
     , bench "getWord8 1MB chunk size 4 bytes" $
@@ -65,7 +76,9 @@ main = do
         whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
     ]
 
-runTest parser inp = runGet parser inp
+runTest decoder inp = runGet decoder inp
+runCereal decoder inp = Cereal.runGet decoder inp
+runAtto decoder inp = A.parse decoder inp
 
 -- Defs.
 
@@ -92,37 +105,41 @@ bracketParser = cont <|> end
                            return $! n + 1)
             return $! sum v
 
--- Struct strict
-
-data Struct4S = Struct4S !Word32 !Word32 !Word32 !Word32
-
-instance NFData Struct4S where
-  rnf (Struct4S !a !b !c !d) = ()
-
-getStruct4Strict = loop []
-  where loop acc 0 = return acc
-        loop acc n = do
-          !w0 <- get
-          !w1 <- get
-          !w2 <- get
-          !w3 <- get
-          loop (Struct4S w0 w1 w2 w3 : acc) (n - 16)
-
--- Struct lazy
-
-data Struct4 = Struct4 Word32 Word32 Word32 Word32
-
-instance NFData Struct4 where
-  rnf (Struct4 !a !b !c !d) = ()
+-- Strict struct of 4 Word8s
+data Struct4 = Struct4 {-# UNPACK #-} !Word8
+                       {-# UNPACK #-} !Word8
+                       {-# UNPACK #-} !Word8
+                       {-# UNPACK #-} !Word8
 
 getStruct4 = loop []
   where loop acc 0 = return acc
         loop acc n = do
-          w0 <- get
-          w1 <- get
-          w2 <- get
-          w3 <- get
-          loop (Struct4 w0 w1 w2 w3 : acc) (n - 16)
+          !w0 <- getWord8
+          !w1 <- getWord8
+          !w2 <- getWord8
+          !w3 <- getWord8
+          let !s = Struct4 w0 w1 w2 w3
+          loop (s : acc) (n - 4)
+
+getStruct4_cereal = loop []
+  where loop acc 0 = return acc
+        loop acc n = do
+          !w0 <- Cereal.getWord8
+          !w1 <- Cereal.getWord8
+          !w2 <- Cereal.getWord8
+          !w3 <- Cereal.getWord8
+          let !s = Struct4 w0 w1 w2 w3
+          loop (s : acc) (n - 4)
+
+getStruct4_atto = loop []
+  where loop acc 0 = return acc
+        loop acc n = do
+          !w0 <- A.anyWord8
+          !w1 <- A.anyWord8
+          !w2 <- A.anyWord8
+          !w3 <- A.anyWord8
+          let !s = Struct4 w0 w1 w2 w3
+          loop (s : acc) (n - 4)
 
 -- No-allocation loops.
 
@@ -131,7 +148,21 @@ getWord8N1 = loop 0
         loop s 0 = return s
         loop s n = do
           s0 <- getWord8
-          loop (s+s0) (n-1)
+          loop (s0+s) (n-1)
+
+getWord8N1_cereal = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop s 0 = return s
+        loop s n = do
+          s0 <- Cereal.getWord8
+          loop (s0+s) (n-1)
+
+getWord8N1_atto = loop 0
+  where loop s n | s `seq` n `seq` False = undefined
+        loop s 0 = return s
+        loop s n = do
+          s0 <- A.anyWord8
+          loop (s0+s) (n-1)
 
 getWord8N2 = loop 0
   where loop s n | s `seq` n `seq` False = undefined
@@ -139,7 +170,7 @@ getWord8N2 = loop 0
         loop s n = do
           s0 <- getWord8
           s1 <- getWord8
-          loop (s+s0+s1) (n-2)
+          loop (s0+s1+s) (n-2)
 
 getWord8N2A = loop 0
   where loop s n | s `seq` n `seq` False = undefined
