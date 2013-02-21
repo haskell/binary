@@ -3,7 +3,7 @@ version:         0.6.4.0
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
-maintainer:      Lennart Kolmodin, Don Stewart <dons@galois.com>
+maintainer:      Lennart Kolmodin, Don Stewart <dons00@gmail.com>
 homepage:        https://github.com/kolmodin/binary
 description:     Efficient, pure binary serialisation using lazy ByteStrings.
                  Haskell values may be encoded to and from binary formats,
