@@ -18,16 +18,23 @@
 -- then be written to disk, sent over the network, or further processed
 -- (for example, compressed with gzip).
 --
--- The @Binary@ package is notable in that it provides both pure, and
+-- The @binary@ package is notable in that it provides both pure, and
 -- high performance serialisation.
 --
--- Values are always encoded in network order (big endian) form, and
--- encoded data should be portable across machine endianness, word size,
--- or compiler version. For example, data encoded using the 'Binary' class
--- could be written from GHC, and read back in Hugs.
+-- Values encoded using the 'Binary' class are always encoded in network order
+-- (big endian) form, and encoded data should be portable across
+-- machine endianness, word size, or compiler version. For example,
+-- data encoded using the 'Binary' class could be written on any machine,
+-- and read back on any another.
 --
--- You can either provide a hand written implementation of the 'Binary' class,
--- or derive one using the generic support. See 'GBinary'.
+-- If the specifics of the data format is not important to you, for example,
+-- you are more interested in serializing and deserializing values than
+-- in which format will be used, it is possible to derive 'Binary'
+-- instances using the generic support. See 'GBinary'.
+-- 
+-- If you have specific requirements about the encoding format, you can use
+-- the encoding and decoding primitives directly, see the modules
+-- "Data.Binary.Get" and "Data.Binary.Put".
 --
 -----------------------------------------------------------------------------
 
@@ -96,12 +103,12 @@ import System.IO ( withBinaryFile, IOMode(ReadMode) )
 -- structure to serialise:
 --
 -- > instance Binary Exp where
--- >       put (IntE i)          = do put (0 :: Word8)
--- >                                  put i
--- >       put (OpE s e1 e2)     = do put (1 :: Word8)
--- >                                  put s
--- >                                  put e1
--- >                                  put e2
+-- >       put (IntE i)      = do put (0 :: Word8)
+-- >                              put i
+-- >       put (OpE s e1 e2) = do put (1 :: Word8)
+-- >                              put s
+-- >                              put e1
+-- >                              put e2
 -- >
 -- >       get = do t <- get :: Get Word8
 -- >                case t of

@@ -17,15 +17,20 @@
 -- Stability   : experimental
 -- Portability : portable to Hugs and GHC.
 --
--- The Get monad. A monad for efficiently building structures from
+-- The 'Get' monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings.
+--
+-- Primitives are available to 
+--
+-- There are two kinds of ways to execute the 'Get' monad, the lazy input
+-- method and the incremental input method. See the two sections below.
 --
 -----------------------------------------------------------------------------
 
 
 module Data.Binary.Get (
 
-    -- * The Get type
+    -- * The Get monad
       Get
 
     -- * The lazy input interface
@@ -44,7 +49,7 @@ module Data.Binary.Get (
     , pushChunks
     , pushEndOfInput
 
-    -- * Parsing
+    -- * Decoding
     , skip
     , isEmpty
     , bytesRead
