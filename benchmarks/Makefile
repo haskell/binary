@@ -2,7 +2,7 @@ ghc := ghc
 ghc-flags :=
 programs := builder bench
 
-SYSTEM_BINARY := binary-0.5.1.0
+SYSTEM_BINARY := binary-0.5.1.1
 
 .PHONY: all
 all: $(programs)

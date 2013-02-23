@@ -17,7 +17,13 @@ stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
 tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
-extra-source-files: README index.html
+extra-source-files:
+  README index.html docs/hcar/binary-Lb.tex
+  tools/derive/*.hs tests/Makefile benchmarks/Makefile
+
+-- from the benchmark 'bench'
+extra-source-files:
+  benchmarks/CBenchmark.h
 
 source-repository head
   type: git
@@ -52,6 +58,9 @@ test-suite qc
   type:  exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: QC.hs
+  other-modules:
+    Action
+    Arbitrary
   build-depends:
     array,
     base >= 3.0 && < 5,
@@ -84,6 +93,7 @@ benchmark bench
   type: exitcode-stdio-1.0
   hs-source-dirs: benchmarks
   main-is: Benchmark.hs
+  other-modules: MemBench
   build-depends:
     base >= 3.0 && < 5,
     binary,
