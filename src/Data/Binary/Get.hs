@@ -20,11 +20,102 @@
 -- The 'Get' monad. A monad for efficiently building structures from
 -- encoded lazy ByteStrings.
 --
--- Primitives are available to 
+-- Primitives are available to decode words of various sizes, both big and
+-- little endian.
 --
--- There are two kinds of ways to execute the 'Get' monad, the lazy input
--- method and the incremental input method. See the two sections below.
+-- Let's decode binary data representing illustrated here.
+-- In this example the values are in little endian.
 --
+-- > +------------------+--------------+-----------------+
+-- > | 32 bit timestamp | 32 bit price | 16 bit quantity |
+-- > +------------------+--------------+-----------------+
+--
+-- A corresponding Haskell value looks like this:
+--
+-- @
+-- data Trade = Trade
+--   { timestamp :: !'Word32'
+--   , price     :: !'Word32'
+--   , qty       :: !'Word16'
+--   } deriving ('Show')
+-- @
+--
+-- The fields in @Trade@ are marked as strict (using @!@) since we don't need
+-- laziness here. In practise, you would probably consider using the UNPACK
+-- pragma as well.
+-- <http://www.haskell.org/ghc/docs/latest/html/users_guide/pragmas.html#unpack-pragma>
+--
+-- Now, let's have a look at a decoder for this format.
+-- 
+-- @
+-- getTrade :: 'Get' Trade
+-- getTrade = do
+--   timestamp <- 'getWord32le'
+--   price     <- 'getWord32le'
+--   quantity  <- 'getWord16le'
+--   return '$!' Trade timestamp price quantity
+-- @
+-- 
+-- Or even simpler using applicative style:
+--
+-- @
+-- getTrade' :: 'Get' Trade
+-- getTrade' = Trade '<$>' 'getWord32le' '<*>' 'getWord32le' '<*>' 'getWord16le'
+-- @
+--
+-- The applicative style can sometimes result in faster code, as @binary@
+-- will try to optimize the code by grouping the reads together.
+--
+-- There are two kinds of ways to execute this decoder, the lazy input
+-- method and the incremental input method. Here we will use the lazy
+-- input method.
+--
+-- Let's first define a function that decodes many @Trade@s.
+--
+-- @
+-- getTrades :: Get ['Trade']
+-- getTrades = do
+--   empty <- 'isEmpty'
+--   if empty
+--     then return []
+--     else do trade <- getTrade
+--             trades <- getTrades
+--             return (trade:trades)
+-- @
+--
+-- Finally, we run the decoder:
+--
+-- @
+-- example :: IO ()
+-- example = do
+--  input <- BL.readFile \"trades.bin\"
+--  let trades = runGet getTrades input 
+--  print trades
+-- @
+--
+-- This decoder has the downside that it will need to read all the input before
+-- it can return. On the other hand, it will not return anything until
+-- it knows it could decode without any decoder errors.
+--
+-- You could also refactor to a left-fold, to decode in a more streaming fashion,
+-- and get the following decoder. It will start to return data without knowning
+-- that it can decode all input.
+--
+-- @
+-- example2 :: BL.ByteString -> [Trade]
+-- example2 input
+--   | BL.null input = []
+--   | otherwise =
+--      let (trade, rest, _) = 'runGetState' getTrade input 0
+--      in trade : example2 rest
+-- @
+--
+-- Both these examples use lazy I/O to read the file from the disk, which is
+-- not suitable in all applications, and certainly not if you need to read
+-- from a socket which has higher likelihood to fail. To address these needs,
+-- use the incremental input method.
+-- For an example of this, see the implementation of 'decodeFileOrFail' in
+-- "Data.Binary".
 -----------------------------------------------------------------------------
 
 
