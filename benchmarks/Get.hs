@@ -39,21 +39,22 @@ main = do
   evaluate $ rnf [
     rnf brackets,
     rnf bracketsInChunks,
+    rnf bracketCount,
     rnf oneMegabyte,
     rnf oneMegabyteLBS
      ]
   defaultMain
     [
       bench "brackets 10MB one chunk input" $
-        whnf (runTest bracketParser) brackets
+        whnf (checkBracket . runTest bracketParser) brackets
     , bench "brackets 10MB in 100 byte chunks" $
-        whnf (runTest bracketParser) bracketsInChunks
+        whnf (checkBracket . runTest bracketParser) bracketsInChunks
     , bench "Attoparsec lazy-bs brackets 10MB one chunk" $
-        whnf (runAttoL bracketParser_atto) brackets
+        whnf (checkBracket . runAttoL bracketParser_atto) brackets
     , bench "Attoparsec lazy-bs brackets 10MB in 100 byte chunks" $
-        whnf (runAttoL bracketParser_atto) bracketsInChunks
+        whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
     , bench "Attoparsec strict-bs brackets 10MB one chunk" $
-        whnf (runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
+        whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
     , bench "Binary getStruct4 1MB struct of 4 word8" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
     , bench "Cereal getStruct4 1MB struct of 4 word8" $
@@ -84,10 +85,17 @@ main = do
         whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
     ]
 
+checkBracket x | x == bracketCount = x
+               | otherwise = error "argh!"
+
 runTest decoder inp = runGet decoder inp
 runCereal decoder inp = Cereal.runGet decoder inp
-runAtto decoder inp = A.parse decoder inp
-runAttoL decoder inp = AL.parse decoder inp
+runAtto decoder inp = case A.parseOnly decoder inp of
+                        Right a -> a
+                        Left err -> error err
+runAttoL decoder inp = case AL.parse decoder inp of
+                        AL.Done _ r -> r
+                        a -> error (show a)
 
 -- Defs.
 
@@ -102,31 +110,39 @@ mega = 1024 * 1024
 -- 100k of brackets
 bracketTest inp = runTest bracketParser inp
 
+bracketCount :: Int
+bracketCount = fromIntegral $ L.length brackets `div` 2
+
 brackets = L.fromChunks [C8.concat (L.toChunks bracketsInChunks)]
 bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
   where
     oneChunk = "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))"
-    chunksOfBrackets = 10 * mega `div` S.length oneChunk
+    chunksOfBrackets = 1 * mega `div` S.length oneChunk
 
+bracketParser :: Get Int
 bracketParser = cont <|> return 0
   where
-  cont = do 40 <- getWord8
-            n <- bracketParser
-            41 <- getWord8
-            return $! n + 1
+  cont = do v <- some ( do 40 <- getWord8
+                           n <- many cont
+                           41 <- getWord8
+                           return $! sum n + 1)
+            return $! sum v
 
+bracketParser_atto :: A.Parser Int
 bracketParser_atto = cont <|> return 0
   where
-  cont = do A.word8 40
-            n <- bracketParser_atto
-            A.word8 41
-            return $! n + 1
+  cont = do v <- some ( do A.word8 40
+                           n <- bracketParser_atto
+                           A.word8 41
+                           return $! n + 1)
+            return $! sum v
 
 -- Strict struct of 4 Word8s
 data Struct4 = Struct4 {-# UNPACK #-} !Word8
                        {-# UNPACK #-} !Word8
                        {-# UNPACK #-} !Word8
                        {-# UNPACK #-} !Word8
+               deriving Show
 
 getStruct4 = loop []
   where loop acc 0 = return acc
