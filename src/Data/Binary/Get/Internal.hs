@@ -229,6 +229,7 @@ runAndKeepTrack g = C $ \inp ks ->
 {-# INLINE runAndKeepTrack #-}
 
 pushBack :: [B.ByteString] -> Get ()
+pushBack [] = C $ \ inp ks -> ks inp ()
 pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
 {-# INLINE pushBack #-}
 
