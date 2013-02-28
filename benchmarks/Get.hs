@@ -26,6 +26,7 @@ import qualified Data.Serialize.Get as Cereal
 import qualified Data.Serialize as Cereal
 
 import qualified Data.Attoparsec.ByteString as A
+import qualified Data.Attoparsec.ByteString.Lazy as AL
 
 #if !MIN_VERSION_bytestring(0,10,0)
 instance NFData S.ByteString
@@ -37,20 +38,27 @@ main :: IO ()
 main = do
   evaluate $ rnf [
     rnf brackets,
+    rnf bracketsInChunks,
     rnf oneMegabyte,
     rnf oneMegabyteLBS
      ]
   defaultMain
     [
-      bench "brackets 100k one chunk input" $
+      bench "brackets 10MB one chunk input" $
         whnf (runTest bracketParser) brackets
-    , bench "brackets 100k in 1024 100 byte chunks" $
+    , bench "brackets 10MB in 100 byte chunks" $
         whnf (runTest bracketParser) bracketsInChunks
+    , bench "Attoparsec lazy-bs brackets 10MB one chunk" $
+        whnf (runAttoL bracketParser_atto) brackets
+    , bench "Attoparsec lazy-bs brackets 10MB in 100 byte chunks" $
+        whnf (runAttoL bracketParser_atto) bracketsInChunks
+    , bench "Attoparsec strict-bs brackets 10MB one chunk" $
+        whnf (runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
     , bench "Binary getStruct4 1MB struct of 4 word8" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
     , bench "Cereal getStruct4 1MB struct of 4 word8" $
         whnf (runCereal (getStruct4_cereal mega)) oneMegabyte
-    , bench "Atto getStruct4 1MB struct of 4 word8" $
+    , bench "Attoparsec getStruct4 1MB struct of 4 word8" $
         whnf (runAtto (getStruct4_atto mega)) oneMegabyte
     , bench "Binary getWord8 1MB chunk size 1 byte" $
         whnf (runTest (getWord8N1 mega)) oneMegabyteLBS
@@ -79,6 +87,7 @@ main = do
 runTest decoder inp = runGet decoder inp
 runCereal decoder inp = Cereal.runGet decoder inp
 runAtto decoder inp = A.parse decoder inp
+runAttoL decoder inp = AL.parse decoder inp
 
 -- Defs.
 
@@ -93,17 +102,25 @@ mega = 1024 * 1024
 -- 100k of brackets
 bracketTest inp = runTest bracketParser inp
 
-brackets = L.fromChunks [C8.concat (replicate 1024 "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))")]
-bracketsInChunks = L.fromChunks (replicate 1024 "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))")
-
-bracketParser = cont <|> end
+brackets = L.fromChunks [C8.concat (L.toChunks bracketsInChunks)]
+bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
   where
-  end = return 0
-  cont = do v <- some ( do 40 <- getWord8
-                           n <- bracketParser
-                           41 <- getWord8
-                           return $! n + 1)
-            return $! sum v
+    oneChunk = "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))"
+    chunksOfBrackets = 10 * mega `div` S.length oneChunk
+
+bracketParser = cont <|> return 0
+  where
+  cont = do 40 <- getWord8
+            n <- bracketParser
+            41 <- getWord8
+            return $! n + 1
+
+bracketParser_atto = cont <|> return 0
+  where
+  cont = do A.word8 40
+            n <- bracketParser_atto
+            A.word8 41
+            return $! n + 1
 
 -- Strict struct of 4 Word8s
 data Struct4 = Struct4 {-# UNPACK #-} !Word8
