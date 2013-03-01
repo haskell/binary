@@ -45,15 +45,15 @@ main = do
      ]
   defaultMain
     [
-      bench "brackets 10MB one chunk input" $
+      bench "brackets 100kb one chunk input" $
         whnf (checkBracket . runTest bracketParser) brackets
-    , bench "brackets 10MB in 100 byte chunks" $
+    , bench "brackets 100kb in 100 byte chunks" $
         whnf (checkBracket . runTest bracketParser) bracketsInChunks
-    , bench "Attoparsec lazy-bs brackets 10MB one chunk" $
+    , bench "Attoparsec lazy-bs brackets 100kb one chunk" $
         whnf (checkBracket . runAttoL bracketParser_atto) brackets
-    , bench "Attoparsec lazy-bs brackets 10MB in 100 byte chunks" $
+    , bench "Attoparsec lazy-bs brackets 100kb in 100 byte chunks" $
         whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
-    , bench "Attoparsec strict-bs brackets 10MB one chunk" $
+    , bench "Attoparsec strict-bs brackets 10M0kb one chunk" $
         whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
     , bench "Binary getStruct4 1MB struct of 4 word8" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
@@ -117,7 +117,7 @@ brackets = L.fromChunks [C8.concat (L.toChunks bracketsInChunks)]
 bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
   where
     oneChunk = "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))"
-    chunksOfBrackets = 1 * mega `div` S.length oneChunk
+    chunksOfBrackets = 102400 `div` S.length oneChunk
 
 bracketParser :: Get Int
 bracketParser = cont <|> return 0
