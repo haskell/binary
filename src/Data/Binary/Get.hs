@@ -257,7 +257,7 @@ calculateOffset r0 = go r0 0
 -- Run a 'Get' monad and return a tuple with thee values.
 -- The first value is the result of the decoder. The second and third are the
 -- unused input, and the number of consumed bytes.
-{-# DEPRECATED runGetState "Use runGetPartial instead. This function will be removed." #-}
+{-# DEPRECATED runGetState "Use runGetIncremental instead. This function will be removed." #-}
 runGetState :: Get a -> L.ByteString -> ByteOffset -> (a, L.ByteString, ByteOffset)
 runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
   where
@@ -308,7 +308,7 @@ runGet g lbs0 = feedAll (runGetIncremental g) lbs0
 -- will add the input to 'B.ByteString' of unconsumed input.
 --
 -- @
---    'runGetPartial' myParser \`pushChunk\` myInput1 \`pushChunk\` myInput2
+--    'runGetIncremental' myParser \`pushChunk\` myInput1 \`pushChunk\` myInput2
 -- @
 pushChunk :: Decoder a -> B.ByteString -> Decoder a
 pushChunk r inp =
@@ -322,7 +322,7 @@ pushChunk r inp =
 -- will add the input to 'ByteString' of unconsumed input.
 --
 -- @
---    'runGetPartial' myParser \`pushChunks\` myLazyByteString
+--    'runGetIncremental' myParser \`pushChunks\` myLazyByteString
 -- @
 pushChunks :: Decoder a -> L.ByteString -> Decoder a
 pushChunks r0 = go r0 . L.toChunks
