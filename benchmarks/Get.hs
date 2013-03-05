@@ -53,8 +53,10 @@ main = do
         whnf (checkBracket . runAttoL bracketParser_atto) brackets
     , bench "Attoparsec lazy-bs brackets 100kb in 100 byte chunks" $
         whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
-    , bench "Attoparsec strict-bs brackets 10M0kb one chunk" $
+    , bench "Attoparsec strict-bs brackets 100kb" $
         whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
+    , bench "Cereal strict-bs brackets 100kb" $
+        whnf (checkBracket . runCereal bracketParser_cereal) $ S.concat (L.toChunks brackets)
     , bench "Binary getStruct4 1MB struct of 4 word8" $
         whnf (runTest (getStruct4 mega)) oneMegabyteLBS
     , bench "Cereal getStruct4 1MB struct of 4 word8" $
@@ -89,7 +91,9 @@ checkBracket x | x == bracketCount = x
                | otherwise = error "argh!"
 
 runTest decoder inp = runGet decoder inp
-runCereal decoder inp = Cereal.runGet decoder inp
+runCereal decoder inp = case Cereal.runGet decoder inp of
+                          Right a -> a
+                          Left err -> error err
 runAtto decoder inp = case A.parseOnly decoder inp of
                         Right a -> a
                         Left err -> error err
@@ -125,6 +129,15 @@ bracketParser = cont <|> return 0
   cont = do v <- some ( do 40 <- getWord8
                            n <- many cont
                            41 <- getWord8
+                           return $! sum n + 1)
+            return $! sum v
+
+bracketParser_cereal :: Cereal.Get Int
+bracketParser_cereal = cont <|> return 0
+  where
+  cont = do v <- some ( do 40 <- Cereal.getWord8
+                           n <- many cont
+                           41 <- Cereal.getWord8
                            return $! sum n + 1)
             return $! sum v
 
