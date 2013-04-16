@@ -42,6 +42,7 @@ import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
 
 import Control.Applicative
+import Control.Monad
 
 #if __GLASGOW_HASKELL__ < 704 && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
@@ -115,6 +116,10 @@ instance Applicative Get where
   {-# INLINE pure #-}
   (<*>) = apG
   {-# INLINE (<*>) #-}
+
+instance MonadPlus Get where
+  mzero = empty
+  mplus = (<|>)
 
 instance Functor Get where
   fmap = fmapG
