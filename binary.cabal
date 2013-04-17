@@ -20,7 +20,7 @@ build-type:      Simple
 cabal-version:   >= 1.8
 tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
 extra-source-files:
-  README index.html docs/hcar/binary-Lb.tex
+  README.md index.html docs/hcar/binary-Lb.tex
   tools/derive/*.hs tests/Makefile benchmarks/Makefile
 
 -- from the benchmark 'bench'
