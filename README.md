@@ -6,7 +6,7 @@ The ``binary`` package provides Data.Binary, containing the Binary class,
 and associated methods, for serialising values to and from lazy
 ByteStrings. 
 A key feature of ``binary`` is that the interface is both pure, and efficient.
-The 'binary' package is portable to GHC and Hugs.
+The ``binary`` package is portable to GHC and Hugs.
 
 ## Building binary ##
 
