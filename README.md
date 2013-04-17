@@ -5,9 +5,7 @@
 The ``binary`` package provides Data.Binary, containing the Binary class,
 and associated methods, for serialising values to and from lazy
 ByteStrings. 
-
 A key feature of ``binary`` is that the interface is both pure, and efficient.
-
 The 'binary' package is portable to GHC and Hugs.
 
 ## Building binary ##
@@ -32,6 +30,7 @@ First:
     import Data.Binary
 
 and then write an instance of Binary for the type you wish to serialise.
+An example doing exactly this can be found in the Data.Binary module.
 You can also use the Data.Binary.Builder module to efficiently build
 lazy bytestrings using the ``Builder`` monoid. Or, alternatively, the
 Data.Binary.Get and Data.Binary.Put to serialize/deserialize using
