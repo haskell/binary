@@ -1,8 +1,8 @@
 
-  binary: efficient, pure binary serialisation using lazy ByteStrings
-------------------------------------------------------------------------
+binary: efficient, pure binary serialisation using lazy ByteStrings
+-------------------------------------------------------------------
 
-The 'binary' package provides Data.Binary, containing the Binary class,
+The ``binary`` package provides Data.Binary, containing the Binary class,
 and associated methods, for serialising values to and from lazy
 ByteStrings. 
 
