@@ -10,18 +10,21 @@ The ``binary`` package is portable to GHC and Hugs.
 
 ## Building binary ##
 
-To build binary you can run the following commands in the binary package folder.
+To build binary you can run the following commands in the binary package
+folder.
 
     $ runhaskell Setup.lhs configure
     $ runhaskell Setup.lhs build
     $ runhaskell Setup.lhs install
 
-If you have cabal installed you can also install the ``binary`` package using it.
+If you have ``cabal-install`` installed you can also install the ``binary``
+package using it.
 
+    $ cabal update
     $ cabal install binary
 
-If you have your cabal package database updated, it will download and install the last
-version of ``binary`` released on Hackage.
+These commands will update your cabal database and install the latest version
+of ``binary`` released on Hackage.
 
 ## Using binary ##
 
