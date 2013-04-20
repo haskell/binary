@@ -70,7 +70,7 @@ test-suite qc
     containers,
     random>=1.0.1.0,
     test-framework,
-    test-framework-quickcheck2,
+    test-framework-quickcheck2 >= 0.3,
     QuickCheck>=2.5
 
   ghc-options: -Wall -O2
