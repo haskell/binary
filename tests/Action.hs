@@ -4,6 +4,7 @@ module Action where
 import Control.Applicative
 import Control.Monad
 import Test.QuickCheck
+import Data.Maybe ( fromJust )
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -19,6 +20,8 @@ data Action
   | LookAhead [Action]
   -- | First argument is True if this action returns Just, otherwise False.
   | LookAheadM Bool [Action]
+  -- | First argument is True if this action returns Right, otherwise Left.
+  | LookAheadE Bool [Action]
   | BytesRead
   | Fail
   deriving (Show, Eq)
@@ -33,6 +36,7 @@ instance Arbitrary Action where
       Fail -> []
       LookAhead a -> Actions a : [ LookAhead a' | a' <- shrink a ]
       LookAheadM b a -> Actions a : [ LookAheadM b a' | a' <- shrink a]
+      LookAheadE b a -> Actions a : [ LookAheadE b a' | a' <- shrink a]
       Try [Fail] b -> Actions b : [ Try [Fail] b' | b' <- shrink b ]
       Try a b ->
         (if not (willFail a) then [Actions a] else [])
@@ -49,9 +53,13 @@ willFail (x:xs) =
     Try a b -> (willFail a && willFail b) || willFail xs
     LookAhead a -> willFail a || willFail xs
     LookAheadM _ a -> willFail a || willFail xs
+    LookAheadE _ a -> willFail a || willFail xs
     BytesRead -> willFail xs
     Fail -> True
 
+-- | The maximum length of input decoder can request.
+-- The decoder may end up using less, but never more.
+-- This way, you know how much input to generate for running a decoder test.
 max_len :: [Action] -> Int
 max_len [] = 0
 max_len (x:xs) =
@@ -65,7 +73,12 @@ max_len (x:xs) =
     LookAheadM b a | willFail a -> max_len a
                    | b -> max_len a + max_len xs
                    | otherwise -> max (max_len a) (max_len xs)
+    LookAheadE b a | willFail a -> max_len a
+                   | b -> max_len a + max_len xs
+                   | otherwise -> max (max_len a) (max_len xs)
 
+-- | The actual length of input that will be consumed when
+-- a decoder is executed, or Nothing if the decoder will fail.
 actual_len :: [Action] -> Maybe Int
 actual_len [] = Just 0
 actual_len (x:xs) =
@@ -77,6 +90,9 @@ actual_len (x:xs) =
     LookAhead a | willFail a -> Nothing
                 | otherwise -> rest
     LookAheadM b a | willFail a -> Nothing
+                   | b -> (+) <$> actual_len a <*> rest
+                   | otherwise -> rest
+    LookAheadE b a | willFail a -> Nothing
                    | b -> (+) <$> actual_len a <*> rest
                    | otherwise -> rest
     Try a b | not (willFail a) -> (+) <$> actual_len a <*> rest
@@ -128,18 +144,27 @@ eval str = go 0
         _ <- Binary.lookAhead (go pos a)
         go pos xs
       LookAheadM b a -> do
-        let f True = leg pos a
+        let f True = Just <$> leg pos a
             f False = go pos a >> return Nothing
         len <- Binary.lookAheadM (f b)
         case len of
           Nothing -> go pos xs
           Just offset -> go (pos+offset) xs
-      Try a b -> do
-        len <- leg pos a <|> leg pos b
+      LookAheadE b a -> do
+        let f True = Right <$> leg pos a
+            f False = go pos a >> return (Left ())
+        len <- Binary.lookAheadE (f b)
         case len of
-          Nothing -> error "got Nothing, but we're still here..."
-          Just offset -> go (pos+offset) xs
-  leg pos t = go pos t >> return (actual_len t)
+          Left _ -> go pos xs
+          Right offset -> go (pos+offset) xs
+      Try a b -> do
+        offset <- leg pos a <|> leg pos b
+        go (pos+offset) xs
+  leg pos t = do
+    go pos t
+    case actual_len t of
+      Nothing -> error "impossible: branch should have failed"
+      Just offset -> return offset
 
 gen_actions :: Gen [Action]
 gen_actions = sized (go False)
@@ -157,4 +182,7 @@ gen_actions = sized (go False)
                        , do t <- go inTry (s`div`2)
                             b <- arbitrary
                             (:) (LookAheadM b t) <$> go inTry (s-1)
+                       , do t <- go inTry (s`div`2)
+                            b <- arbitrary
+                            (:) (LookAheadE b t) <$> go inTry (s-1)
                        ] ++ [ return [Fail] | inTry ]

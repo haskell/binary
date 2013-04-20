@@ -146,6 +146,7 @@ module Data.Binary.Get (
     , bytesRead
     , lookAhead
     , lookAheadM
+    , lookAheadE
 
     -- ** ByteStrings
     , getByteString

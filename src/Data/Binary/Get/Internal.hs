@@ -30,6 +30,7 @@ module Data.Binary.Get.Internal (
     , isEmpty
     , lookAhead
     , lookAheadM
+    , lookAheadE
 
     -- ** ByteStrings
     , getByteString
@@ -253,10 +254,18 @@ lookAhead g = do
 -- If the given decoder fails, then so will this function.
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM g = do
+  let g' = maybe (Left ()) Right <$> g
+  either (const Nothing) Just <$> lookAheadE g'
+
+-- | Run the given decoder, and only consume its input if it returns 'Right'.
+-- If 'Left' is returned, the input will be unconsumed.
+-- If the given decoder fails, then so will this function.
+lookAheadE :: Get (Either a b) -> Get (Either a b)
+lookAheadE g = do
   (decoder, bs) <- runAndKeepTrack g
   case decoder of
-    Done _ Nothing -> pushBack bs >> return Nothing
-    Done inp (Just x) -> C $ \_ ks -> ks inp (Just x)
+    Done _ (Left x) -> pushBack bs >> return (Left x)
+    Done inp (Right x) -> C $ \_ ks -> ks inp (Right x)
     Fail inp s -> C $ \_ _ -> Fail inp s
     _ -> error "Binary: impossible"
 
