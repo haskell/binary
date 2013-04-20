@@ -8,23 +8,34 @@ ByteStrings.
 A key feature of ``binary`` is that the interface is both pure, and efficient.
 The ``binary`` package is portable to GHC and Hugs.
 
-## Building binary ##
+## Installing binary from Hackage ##
 
-To build binary you can run the following commands in the binary package
-folder.
+``binary`` is part of The Glasgow Haskell Compiler (GHC) and therefore if you
+have either GHC or [The Haskell Platform](http://www.haskell.org/platform/)
+installed, you already have ``binary``.
 
-    $ runhaskell Setup.lhs configure
-    $ runhaskell Setup.lhs build
-    $ runhaskell Setup.lhs install
-
-If you have ``cabal-install`` installed you can also install the ``binary``
-package using it.
+More recent versions of ``binary`` than you might have installed may be
+available. You can use ``cabal-install`` to install a later version from
+[Hackage](http://hackage.haskell.org/package/binary).
 
     $ cabal update
     $ cabal install binary
 
-These commands will update your cabal database and install the latest version
-of ``binary`` released on Hackage.
+## Building binary ##
+
+``binary`` comes with both a test suite and a set of benchmarks.
+While developing, you probably want to enable both.
+Here's how to get the latest version of the repository, configure and build.
+
+    $ git clone git@github.com:kolmodin/binary.git
+    $ cd binary
+    $ cabal update
+    $ cabal configure --enable-tests --enable-benchmarks
+    $ cabal build
+
+Run the test suite.
+
+    $ cabal test
 
 ## Using binary ##
 
