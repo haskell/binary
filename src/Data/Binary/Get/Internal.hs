@@ -18,6 +18,7 @@ module Data.Binary.Get.Internal (
     -- * Parsing
     , skip
     , bytesRead
+    , isolate
     
     , get
     , put
@@ -178,6 +179,27 @@ prompt inp kf ks =
 -- | Get the total number of bytes read to this point.
 bytesRead :: Get Int64
 bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
+
+-- | Isolate an action to operating within a fixed block of bytes.
+isolate :: Int      -- ^ The action much consume this many bytes
+           -> Bool  -- ^ Optionally discard bytes that are left unconsumed
+           -> Get a -- ^ The action to isolate
+           -> Get a
+isolate n discard (C go)
+  | n < 0 = fail "isolate: negative n"
+  | otherwise = do
+    ensureN n
+    C (\inp k -> isolate' n discard inp k (go (B.unsafeTake n inp) Done))
+
+isolate' :: Int -> Bool -> B.ByteString -> Success a r -> Decoder a -> Decoder r
+isolate' n discard inp k = go
+  where
+  go (Done left x)
+    | B.null left || discard = k (B.unsafeDrop n inp) x
+    | otherwise = Fail inp "isolate: action read less than block size"
+  go (Partial resume) = go (resume Nothing)
+  go (Fail bs err) = Fail bs err
+  go (BytesRead r resume) = go (resume (fromIntegral n - r))
 
 -- | Demand more input. If none available, fail.
 demandInput :: Get ()
