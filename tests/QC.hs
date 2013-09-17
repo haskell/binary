@@ -199,6 +199,93 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
     (a,b) = decode (encode x)
     _types = [a,b]
 
+-- In binary-0.5 the Get monad looked like
+--
+-- > data S = S {-# UNPACK #-} !B.ByteString
+-- >            L.ByteString
+-- >            {-# UNPACK #-} !Int64
+-- > 
+-- > newtype Get a = Get { unGet :: S -> (# a, S #) }
+-- 
+-- with a helper function 
+--
+-- > mkState :: L.ByteString -> Int64 -> S
+-- > mkState l = case l of
+-- >     L.Empty      -> S B.empty L.empty
+-- >     L.Chunk x xs -> S x xs
+--
+-- Note that mkState is strict in its first argument. This goes wrong in this
+-- function:
+--
+-- > getBytes :: Int -> Get B.ByteString
+-- > getBytes n = do
+-- >     S s ss bytes <- traceNumBytes n $ get
+-- >     if n <= B.length s
+-- >         then do let (consume,rest) = B.splitAt n s
+-- >                 put $! S rest ss (bytes + fromIntegral n)
+-- >                 return $! consume
+-- >         else
+-- >               case L.splitAt (fromIntegral n) (s `join` ss) of
+-- >                 (consuming, rest) ->
+-- >                     do let now = B.concat . L.toChunks $ consuming
+-- >                        put $ mkState rest (bytes + fromIntegral n)
+-- >                        -- forces the next chunk before this one is returned
+-- >                        if (B.length now < n)
+-- >                          then
+-- >                             fail "too few bytes"
+-- >                          else
+-- >                             return now
+--
+-- Consider the else-branch of this function; suppose we ask for n bytes;
+-- the call to L.splitAt gives us a lazy bytestring 'consuming' of precisely @n@ 
+-- bytes (unless we don't have enough data, in which case we fail); but then 
+-- the strict evaluation of mkState on 'rest' means we look ahead too far.
+--
+-- Although this is all done completely differently in binary-0.7 it is
+-- important that the same bug does not get introduced in some other way. The
+-- test is basically the same test that already exists in this test suite, 
+-- verifying that
+--
+-- > decode . refragment . encode == id
+--
+-- However, we use a different 'refragment', one that introduces an exception
+-- as the tail of the bytestring after rechunking. If we don't look ahead too
+-- far then this should make no difference, but if we do then this will throw
+-- an exception (for instance, in binary-0.5, this will throw an exception for
+-- certain rechunkings, but not for others). 
+-- 
+-- To make sure that the property holds no matter what refragmentation we use,
+-- we test exhaustively for a single chunk, and all ways to break the string 
+-- into 2, 3 and 4 chunks.
+prop_lookAheadIndepOfChunking :: (Eq a, Binary a) => a -> Property
+prop_lookAheadIndepOfChunking testInput =
+   forAll (testCuts (L.length (encode testInput))) $ 
+     roundTrip testInput . rechunk 
+  where
+    testCuts :: forall a. (Num a, Enum a) => a -> Gen [a]
+    testCuts len = elements $ [ [] ]
+                           ++ [ [i]
+                              | i <- [0 .. len] ]
+                           ++ [ [i, j]
+                              | i <- [0 .. len]
+                              , j <- [0 .. len - i] ]
+                           ++ [ [i, j, k]
+                              | i <- [0 .. len]
+                              , j <- [0 .. len - i]
+                              , k <- [0 .. len - i - j] ]
+
+    -- Rechunk a bytestring, leaving the tail as an exception rather than Empty
+    rechunk :: forall a. Integral a => [a] -> L.ByteString -> L.ByteString
+    rechunk cuts = fromChunks . cut cuts . B.concat . L.toChunks
+      where
+        cut :: [a] -> B.ByteString -> [B.ByteString]
+        cut []     bs = [bs]
+        cut (i:is) bs = let (bs0, bs1) = B.splitAt (fromIntegral i) bs 
+                        in bs0 : cut is bs1
+
+        fromChunks :: [B.ByteString] ->  L.ByteString
+        fromChunks []       = error "Binary should not have to ask for this chunk!"
+        fromChunks (bs:bss) = L.Chunk bs (fromChunks bss)
 
 -- String utilities
 
@@ -304,6 +391,9 @@ tests =
         , testGroup "Boundaries"
             [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
+            , -- Arbitrary test input 
+              let testInput :: [Int] ; testInput = [0 .. 10]
+              in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
             ]
 
         , testGroup "Partial"
