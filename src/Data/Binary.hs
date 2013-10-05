@@ -58,6 +58,7 @@ module Data.Binary (
     -- * Useful helpers for writing instances
     , putWord8
     , getWord8
+    , getMany
 
     -- * Binary serialisation
     , encode                    -- :: Binary a => a -> ByteString

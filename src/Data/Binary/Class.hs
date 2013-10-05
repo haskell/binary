@@ -29,6 +29,8 @@ module Data.Binary.Class (
     , GBinary(..)
 #endif
 
+    , getMany
+
     ) where
 
 import Data.Word
