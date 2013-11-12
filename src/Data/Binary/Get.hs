@@ -255,7 +255,7 @@ calculateOffset r0 = go r0 0
                     go (k $! (acc - unused)) acc
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
--- Run a 'Get' monad and return a tuple with thee values.
+-- Run a 'Get' monad and return a tuple with three values.
 -- The first value is the result of the decoder. The second and third are the
 -- unused input, and the number of consumed bytes.
 {-# DEPRECATED runGetState "Use runGetIncremental instead. This function will be removed." #-}
