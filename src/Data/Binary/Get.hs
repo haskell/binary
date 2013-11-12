@@ -12,7 +12,7 @@
 -- Module      : Data.Binary.Get
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : experimental
 -- Portability : portable to Hugs and GHC.
@@ -46,7 +46,7 @@
 -- <http://www.haskell.org/ghc/docs/latest/html/users_guide/pragmas.html#unpack-pragma>
 --
 -- Now, let's have a look at a decoder for this format.
--- 
+--
 -- @
 -- getTrade :: 'Get' Trade
 -- getTrade = do
@@ -55,7 +55,7 @@
 --   quantity  <- 'getWord16le'
 --   return '$!' Trade timestamp price quantity
 -- @
--- 
+--
 -- Or even simpler using applicative style:
 --
 -- @
@@ -89,7 +89,7 @@
 -- example :: IO ()
 -- example = do
 --  input <- BL.readFile \"trades.bin\"
---  let trades = runGet getTrades input 
+--  let trades = runGet getTrades input
 --  print trades
 -- @
 --
@@ -126,7 +126,7 @@ module Data.Binary.Get (
 
     -- * The lazy input interface
     -- $lazyinterface
-    , runGet 
+    , runGet
     , runGetOrFail
     , ByteOffset
 
@@ -200,7 +200,7 @@ import GHC.Word
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
 -- interface to get started with, but it doesn't support interleaving I\/O and
 -- parsing, unless lazy I/O is used.
--- 
+--
 -- There is no way to provide more input other than the initial data. To be
 -- able to incrementally give more data, see the incremental input interface.
 
@@ -341,7 +341,7 @@ pushEndOfInput r =
     Done _ _ _ -> r
     Partial k -> k Nothing
     Fail _ _ _ -> r
- 
+
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
 -- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
@@ -381,7 +381,7 @@ getLazyByteStringNul = L.fromChunks <$> go
       Just (want,rest) -> do
         put rest
         return [want]
- 
+
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
 -- all input and keeping the string in-memory.
