@@ -103,11 +103,29 @@
 --
 -- @
 -- example2 :: BL.ByteString -> [Trade]
--- example2 input
---   | BL.null input = []
---   | otherwise =
---      let (trade, rest, _) = 'runGetState' getTrade input 0
---      in trade : example2 rest
+-- example2 input = go (runGetIncremental getTrade) input
+--   where
+--     decoder = runGetIncremental getTrade
+--
+--     go :: Decoder Trade -> BL.ByteString -> [Trade]
+--     go (Done leftover _consumed trade) input' =
+--       trade : go decoder (BL.chunk leftover input')
+--     go (Partial k) input'                     =
+--       go (k . takeHeadChunk $ input') (dropHeadChunk input')
+--     go (Fail _leftover _consumed msg) _input' =
+--       error msg
+--
+-- takeHeadChunk :: BL.ByteString -> Maybe BS.ByteString
+-- takeHeadChunk lbs =
+--   case lbs of
+--     (BL.Chunk bs _) -> Just bs
+--     _ -> Nothing
+--
+-- dropHeadChunk :: BL.ByteString -> BL.ByteString
+-- dropHeadChunk lbs =
+--   case lbs of
+--     (BL.Chunk _ lbs') -> lbs'
+--     _ -> BL.Empty
 -- @
 --
 -- Both these examples use lazy I/O to read the file from the disk, which is
