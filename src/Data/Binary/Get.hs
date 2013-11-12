@@ -12,7 +12,7 @@
 -- Module      : Data.Binary.Get
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : experimental
 -- Portability : portable to Hugs and GHC.
@@ -46,7 +46,7 @@
 -- <http://www.haskell.org/ghc/docs/latest/html/users_guide/pragmas.html#unpack-pragma>
 --
 -- Now, let's have a look at a decoder for this format.
--- 
+--
 -- @
 -- getTrade :: 'Get' Trade
 -- getTrade = do
@@ -55,7 +55,7 @@
 --   quantity  <- 'getWord16le'
 --   return '$!' Trade timestamp price quantity
 -- @
--- 
+--
 -- Or even simpler using applicative style:
 --
 -- @
@@ -89,7 +89,7 @@
 -- example :: IO ()
 -- example = do
 --  input <- BL.readFile \"trades.bin\"
---  let trades = runGet getTrades input 
+--  let trades = runGet getTrades input
 --  print trades
 -- @
 --
@@ -98,16 +98,34 @@
 -- it knows it could decode without any decoder errors.
 --
 -- You could also refactor to a left-fold, to decode in a more streaming fashion,
--- and get the following decoder. It will start to return data without knowning
+-- and get the following decoder. It will start to return data without knowing
 -- that it can decode all input.
 --
 -- @
 -- example2 :: BL.ByteString -> [Trade]
--- example2 input
---   | BL.null input = []
---   | otherwise =
---      let (trade, rest, _) = 'runGetState' getTrade input 0
---      in trade : example2 rest
+-- example2 input = go (runGetIncremental getTrade) input
+--   where
+--     decoder = runGetIncremental getTrade
+--
+--     go :: Decoder Trade -> BL.ByteString -> [Trade]
+--     go (Done leftover _consumed trade) input' =
+--       trade : go decoder (BL.chunk leftover input')
+--     go (Partial k) input'                     =
+--       go (k . takeHeadChunk $ input') (dropHeadChunk input')
+--     go (Fail _leftover _consumed msg) _input' =
+--       error msg
+--
+-- takeHeadChunk :: BL.ByteString -> Maybe BS.ByteString
+-- takeHeadChunk lbs =
+--   case lbs of
+--     (BL.Chunk bs _) -> Just bs
+--     _ -> Nothing
+--
+-- dropHeadChunk :: BL.ByteString -> BL.ByteString
+-- dropHeadChunk lbs =
+--   case lbs of
+--     (BL.Chunk _ lbs') -> lbs'
+--     _ -> BL.Empty
 -- @
 --
 -- Both these examples use lazy I/O to read the file from the disk, which is
@@ -126,7 +144,7 @@ module Data.Binary.Get (
 
     -- * The lazy input interface
     -- $lazyinterface
-    , runGet 
+    , runGet
     , runGetOrFail
     , ByteOffset
 
@@ -200,7 +218,7 @@ import GHC.Word
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
 -- interface to get started with, but it doesn't support interleaving I\/O and
 -- parsing, unless lazy I/O is used.
--- 
+--
 -- There is no way to provide more input other than the initial data. To be
 -- able to incrementally give more data, see the incremental input interface.
 
@@ -255,7 +273,7 @@ calculateOffset r0 = go r0 0
                     go (k $! (acc - unused)) acc
 
 -- | DEPRECATED. Provides compatibility with previous versions of this library.
--- Run a 'Get' monad and return a tuple with thee values.
+-- Run a 'Get' monad and return a tuple with three values.
 -- The first value is the result of the decoder. The second and third are the
 -- unused input, and the number of consumed bytes.
 {-# DEPRECATED runGetState "Use runGetIncremental instead. This function will be removed." #-}
@@ -341,7 +359,7 @@ pushEndOfInput r =
     Done _ _ _ -> r
     Partial k -> k Nothing
     Fail _ _ _ -> r
- 
+
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
 -- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
@@ -381,7 +399,7 @@ getLazyByteStringNul = L.fromChunks <$> go
       Just (want,rest) -> do
         put rest
         return [want]
- 
+
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
 -- all input and keeping the string in-memory.
