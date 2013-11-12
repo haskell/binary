@@ -98,7 +98,7 @@
 -- it knows it could decode without any decoder errors.
 --
 -- You could also refactor to a left-fold, to decode in a more streaming fashion,
--- and get the following decoder. It will start to return data without knowning
+-- and get the following decoder. It will start to return data without knowing
 -- that it can decode all input.
 --
 -- @
