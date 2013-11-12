@@ -73,7 +73,7 @@
 -- Let's first define a function that decodes many @Trade@s.
 --
 -- @
--- getTrades :: Get ['Trade']
+-- getTrades :: Get [Trade]
 -- getTrades = do
 --   empty <- 'isEmpty'
 --   if empty
@@ -86,11 +86,10 @@
 -- Finally, we run the decoder:
 --
 -- @
--- example :: IO ()
--- example = do
+-- lazyIOExample :: IO [Trade]
+-- lazyIOExample = do
 --  input <- BL.readFile \"trades.bin\"
---  let trades = runGet getTrades input
---  print trades
+--  return ('runGet' getTrades input)
 -- @
 --
 -- This decoder has the downside that it will need to read all the input before
@@ -102,17 +101,16 @@
 -- that it can decode all input.
 --
 -- @
--- example2 :: BL.ByteString -> [Trade]
--- example2 input = go (runGetIncremental getTrade) input
+-- incrementalExample :: BL.ByteString -> [Trade]
+-- incrementalExample input0 = go decoder input0
 --   where
---     decoder = runGetIncremental getTrade
---
---     go :: Decoder Trade -> BL.ByteString -> [Trade]
---     go (Done leftover _consumed trade) input' =
---       trade : go decoder (BL.chunk leftover input')
---     go (Partial k) input'                     =
---       go (k . takeHeadChunk $ input') (dropHeadChunk input')
---     go (Fail _leftover _consumed msg) _input' =
+--     decoder = 'runGetIncremental' getTrade
+--     go :: 'Decoder' Trade -> BL.ByteString -> [Trade]
+--     go ('Done' leftover _consumed trade) input =
+--       trade : go decoder (BL.chunk leftover input)
+--     go ('Partial' k) input                     =
+--       go (k . takeHeadChunk $ input) (dropHeadChunk input)
+--     go ('Fail' _leftover _consumed msg) _input =
 --       error msg
 --
 -- takeHeadChunk :: BL.ByteString -> Maybe BS.ByteString
@@ -128,12 +126,12 @@
 --     _ -> BL.Empty
 -- @
 --
--- Both these examples use lazy I/O to read the file from the disk, which is
+-- The @lazyIOExample@ uses lazy I/O to read the file from the disk, which is
 -- not suitable in all applications, and certainly not if you need to read
 -- from a socket which has higher likelihood to fail. To address these needs,
--- use the incremental input method.
--- For an example of this, see the implementation of 'decodeFileOrFail' in
--- "Data.Binary".
+-- use the incremental input method like in @incrementalExample@.
+-- For an example of how to read incrementally from a Handle,
+-- see the implementation of 'decodeFileOrFail' in "Data.Binary".
 -----------------------------------------------------------------------------
 
 
