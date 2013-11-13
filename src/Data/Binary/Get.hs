@@ -32,13 +32,13 @@
 --
 -- A corresponding Haskell value looks like this:
 --
---@
+-- @
 --data Trade = Trade
 --  { timestamp :: !'Word32'
 --  , price     :: !'Word32'
 --  , qty       :: !'Word16'
 --  } deriving ('Show')
---@
+-- @
 --
 -- The fields in @Trade@ are marked as strict (using @!@) since we don't need
 -- laziness here. In practise, you would probably consider using the UNPACK
@@ -47,21 +47,21 @@
 --
 -- Now, let's have a look at a decoder for this format.
 --
---@
+-- @
 --getTrade :: 'Get' Trade
 --getTrade = do
 --  timestamp <- 'getWord32le'
 --  price     <- 'getWord32le'
 --  quantity  <- 'getWord16le'
 --  return '$!' Trade timestamp price quantity
---@
+-- @
 --
 -- Or even simpler using applicative style:
 --
---@
+-- @
 --getTrade' :: 'Get' Trade
 --getTrade' = Trade '<$>' 'getWord32le' '<*>' 'getWord32le' '<*>' 'getWord16le'
---@
+-- @
 --
 -- The applicative style can sometimes result in faster code, as @binary@
 -- will try to optimize the code by grouping the reads together.
@@ -72,7 +72,7 @@
 --
 -- Let's first define a function that decodes many @Trade@s.
 --
---@
+-- @
 --getTrades :: Get [Trade]
 --getTrades = do
 --  empty <- 'isEmpty'
@@ -81,16 +81,16 @@
 --    else do trade <- getTrade
 --            trades <- getTrades
 --            return (trade:trades)
---@
+-- @
 --
 -- Finally, we run the decoder:
 --
---@
+-- @
 --lazyIOExample :: IO [Trade]
 --lazyIOExample = do
--- input <- BL.readFile \"trades.bin\"
--- return ('runGet' getTrades input)
---@
+--  input <- BL.readFile \"trades.bin\"
+--  return ('runGet' getTrades input)
+-- @
 --
 -- This decoder has the downside that it will need to read all the input before
 -- it can return. On the other hand, it will not return anything until
@@ -100,7 +100,7 @@
 -- and get the following decoder. It will start to return data without knowing
 -- that it can decode all input.
 --
---@
+-- @
 --incrementalExample :: BL.ByteString -> [Trade]
 --incrementalExample input0 = go decoder input0
 --  where
@@ -124,7 +124,7 @@
 --  case lbs of
 --    (BL.Chunk _ lbs') -> lbs'
 --    _ -> BL.Empty
---@
+-- @
 --
 -- The @lazyIOExample@ uses lazy I/O to read the file from the disk, which is
 -- not suitable in all applications, and certainly not if you need to read
