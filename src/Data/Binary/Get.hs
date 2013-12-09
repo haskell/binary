@@ -159,6 +159,7 @@ module Data.Binary.Get (
     -- * Decoding
     , skip
     , isEmpty
+    , expect
     , bytesRead
     , lookAhead
     , lookAheadM
@@ -357,6 +358,11 @@ pushEndOfInput r =
     Done _ _ _ -> r
     Partial k -> k Nothing
     Fail _ _ _ -> r
+
+-- | Read a value from the monad state, failing if the read value does not
+-- match the argument value.
+expect :: (Eq a, Binary a) => a -> Get a
+expect x = get >>= \y -> if x == y then return x else empty
 
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
 -- bytes are left in the input.
