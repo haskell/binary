@@ -189,6 +189,25 @@ module Data.Binary.Get (
     , getWord32host
     , getWord64host
 
+    -- ** Decoding words
+    , getInt8
+
+    -- *** Big-endian decoding
+    , getInt16be
+    , getInt32be
+    , getInt64be
+
+    -- *** Little-endian decoding
+    , getInt16le
+    , getInt32le
+    , getInt64le
+
+    -- *** Host-endian, unaligned decoding
+    , getInthost
+    , getInt16host
+    , getInt32host
+    , getInt64host
+
     -- * Deprecated functions
     , runGetState -- DEPRECATED
     , remaining -- DEPRECATED
@@ -427,6 +446,12 @@ getWord8 :: Get Word8
 getWord8 = readN 1 B.unsafeHead
 {-# INLINE getWord8 #-}
 
+-- | Read Int8 from the monad state
+getInt8 :: Get Int8
+getInt8 = fromIntegral <$> getWord8
+{-# INLINE getInt8 #-}
+
+
 -- force GHC to inline getWordXX
 {-# RULES
 "getWord8/readN" getWord8 = readN 1 B.unsafeHead
@@ -520,6 +545,39 @@ word64le = \s ->
 {-# INLINE getWord64le #-}
 {-# INLINE word64le #-}
 
+
+-- | Read a Int16 in big endian format
+getInt16be :: Get Int16
+getInt16be = fromIntegral <$> getWord16be
+{-# INLINE getInt16be #-}
+
+-- | Read a Int16 in big endian format
+getInt32be :: Get Int32
+getInt32be =  fromIntegral <$> getWord32be
+{-# INLINE getInt32be #-}
+
+-- | Read a Int16 in big endian format
+getInt64be :: Get Int64
+getInt64be = fromIntegral <$> getWord64be
+{-# INLINE getInt64be #-}
+
+
+-- | Read a Int16 in little endian format
+getInt16le :: Get Int16
+getInt16le = fromIntegral <$> getWord16le
+{-# INLINE getInt16le #-}
+
+-- | Read a Int32 in little endian format
+getInt32le :: Get Int32
+getInt32le =  fromIntegral <$> getWord32le
+{-# INLINE getInt32le #-}
+
+-- | Read a Int64 in little endian format
+getInt64le :: Get Int64
+getInt64le = fromIntegral <$> getWord64le
+{-# INLINE getInt64le #-}
+
+
 ------------------------------------------------------------------------
 -- Host-endian reads
 
@@ -544,6 +602,28 @@ getWord32host = getPtr  (sizeOf (undefined :: Word32))
 getWord64host   :: Get Word64
 getWord64host = getPtr  (sizeOf (undefined :: Word64))
 {-# INLINE getWord64host #-}
+
+-- | /O(1)./ Read a single native machine word in native host
+-- order. It works in the same way as 'getWordhost'.
+getInthost :: Get Int
+getInthost = getPtr (sizeOf (undefined :: Int))
+{-# INLINE getInthost #-}
+
+-- | /O(1)./ Read a 2 byte Int16 in native host order and host endianness.
+getInt16host :: Get Int16
+getInt16host = getPtr (sizeOf (undefined :: Int16))
+{-# INLINE getInt16host #-}
+
+-- | /O(1)./ Read a Int32 in native host order and host endianness.
+getInt32host :: Get Int32
+getInt32host = getPtr  (sizeOf (undefined :: Int32))
+{-# INLINE getInt32host #-}
+
+-- | /O(1)./ Read a Int64 in native host order and host endianess.
+getInt64host   :: Get Int64
+getInt64host = getPtr  (sizeOf (undefined :: Int64))
+{-# INLINE getInt64host #-}
+
 
 ------------------------------------------------------------------------
 -- Unchecked shifts
