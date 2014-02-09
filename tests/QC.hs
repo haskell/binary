@@ -33,10 +33,12 @@ import Control.Exception as C (catch,evaluate,SomeException)
 import System.IO.Unsafe
 
 import Test.QuickCheck
+import Test.HUnit      ((@=?),Assertion,assertFailure)
 -- import Text.Printf
 
 import Test.Framework
 import Test.Framework.Providers.QuickCheck2
+import Test.Framework.Providers.HUnit
 -- import Data.Monoid
 
 import Action (prop_action)
@@ -381,6 +383,18 @@ test a  = forAll positiveList (roundTrip a . refragment)
 positiveList :: Gen [Int]
 positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
+-- Test binary instance for special values which aren't covered by QC
+testBinary :: (Eq a, Binary a, Show a) => a -> Assertion
+testBinary a = a @=? (decode . encode) a
+
+-- We need to treat negative zero specially since equality doesn't
+-- describe them properly
+testNegZero :: (Binary a, RealFloat a, Show a) => a -> Assertion
+testNegZero a =
+  case ((decode . encode) ((-0) `asTypeOf` a)) `asTypeOf` a of
+    z | isNegativeZero z -> return ()
+      | otherwise        -> assertFailure $ "Got " ++ show z ++ " instead of -0.0"
+
 tests :: [Test]
 tests =
         [ testGroup "Utils"
@@ -499,7 +513,16 @@ tests =
             , ("B.ByteString",  p (test :: T B.ByteString        ))
             , ("L.ByteString",  p (test :: T L.ByteString        ))
             ]
-
+        , testGroup "Binary special values"
+            [ testCase "NaN::Float"   $ testBinary  ( 0/0 :: Float)
+            , testCase "+Inf::Float"  $ testBinary  ( 1/0 :: Float)
+            , testCase "-Inf::Float"  $ testBinary  (-1/0 :: Float)
+            , testCase "-0  ::Float"  $ testNegZero (-0   :: Float)
+            , testCase "NaN::Double"  $ testBinary  ( 0/0 :: Double)
+            , testCase "+Inf::Double" $ testBinary  ( 1/0 :: Double)
+            , testCase "-Inf::Double" $ testBinary  (-1/0 :: Double)
+            , testCase "-0  ::Double" $ testNegZero (-0   :: Double)
+            ]
         , testGroup "Invariants" $ map (uncurry testProperty)
             [ ("B.ByteString invariant",   p (prop_invariant :: B B.ByteString                 ))
             , ("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
