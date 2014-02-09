@@ -61,6 +61,8 @@ mustThrowError a = unsafePerformIO $
             (\(_e :: SomeException) -> return True)
 
 -- low level ones:
+--
+-- Words
 
 prop_Word16be :: Word16 -> Property
 prop_Word16be = roundTripWith putWord16be getWord16be
@@ -91,6 +93,38 @@ prop_Word64host = roundTripWith putWord64host getWord64host
 
 prop_Wordhost :: Word -> Property
 prop_Wordhost = roundTripWith putWordhost getWordhost
+
+-- Ints
+
+prop_Int16be :: Int16 -> Property
+prop_Int16be = roundTripWith putInt16be getInt16be
+
+prop_Int16le :: Int16 -> Property
+prop_Int16le = roundTripWith putInt16le getInt16le
+
+prop_Int16host :: Int16 -> Property
+prop_Int16host = roundTripWith putInt16host getInt16host
+
+prop_Int32be :: Int32 -> Property
+prop_Int32be = roundTripWith putInt32be getInt32be
+
+prop_Int32le :: Int32 -> Property
+prop_Int32le = roundTripWith putInt32le getInt32le
+
+prop_Int32host :: Int32 -> Property
+prop_Int32host = roundTripWith putInt32host getInt32host
+
+prop_Int64be :: Int64 -> Property
+prop_Int64be = roundTripWith putInt64be getInt64be
+
+prop_Int64le :: Int64 -> Property
+prop_Int64le = roundTripWith putInt64le getInt64le
+
+prop_Int64host :: Int64 -> Property
+prop_Int64host = roundTripWith putInt64host getInt64host
+
+prop_Inthost :: Int -> Property
+prop_Inthost = roundTripWith putInthost getInthost
 
 
 -- done, partial and fail
@@ -418,6 +452,17 @@ tests =
             , testProperty "Word64le"   (p prop_Word64le)
             , testProperty "Word64host" (p prop_Word64host)
             , testProperty "Wordhost"   (p prop_Wordhost)
+              -- Int
+            , testProperty "Int16be"    (p prop_Int16be)
+            , testProperty "Int16le"    (p prop_Int16le)
+            , testProperty "Int16host"  (p prop_Int16host)
+            , testProperty "Int32be"    (p prop_Int32be)
+            , testProperty "Int32le"    (p prop_Int32le)
+            , testProperty "Int32host"  (p prop_Int32host)
+            , testProperty "Int64be"    (p prop_Int64be)
+            , testProperty "Int64le"    (p prop_Int64le)
+            , testProperty "Int64host"  (p prop_Int64host)
+            , testProperty "Inthost"    (p prop_Inthost)
             ]
 
         , testGroup "String utils"
