@@ -71,7 +71,9 @@ test-suite qc
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.5
+    test-framework-hunit,
+    QuickCheck>=2.5,
+    HUnit
 
   ghc-options: -Wall -O2
   hs-source-dirs: src
