@@ -64,6 +64,9 @@ mustThrowError a = unsafePerformIO $
 --
 -- Words
 
+prop_Word8 :: Word8 -> Property
+prop_Word8 = roundTripWith putWord8 getWord8
+
 prop_Word16be :: Word16 -> Property
 prop_Word16be = roundTripWith putWord16be getWord16be
 
@@ -95,6 +98,9 @@ prop_Wordhost :: Word -> Property
 prop_Wordhost = roundTripWith putWordhost getWordhost
 
 -- Ints
+
+prop_Int8 :: Int8 -> Property
+prop_Int8 = roundTripWith putInt8 getInt8
 
 prop_Int16be :: Int16 -> Property
 prop_Int16be = roundTripWith putInt16be getInt16be
@@ -442,7 +448,8 @@ tests =
             ]
 
         , testGroup "Primitives"
-            [ testProperty "Word16be"   (p prop_Word16be)
+            [ testProperty "Word8"      (p prop_Word8)
+            , testProperty "Word16be"   (p prop_Word16be)
             , testProperty "Word16le"   (p prop_Word16le)
             , testProperty "Word16host" (p prop_Word16host)
             , testProperty "Word32be"   (p prop_Word32be)
@@ -453,6 +460,7 @@ tests =
             , testProperty "Word64host" (p prop_Word64host)
             , testProperty "Wordhost"   (p prop_Wordhost)
               -- Int
+            , testProperty "Int8"       (p prop_Int8)
             , testProperty "Int16be"    (p prop_Int16be)
             , testProperty "Int16le"    (p prop_Int16le)
             , testProperty "Int16host"  (p prop_Int16host)
