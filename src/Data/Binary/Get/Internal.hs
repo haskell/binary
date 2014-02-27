@@ -321,8 +321,7 @@ readN !n f = ensureN n >> unsafeReadN n f
   returnG f = readN 0 (const f)
 
 "readN 0/returnG swapback" [1] forall f.
-  readN 0 f = returnG (f B.empty)
- #-}
+  readN 0 f = returnG (f B.empty) #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
