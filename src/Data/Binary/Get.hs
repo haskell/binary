@@ -435,8 +435,7 @@ getWord8 = readN 1 B.unsafeHead
 "getWord32be/readN" getWord32be = readN 4 word32be
 "getWord32le/readN" getWord32le = readN 4 word32le
 "getWord64be/readN" getWord64be = readN 8 word64be
-"getWord64le/readN" getWord64le = readN 8 word64le
- #-}
+"getWord64le/readN" getWord64le = readN 8 word64le #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16

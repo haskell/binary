@@ -508,7 +508,5 @@ shiftr_w64 = shiftR
     append (ensureFree a) (ensureFree b) = ensureFree (max a b)
 
 "flush/flush"
-    append flush flush = flush
-
- #-}
+    append flush flush = flush #-}
 #endif
