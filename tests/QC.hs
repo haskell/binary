@@ -4,6 +4,7 @@ module Main where
 import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
+import qualified Data.Binary.Builder as Builder
 
 import Control.Applicative
 import Control.Monad (unless)
@@ -364,6 +365,11 @@ prop_refragment lbs xs = lbs == refragment xs lbs
 prop_refragment_inv :: L.ByteString -> [Int] -> Bool
 prop_refragment_inv lbs xs = invariant_lbs $ refragment xs lbs
 
+
+prop_copybytestring :: B.ByteString -> Bool
+prop_copybytestring bs =
+    Builder.toLazyByteString (Builder.copyByteString bs) == L.fromChunks [bs]
+
 main :: IO ()
 main = defaultMain tests
 
@@ -505,6 +511,7 @@ tests =
             , ("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
             , ("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
+            , ("ByteStringCopy", p prop_copybytestring)
             ]
         ]
 
