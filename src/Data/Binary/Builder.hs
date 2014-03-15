@@ -28,6 +28,7 @@ module Data.Binary.Builder (
     , append
     , fromByteString        -- :: S.ByteString -> Builder
     , fromLazyByteString    -- :: L.ByteString -> Builder
+    , copyByteString        -- :: S.ByteString -> Builder
 
     -- * Flushing the buffer state
     , flush

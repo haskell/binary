@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, CPP, MagicHash #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 #if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
 #endif
@@ -33,6 +34,7 @@ module Data.Binary.Builder.Base (
     , append
     , fromByteString        -- :: S.ByteString -> Builder
     , fromLazyByteString    -- :: L.ByteString -> Builder
+    , copyByteString        -- :: S.ByteString -> Builder
 
     -- * Flushing the buffer state
     , flush
@@ -64,9 +66,11 @@ module Data.Binary.Builder.Base (
 
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Unsafe as U
 import Data.Monoid
 import Data.Word
 import Foreign
+import Foreign.C.Types
 
 import System.IO.Unsafe as IO ( unsafePerformIO )
 
@@ -87,6 +91,12 @@ import GHC.Word (Word32(..),Word16(..),Word64(..))
 import GHC.Word (uncheckedShiftRL64#)
 # endif
 #endif
+
+foreign import ccall unsafe "string.h memcpy" c_memcpy
+    :: Ptr Word8 -> Ptr Word8 -> CSize -> IO (Ptr Word8)
+    
+memcpy :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+memcpy p q s = c_memcpy p q (fromIntegral s) >> return ()
 
 ------------------------------------------------------------------------
 
@@ -160,6 +170,18 @@ fromByteString bs
 fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString bss = flush `append` mapBuilder (bss `L.append`)
 {-# INLINE fromLazyByteString #-}
+
+-- | /O(N)./ A builder taking a 'S.ByteString', satisfying
+--
+-- * @'toLazyByteString' ('copyByteString' bs) = 'L.fromChunks' [bs]@
+--
+-- this function copies bytestring to the existing buffer.
+--
+copyByteString :: S.ByteString -> Builder
+copyByteString bs
+  | S.null bs = empty
+  | otherwise = ensureFree (S.length bs) `append`
+     withBuffer (writeBuffer (\b -> U.unsafeUseAsCStringLen bs (\(p,l) -> memcpy b (castPtr p) l >> return l)))
 
 ------------------------------------------------------------------------
 
