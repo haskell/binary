@@ -1,46 +1,26 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Main where
+module Main ( main ) where
 
-import Data.Binary
-import Data.Binary.Put
-import Data.Binary.Get
+import           Control.Applicative
+import           Control.Exception                    as C (SomeException,
+                                                            catch, evaluate)
+import           Control.Monad                        (unless)
+import qualified Data.ByteString                      as B
+import qualified Data.ByteString.Lazy                 as L
+import qualified Data.ByteString.Lazy.Internal        as L
+import           Data.Int
+import           Data.Ratio
+import           System.IO.Unsafe
 
-import Control.Applicative
-import Control.Monad (unless)
+import           Test.Framework
+import           Test.Framework.Providers.QuickCheck2
+import           Test.QuickCheck
 
-import qualified Data.ByteString as B
--- import qualified Data.ByteString.Internal as B
--- import qualified Data.ByteString.Unsafe as B
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Internal as L
--- import qualified Data.Map as Map
--- import qualified Data.Set as Set
--- import qualified Data.IntMap as IntMap
--- import qualified Data.IntSet as IntSet
-
--- import Data.Array (Array)
--- import Data.Array.IArray
--- import Data.Array.Unboxed (UArray)
-
--- import Data.Word
-import Data.Int
-import Data.Ratio
-
-import Control.Exception as C (catch,evaluate,SomeException)
--- import Control.Monad
--- import System.Environment
--- import System.IO
-import System.IO.Unsafe
-
-import Test.QuickCheck
--- import Text.Printf
-
-import Test.Framework
-import Test.Framework.Providers.QuickCheck2
--- import Data.Monoid
-
-import qualified Action (tests)
-import Arbitrary()
+import qualified Action                               (tests)
+import           Arbitrary                            ()
+import           Data.Binary
+import           Data.Binary.Get
+import           Data.Binary.Put
 
 ------------------------------------------------------------------------
 
@@ -204,10 +184,10 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- > data S = S {-# UNPACK #-} !B.ByteString
 -- >            L.ByteString
 -- >            {-# UNPACK #-} !Int64
--- > 
+-- >
 -- > newtype Get a = Get { unGet :: S -> (# a, S #) }
--- 
--- with a helper function 
+--
+-- with a helper function
 --
 -- > mkState :: L.ByteString -> Int64 -> S
 -- > mkState l = case l of
@@ -237,13 +217,13 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- >                             return now
 --
 -- Consider the else-branch of this function; suppose we ask for n bytes;
--- the call to L.splitAt gives us a lazy bytestring 'consuming' of precisely @n@ 
--- bytes (unless we don't have enough data, in which case we fail); but then 
+-- the call to L.splitAt gives us a lazy bytestring 'consuming' of precisely @n@
+-- bytes (unless we don't have enough data, in which case we fail); but then
 -- the strict evaluation of mkState on 'rest' means we look ahead too far.
 --
 -- Although this is all done completely differently in binary-0.7 it is
 -- important that the same bug does not get introduced in some other way. The
--- test is basically the same test that already exists in this test suite, 
+-- test is basically the same test that already exists in this test suite,
 -- verifying that
 --
 -- > decode . refragment . encode == id
@@ -252,15 +232,15 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- as the tail of the bytestring after rechunking. If we don't look ahead too
 -- far then this should make no difference, but if we do then this will throw
 -- an exception (for instance, in binary-0.5, this will throw an exception for
--- certain rechunkings, but not for others). 
--- 
+-- certain rechunkings, but not for others).
+--
 -- To make sure that the property holds no matter what refragmentation we use,
--- we test exhaustively for a single chunk, and all ways to break the string 
+-- we test exhaustively for a single chunk, and all ways to break the string
 -- into 2, 3 and 4 chunks.
 prop_lookAheadIndepOfChunking :: (Eq a, Binary a) => a -> Property
 prop_lookAheadIndepOfChunking testInput =
-   forAll (testCuts (L.length (encode testInput))) $ 
-     roundTrip testInput . rechunk 
+   forAll (testCuts (L.length (encode testInput))) $
+     roundTrip testInput . rechunk
   where
     testCuts :: forall a. (Num a, Enum a) => a -> Gen [a]
     testCuts len = elements $ [ [] ]
@@ -280,7 +260,7 @@ prop_lookAheadIndepOfChunking testInput =
       where
         cut :: [a] -> B.ByteString -> [B.ByteString]
         cut []     bs = [bs]
-        cut (i:is) bs = let (bs0, bs1) = B.splitAt (fromIntegral i) bs 
+        cut (i:is) bs = let (bs0, bs1) = B.splitAt (fromIntegral i) bs
                         in bs0 : cut is bs1
 
         fromChunks :: [B.ByteString] ->  L.ByteString
@@ -391,7 +371,7 @@ tests =
         , testGroup "Boundaries"
             [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
-            , -- Arbitrary test input 
+            , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
             ]
@@ -421,9 +401,9 @@ tests =
 
         , testGroup "String utils"
             [ testProperty "getLazyByteString"          prop_getLazyByteString
-            , testProperty "getLazyByteStringNul"       prop_getLazyByteStringNul 
+            , testProperty "getLazyByteStringNul"       prop_getLazyByteStringNul
             , testProperty "getLazyByteStringNul No Null" prop_getLazyByteStringNul_noNul
-            , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString 
+            , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString
             ]
 
         , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
@@ -490,10 +470,6 @@ tests =
                       p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int)))
             , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)",
                       p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)))
-    {-
-            , ("IntSet",            p (test      :: T IntSet.IntSet          ))
-            , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
-    -}
 
             , ("B.ByteString",  p (test :: T B.ByteString        ))
             , ("L.ByteString",  p (test :: T L.ByteString        ))
@@ -506,6 +482,3 @@ tests =
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
             ]
         ]
-
--- GHC only:
---      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))

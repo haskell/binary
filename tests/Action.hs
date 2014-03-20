@@ -1,19 +1,18 @@
 {-# LANGUAGE BangPatterns #-}
 module Action where
 
-import Data.List (intersperse)
-import Control.Applicative
-import Control.Monad
-import Test.Framework
-import Test.Framework.Providers.QuickCheck2
-import Test.QuickCheck
+import           Control.Applicative
+import           Control.Monad
+import qualified Data.ByteString                      as B
+import qualified Data.ByteString.Lazy                 as L
+import           Data.List                            (intersperse)
 
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
+import           Test.Framework
+import           Test.Framework.Providers.QuickCheck2
+import           Test.QuickCheck
 
-import qualified Data.Binary.Get as Binary
-
-import Arbitrary()
+import           Arbitrary                            ()
+import qualified Data.Binary.Get                      as Binary
 
 tests :: [Test]
 tests = [ testProperty "action" prop_action
