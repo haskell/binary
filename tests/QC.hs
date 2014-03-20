@@ -39,7 +39,7 @@ import Test.Framework
 import Test.Framework.Providers.QuickCheck2
 -- import Data.Monoid
 
-import Action (prop_action)
+import qualified Action (tests)
 import Arbitrary()
 
 ------------------------------------------------------------------------
@@ -404,8 +404,7 @@ tests =
             ]
 
         , testGroup "Model"
-            [ testProperty "action" Action.prop_action
-            ]
+            Action.tests
 
         , testGroup "Primitives"
             [ testProperty "Word16be"   (p prop_Word16be)

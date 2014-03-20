@@ -163,6 +163,7 @@ module Data.Binary.Get (
     , lookAhead
     , lookAheadM
     , lookAheadE
+    , label
 
     -- ** ByteStrings
     , getByteString

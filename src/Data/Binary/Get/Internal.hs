@@ -31,6 +31,7 @@ module Data.Binary.Get.Internal (
     , lookAhead
     , lookAheadM
     , lookAheadE
+    , label
 
     -- ** ByteStrings
     , getByteString
@@ -268,6 +269,18 @@ lookAheadE g = do
     Done inp (Right x) -> C $ \_ ks -> ks inp (Right x)
     Fail inp s -> C $ \_ _ -> Fail inp s
     _ -> error "Binary: impossible"
+
+-- Label a decoder. If the decoder fails, the label will be appended on
+-- a new line to the error message string.
+label :: String -> Get a -> Get a
+label msg decoder = C $ \inp ks ->
+  let r0 = runCont decoder inp (\inp' a -> Done inp' a)
+      go r = case r of
+                 Done inp' a -> ks inp' a
+                 Partial k -> Partial (go . k)
+                 Fail inp' s -> Fail inp' (s ++ "\n" ++ msg)
+                 BytesRead u k -> BytesRead u (go . k)
+  in go r0
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
