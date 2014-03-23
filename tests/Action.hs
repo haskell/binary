@@ -138,8 +138,10 @@ prop_label =
                            Nothing -> error "expected labels"
                 expectedMsg | null labels = "fail"
                             | otherwise = concat $ intersperse "\n" ("fail":labels)
-            in if (msg == expectedMsg) then True else error (show msg ++ " vs. " ++ show expectedMsg)
-          Right (inp, off, value) -> True
+            in if (msg == expectedMsg)
+                 then label ("labels: " ++ show (length labels)) True
+                 else error (show msg ++ " vs. " ++ show expectedMsg)
+          Right (inp, off, value) -> label "test case without 'fail'" True
 
 collectLabels :: [Action] -> Maybe [String]
 collectLabels = go []
@@ -216,7 +218,9 @@ eval inp acts0 = go 0 acts0 >> return ()
       Just offset -> return offset
 
 gen_actions :: Bool -> Gen [Action]
-gen_actions genFail = sized (go False)
+gen_actions genFail = do
+  acts <- sized (go False)
+  return (if genFail then (acts ++ [Fail]) else acts)
   where
   go :: Bool -> Int -> Gen [Action]
   go     _ 0 = return []
