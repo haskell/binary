@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, PatternGuards #-}
 module Action where
 
 import           Control.Applicative
@@ -16,7 +16,8 @@ import qualified Data.Binary.Get                      as Binary
 
 tests :: [Test]
 tests = [ testProperty "action" prop_action
-        , testProperty "label" prop_label ]
+        , testProperty "label" prop_label
+        , testProperty "fail" prop_fail ]
 
 data Action
   = Actions [Action]
@@ -125,6 +126,8 @@ prop_action =
         case Binary.runGet (eval allInput actions) lbs of
           () -> True
 
+-- | When a decoder aborts with 'fail', check that all relevant uses of 'label'
+-- are respected.
 prop_label :: Property
 prop_label =
   forAllShrink (gen_actions True) shrink $ \ actions ->
@@ -132,36 +135,84 @@ prop_label =
       L.length lbs >= fromIntegral (max_len actions) ==>
         let allInput = B.concat (L.toChunks lbs) in
         case Binary.runGetOrFail (eval allInput actions) lbs of
-          Left (inp, off, msg) ->
-            let labels = case collectLabels actions of
-                           Just labels -> labels
+          Left (_inp, _off, msg) ->
+            let lbls = case collectLabels actions of
+                           Just lbls' -> lbls'
                            Nothing -> error "expected labels"
-                expectedMsg | null labels = "fail"
-                            | otherwise = concat $ intersperse "\n" ("fail":labels)
+                expectedMsg | null lbls = "fail"
+                            | otherwise = concat $ intersperse "\n" ("fail":lbls)
             in if (msg == expectedMsg)
-                 then label ("labels: " ++ show (length labels)) True
+                 then label ("labels: " ++ show (length lbls)) True
                  else error (show msg ++ " vs. " ++ show expectedMsg)
-          Right (inp, off, value) -> label "test case without 'fail'" True
+          Right (_inp, _off, _value) -> label "test case without 'fail'" True
 
+-- | When a decoder aborts with 'fail', check the fail position and
+-- remaining input.
+prop_fail :: Property
+prop_fail =
+  forAllShrink (gen_actions True) shrink $ \ actions ->
+    forAll arbitrary $ \ lbs ->
+      L.length lbs >= fromIntegral (max_len actions) ==>
+        let allInput = B.concat (L.toChunks lbs) in
+        case Binary.runGetOrFail (eval allInput actions) lbs of
+          Left (inp, off, _msg) ->
+            case () of
+              _ | Just off /= findFailPosition actions ->
+                    error ("fail position incorrect, expected " ++
+                           show (findFailPosition actions) ++
+                           " but got " ++ show off)
+                | inp /= L.drop (fromIntegral off) lbs ->
+                    error "remaining output incorrect"
+                | otherwise -> property True
+          Right (_inp, _off, _value) -> label "test case without 'fail'" True
+
+-- | Collect all the labels up to a 'fail', or Nothing if the
+-- decoder will not fail.
 collectLabels :: [Action] -> Maybe [String]
 collectLabels = go []
   where
-    go labels [] = Nothing
-    go labels (Fail:xs) = Just labels
-    go labels (Label str a:xs) =
-      case go (str:labels) a of
-        Just labels' -> Just labels'
-        Nothing -> go labels xs
-    go labels (Try a b:xs) =
-      case (go labels a, go labels b) of
-        (Just _, Just labels') -> Just labels'
-        (Just _, Nothing) -> go labels xs
-        (Nothing, _) -> go labels xs
-    go labels (Actions a:xs) = go labels (a++xs)
-    go labels (LookAhead a:xs) = go labels (a++xs)
-    go labels (LookAheadM _ a:xs) = go labels (a++xs)
-    go labels (LookAheadE _ a:xs) = go labels (a++xs)
-    go labels (_:xs) = go labels xs
+    go _ [] = Nothing
+    go lbls (Fail:_) = Just lbls
+    go lbls (Label str a:xs) =
+      case go (str:lbls) a of
+        Just lbls' -> Just lbls'
+        Nothing -> go lbls xs
+    go lbls (Try a b:xs) =
+      case (go lbls a, go lbls b) of
+        (Just _, Just lbls') -> Just lbls'
+        (Just _, Nothing) -> go lbls xs
+        (Nothing, _) -> go lbls xs
+    go lbls (Actions a:xs) = go lbls (a++xs)
+    go lbls (LookAhead a:xs) = go lbls (a++xs)
+    go lbls (LookAheadM _ a:xs) = go lbls (a++xs)
+    go lbls (LookAheadE _ a:xs) = go lbls (a++xs)
+    go lbls (_:xs) = go lbls xs
+
+-- | Finds at which byte offset the decoder will fail,
+-- or Nothing if it won't fail.
+findFailPosition :: [Action] -> Maybe Binary.ByteOffset
+findFailPosition = either (const Nothing) Just . go (0::Binary.ByteOffset)
+  where
+    go pos [] = Left pos
+    go pos (x:xs) =
+      case x of
+        Actions a -> go pos (a++xs)
+        GetByteString n -> go (pos + fromIntegral n) xs
+        BytesRead -> go pos xs
+        Fail -> Right pos
+        Label _ a -> go pos (a++xs)
+        LookAhead a -> either (const (go pos xs)) Right (go pos a)
+        LookAheadM consume a ->
+          let pos' False = go pos (LookAhead a : xs)
+              pos' True = go pos (a++xs)
+          in pos' consume
+        LookAheadE consume a ->
+          let pos' False = go pos (LookAhead a : xs)
+              pos' True = go pos (a++xs)
+          in pos' consume
+        Try a b
+          | Left pos' <- go pos a -> go pos' xs
+          | otherwise -> go pos (b++xs)
 
 -- | Evaluate (run) the model.
 -- First argument is all the input that will be used when executing
