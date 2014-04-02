@@ -160,6 +160,7 @@ module Data.Binary.Get (
     , skip
     , isEmpty
     , bytesRead
+    , isolate
     , lookAhead
     , lookAheadM
     , lookAheadE
