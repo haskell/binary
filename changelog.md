@@ -1,6 +1,13 @@
 binary
 ======
 
+
+binary-HEAD
+-----------
+
+- Add `isolate :: Int -> Get a -> Get a`.
+- Add `label :: String -> Get a -> Get a`.
+
 binary-0.7.1.0
 --------------
 
