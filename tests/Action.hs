@@ -115,7 +115,7 @@ randomInput n = do
   s <- vectorOf m $ choose ('a', 'z')
   let b = B.pack $ map (fromIntegral.ord) s
   rest <- randomInput (n-m)
-  return (L.append (L.fromStrict b) rest)
+  return (L.append (L.fromChunks [b]) rest)
 
 -- | Build binary programs and compare running them to running a (hopefully)
 -- identical model.
