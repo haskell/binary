@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns #-}
+{-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns, TypeFamilies #-}
 
 -- CPP C style pre-precessing, the #if defined lines
 -- RankNTypes forall r. statement
