@@ -56,78 +56,86 @@ library
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
+-- Due to circular dependency, we cannot make any of the test-suites or
+-- benchmark depend on the binary library. Instead, for each test-suite and
+-- benchmark, we include the source directory of binary and build-depend on all
+-- the dependencies binary has.
+
 test-suite qc
   type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
+  hs-source-dirs: src tests
   main-is: QC.hs
   other-modules:
     Action
     Arbitrary
   build-depends:
-    array,
     base >= 3.0 && < 5,
     bytestring >= 0.9,
-    containers,
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
     QuickCheck>=2.7
 
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -Wall -O2 -threaded
-  hs-source-dirs: src
 
 test-suite read-write-file
   type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
+  hs-source-dirs: src tests
   main-is: File.hs
   build-depends:
     base >= 3.0 && < 5,
     bytestring >= 0.9,
-    binary,
     Cabal,
     directory,
     filepath,
     HUnit
 
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -Wall
 
 benchmark bench
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Benchmark.hs
   other-modules: MemBench
   build-depends:
     base >= 3.0 && < 5,
-    binary,
     bytestring
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   c-sources: benchmarks/CBenchmark.c
   include-dirs: benchmarks
   ghc-options: -O2
 
 benchmark get
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Get.hs
   build-depends:
     attoparsec,
     base >= 3.0 && < 5,
-    binary,
     bytestring,
     cereal,
     criterion,
     deepseq,
     mtl
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -O2
 
 benchmark builder
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Builder.hs
   build-depends:
     base >= 3.0 && < 5,
-    binary,
     bytestring,
     criterion,
     deepseq,
     mtl
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -O2
