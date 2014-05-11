@@ -2,7 +2,7 @@ binary
 ======
 
 
-binary-HEAD
+binary-0.7.2.0
 -----------
 
 - Add `isolate :: Int -> Get a -> Get a`.
