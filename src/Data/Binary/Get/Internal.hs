@@ -202,11 +202,16 @@ isolate n0 act
                  " which is less than the expected " ++ show n0 ++ " bytes"
   go 0 (Partial resume) = go 0 (resume Nothing)
   go n (Partial resume) = do
-    ensureN 1
-    inp <- get
-    let (inp', out) = B.splitAt n inp
-    put out
-    go (n - B.length inp') (resume (Just inp'))
+    inp <- C $ \inp k -> do
+      let takeLimited str =
+            let (inp', out) = B.splitAt n str
+            in k out (Just inp')
+      case not (B.null inp) of
+        True -> takeLimited inp
+        False -> prompt inp (k B.empty Nothing) takeLimited
+    case inp of
+      Nothing -> go n (resume Nothing)
+      Just str -> go (n - B.length str) (resume (Just str))
   go _ (Fail bs err) = pushFront bs >> fail err
   go n (BytesRead r resume) =
     go n (resume $! fromIntegral n0 - fromIntegral n - r)
