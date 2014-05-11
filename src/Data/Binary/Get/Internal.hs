@@ -197,8 +197,8 @@ isolate n0 act
     | n == 0 && B.null left = return x
     | otherwise = do
         pushFront left
-        let consumed = n0 - n
-        fail $ "isolate: decoder consumed " ++ show consumed ++
+        let consumed = n0 - n - B.length left
+        fail $ "isolate: the decoder consumed " ++ show consumed ++ " bytes" ++
                  " which is less than the expected " ++ show n0 ++ " bytes"
   go 0 (Partial resume) = go 0 (resume Nothing)
   go n (Partial resume) = do
