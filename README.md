@@ -106,3 +106,6 @@ provided in tools/derive. Here's an example of its use.
 * Bryan O'Sullivan
 * Bas van Dijk
 * Florian Weimer
+
+For a full list of contributors, see
+[here](https://github.com/kolmodin/binary/graphs/contributors).
