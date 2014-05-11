@@ -71,9 +71,9 @@ test-suite qc
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.5
+    QuickCheck>=2.7
 
-  ghc-options: -Wall -O2
+  ghc-options: -Wall -O2 -threaded
   hs-source-dirs: src
 
 test-suite read-write-file

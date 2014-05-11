@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternGuards #-}
-module Action ( tests ) where
+module Action where
 
 import           Control.Applicative
 import           Control.Monad
@@ -43,6 +43,8 @@ instance Arbitrary Action where
       BytesRead -> []
       Fail -> []
       GetByteString n -> [ GetByteString n' | n' <- shrink n, n >= 0 ]
+      Isolate 0 as -> [ Isolate 0 as' | as' <- shrink as ]
+      Isolate 1 as -> [ Isolate 0 as' | as' <- shrink as ]
       Isolate n0 as -> nub $
         let ns as' = filter (>=0) $ (n0 - 1) : [ 0 .. max_len as' + 1 ]
         in Actions as : [ Isolate n' as'
@@ -62,7 +64,7 @@ instance Arbitrary Action where
 willFail :: Int -> [Action] -> Bool
 willFail inp xxs =
   case eval inp xxs of
-    EFail _ _ -> True
+    EFail {} -> True
     _ -> False
 
 willFail' :: [Action] -> Bool
@@ -80,7 +82,7 @@ max_len (x:xs) =
     Fail -> 0
     GetByteString n -> n + max_len xs
     Isolate n xs'
-      | Just n' <- actual_len' [Isolate n xs'], n == n' -> n + max_len xs
+      | Just _ <- actual_len' [Isolate n xs'] -> n + max_len xs
       | otherwise -> n
     Label _ xs' -> max_len (xs' ++ xs)
     LookAhead xs'
@@ -139,16 +141,15 @@ prop_label =
     let max_len_input = max_len actions in
     forAll (randomInput max_len_input) $ \ lbs ->
       let allInput = B.concat (L.toChunks lbs) in
+      collect (failReason $ eval max_len_input actions) $
       case Binary.runGetOrFail (execute allInput actions) lbs of
         Left (_inp, _off, msg) ->
           let lbls = case collectLabels max_len_input actions of
                          Just lbls' -> lbls'
-                         Nothing -> error $ "expected labels, got: " ++ msg
+                         Nothing -> error ("expected labels, got: " ++ msg)
               expectedMsg = concat $ intersperse "\n" lbls
-          in if msg == expectedMsg
-               then label ("labels: " ++ show (length lbls)) True
-               else error (show msg ++ " vs. " ++ show expectedMsg)
-        Right (_inp, _off, _value) -> label "test case without 'fail'" True
+          in expectedMsg === msg
+        Right (_inp, _off, _value) -> label "test case without 'fail'" $ True
 
 -- | When a decoder aborts with 'fail', check the fail position and
 -- remaining input.
@@ -158,6 +159,7 @@ prop_fail =
     let max_len_input = max_len actions in
     forAll (randomInput max_len_input) $ \ lbs ->
       let allInput = B.concat (L.toChunks lbs) in
+      collect (failReason $ eval max_len_input actions) $
       case Binary.runGetOrFail (execute allInput actions) lbs of
         Left (inp, off, _msg) ->
           case () of
@@ -169,14 +171,14 @@ prop_fail =
                   error $ "remaining output incorrect, was: " ++ show inp ++
                     ", should hav been: " ++ show (L.drop (fromIntegral off) lbs)
               | otherwise -> property True
-        Right (_inp, _off, _value) -> label "test case without 'fail'" True
+        Right (_inp, _off, _value) -> label "test case without 'fail'" $ property True
 
 -- | Collect all the labels up to a 'fail', or Nothing if the
 -- decoder will not fail.
 collectLabels :: Int -> [Action] -> Maybe [String]
 collectLabels inp xxs =
   case eval inp xxs of
-    EFail lbls _ -> Just lbls
+    EFail _ lbls _ -> Just lbls
     _ -> Nothing
 
 -- | Finds at which byte offset the decoder will fail,
@@ -184,17 +186,28 @@ collectLabels inp xxs =
 findFailPosition :: Int -> [Action] -> Maybe Binary.ByteOffset
 findFailPosition inp xxs =
   case eval inp xxs of
-    EFail _ inp' -> return (fromIntegral (inp-inp'))
+    EFail _ _ inp' -> return (fromIntegral (inp-inp'))
     _ -> Nothing
+
+failReason :: Eval -> String
+failReason (EFail fr _ _) = show fr
+failReason _ = "NoFail"
 
 -- | The result of an evaluation.
 data Eval = ESuccess Int
           -- ^ The evalutation completed successfully. Contains the number of
           -- remaining bytes of the input.
-          | EFail [String] Int
+          | EFail FailReason [String] Int
           -- ^ The evaluation completed with a failure. Contains the labels up
           -- to the failure, and the number of remaining bytes of the input.
           deriving (Show,Eq)
+
+data FailReason
+  = FRFail
+  | FRIsolateTooMuch
+  | FRIsolateTooLittle
+  | FRTooMuch
+  deriving (Show,Eq)
 
 -- | Given the number of input bytes and a list of actions, evaluate the
 -- actions and return whether the actions succeeed or fail.
@@ -203,7 +216,9 @@ eval inp0 = go inp0 []
   where
     step :: Int -> Int -> [String] -> [Action] -> Eval
     step inp n lbls xs
-      | inp - n < 0 = EFail lbls inp
+      | inp - n < 0 =
+          let msg = "demandInput: not enough bytes"
+          in EFail FRTooMuch (msg:lbls) inp
       | otherwise = go (inp-n) lbls xs
     go :: Int -> [String] -> [Action] -> Eval
     go inp _lbls [] = ESuccess inp
@@ -211,23 +226,32 @@ eval inp0 = go inp0 []
       case x of
         Actions xs' -> go inp lbls (xs'++xs)
         BytesRead -> go inp lbls xs
-        Fail -> EFail ("fail":lbls) inp
+        Fail -> EFail FRFail ("fail":lbls) inp
         GetByteString n -> step inp n lbls xs
         Isolate n xs'
           | n > inp ->
               case go inp lbls xs' of
-                ESuccess inp' -> EFail lbls inp'
+                ESuccess inp' ->
+                  let msg = "isolate: the decoder consumed " ++ show (inp - inp') ++
+                            " bytes which is less than the expected " ++ (show n) ++
+                            " bytes"
+                   in EFail FRTooMuch (msg:lbls) inp'
                 efail -> efail
           | otherwise ->
               case go n lbls xs' of
-                EFail lbls' inp' -> EFail lbls' (inp - n + inp')
-                ESuccess 0       -> go (inp-n) lbls xs
-                ESuccess inp'      -> EFail lbls (inp - n + inp')
-        Label str xs'
-          | EFail lbls' inp' <- go inp (str:lbls) xs' -> EFail lbls' inp'
-          | otherwise -> go inp lbls (xs'++xs)
+                EFail fr lbls' inp' -> EFail fr lbls' (inp - n + inp')
+                ESuccess 0          -> go (inp-n) lbls xs
+                ESuccess inp'       ->
+                  let msg = "isolate: the decoder consumed " ++ show (n - inp') ++
+                            " bytes which is less than the expected " ++ (show n) ++
+                            " bytes"
+                  in EFail FRIsolateTooLittle (msg:lbls) (inp - n + inp')
+        Label str xs' ->
+          case go inp (str:lbls) xs' of
+            EFail fr lbls' inp' -> EFail fr lbls' inp'
+            ESuccess inp' -> go inp' lbls xs
         LookAhead xs'
-          | EFail lbls' inp' <- go inp lbls xs' -> EFail lbls' inp'
+          | EFail fr lbls' inp' <- go inp lbls xs' -> EFail fr lbls' inp'
           | otherwise -> go inp lbls xs
         LookAheadM consume xs'
           | consume -> go inp lbls (xs'++xs)
@@ -238,7 +262,7 @@ eval inp0 = go inp0 []
         Try a b ->
           case go inp lbls a of
             ESuccess inp' -> go inp' lbls     xs
-            EFail _ _     -> go inp  lbls (b++xs)
+            EFail {}      -> go inp  lbls (b++xs)
  
 -- | Execute (run) the model.
 -- First argument is all the input that will be used when executing
@@ -307,7 +331,7 @@ execute inp acts0 = go 0 acts0 >> return ()
 gen_actions :: Bool -> Gen [Action]
 gen_actions genFail = do
   acts <- sized (go False)
-  return (if genFail then acts ++ [Fail] else acts)
+  return acts
   where
   go :: Bool -> Int -> Gen [Action]
   go     _ 0 = return []
@@ -328,9 +352,35 @@ gen_actions genFail = do
                        , do t <- go inTry (s`div`2)
                             Positive n <- arbitrary :: Gen (Positive Int)
                             (:) (Label ("some label: " ++ show n) t) <$> go inTry (s-1)
-                       , do t <- go inTry (s`div`2)
-                            let (n,t') | Just n' <- actual_len' t, n' == max_len t = (n',t)
-                                       | Just n' <- actual_len' t = (max_len t, t ++ [GetByteString (max_len t - n')])
-                                       | otherwise = (max_len t, t)
-                            (:) (Isolate n t') <$> go inTry (s-1)
-                       ] ++ [ return [Fail] | inTry || genFail ]
+                       , do t <- resize (s`div`2) (gen_isolate (genFail || inTry))
+                            (:) t <$> go inTry (s-1)
+                       ] ++ [frequency [(if inTry || genFail then 1 else 0, return [Fail])
+                                        ,(9                               , go inTry s)]]
+
+gen_isolate :: Bool -> Gen Action
+gen_isolate genFail = gen_actions genFail >>= go
+  where
+  go t0 = do
+    -- We can isolate the decoder with three different ranges;
+    --  * give too few bytes -> isolate will fail
+    --  * give exactly right amount of bytes -> isolate
+    --    will succeed if the given decoder succeeds
+    --  * give too many bytes -> isolate will fail
+    -- Here we generate Isolates that belong to the different
+    -- buckets.
+    let t = t0
+        tooFewBytes n = do
+          n' <- choose (0, n)
+          return (n',t)
+        requiredBytes n = return (n,t)
+        tooManyBytes n = do
+          n' <- choose (n+1, n+10)
+          return (n+n',t)
+    let trees
+          | Just n <- actual_len' t = oneof $
+              [ requiredBytes n ] ++
+              [ tooFewBytes n | genFail ] ++
+              [ tooManyBytes n | genFail ]
+          | otherwise = return (max_len t, t)
+    (n,t') <- trees
+    return (Isolate n t')
