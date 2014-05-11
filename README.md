@@ -1,5 +1,7 @@
 # binary package #
 
+[![Build Status](https://api.travis-ci.org/kolmodin/binary.png?branch=master)](http://travis-ci.org/kolmodin/binary)
+
 *Efficient, pure binary serialisation using lazy ByteStrings.*
 
 The ``binary`` package provides Data.Binary, containing the Binary class,
