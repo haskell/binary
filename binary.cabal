@@ -18,7 +18,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
-tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
+tested-with:     GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.2
 extra-source-files:
   README.md index.html docs/hcar/binary-Lb.tex
   tools/derive/*.hs tests/Makefile benchmarks/Makefile
@@ -30,9 +30,6 @@ extra-source-files:
 source-repository head
   type: git
   location: git://github.com/kolmodin/binary.git
-
-flag development
-  default: False
 
 library
   build-depends:   base >= 3.0 && < 5, bytestring >= 0.9, containers, array
