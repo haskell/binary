@@ -194,7 +194,7 @@ isolate n0 act
   | otherwise = go n0 (runCont act B.empty Done)
   where
   go !n (Done left x)
-    | n == 0 = return x
+    | n == 0 && B.null left = return x
     | otherwise = do
         pushFront left
         let consumed = n0 - n
