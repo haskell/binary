@@ -14,6 +14,7 @@ before_install:
 
 install:
  - cabal-1.20 update
+ - cabal-1.20 sandbox init
 # can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
  - cabal-1.20 install criterion deepseq mtl "QuickCheck >= 2.7.3" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
 
@@ -27,9 +28,14 @@ script:
 # check that the generated source-distribution can be built & installed
  - export SRC_TGZ=$(cabal-1.20 info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
+   cabal-1.20 sandbox init;
    if [ -f "$SRC_TGZ" ]; then
       cabal-1.20 install "$SRC_TGZ";
    else
       echo "expected '$SRC_TGZ' not found";
       exit 1;
    fi
+
+notifications:
+  email:
+    - kolmodin@gmail.com
