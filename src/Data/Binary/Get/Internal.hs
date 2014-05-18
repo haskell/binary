@@ -248,12 +248,14 @@ instance Alternative Get where
       Done inp x -> C $ \_ ks -> ks inp x
       Fail _ _ -> pushBack bs >> g
       _ -> error "Binary: impossible"
+#if MIN_VERSION_base(4,2,0)
   some p = (:) <$> p <*> many p
   many p = do
     v <- (Just <$> p) <|> pure Nothing
     case v of
       Nothing -> pure []
       Just x -> (:) x <$> many p
+#endif
 
 -- | Run a decoder and keep track of all the input it consumes.
 -- Once it's finished, return the final decoder (always 'Done' or 'Fail'), 
