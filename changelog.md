@@ -1,9 +1,13 @@
 binary
 ======
 
+binary-0.7.2.1
+--------------
+
+- Fix to compile on GHC 6.10.4 and older, see issue #55.
 
 binary-0.7.2.0
------------
+--------------
 
 - Add `isolate :: Int -> Get a -> Get a`.
 - Add `label :: String -> Get a -> Get a`.
