@@ -42,24 +42,19 @@ instance Arbitrary Action where
       Actions as -> [ Actions as' | as' <- shrink as ]
       BytesRead -> []
       Fail -> []
-      GetByteString n -> [ GetByteString n' | n' <- shrink n, n >= 0 ]
-      Isolate 0 as -> [ Isolate 0 as' | as' <- shrink as ]
-      Isolate 1 as -> [ Isolate 0 as' | as' <- shrink as ]
-      Isolate n0 as -> nub $
-        let ns as' = filter (>=0) $ (n0 - 1) : [ 0 .. max_len as' + 1 ]
-        in Actions as : [ Isolate n' as'
-                        | as' <- [] : shrink as
-                        , n' <- ns as' ]
-      Label str a -> Actions a : [ Label str a' | a' <- [] : shrink a, a /= []]
-      LookAhead a -> Actions a : [ LookAhead a' | a' <- [] : shrink a, a /= []]
-      LookAheadM b a -> Actions a : [ LookAheadM b a' | a' <- [] : shrink a, a /= []]
-      LookAheadE b a -> Actions a : [ LookAheadE b a' | a' <- [] : shrink a, a /= []]
-      Try [Fail] b -> Actions b : [ Try [Fail] b' | b' <- [] : shrink b ]
+      GetByteString n -> [ GetByteString n' | n' <- shrink n ]
+      Isolate n as -> nub $ Actions as :
+        [ Isolate n' as' | (n',as') <- shrink (n,as)
+                         , n' >= 0
+                         , n' <= max_len as' + 1 ]
+      Label str a -> Actions a : [ Label str a' | a' <- shrink a ]
+      LookAhead a -> Actions a : [ LookAhead a' | a' <- shrink a ]
+      LookAheadM b a -> Actions a : [ LookAheadM b a' | a' <- shrink a ]
+      LookAheadE b a -> Actions a : [ LookAheadE b a' | a' <- shrink a ]
+      Try [Fail] b -> Actions b : [ Try [Fail] b' | b' <- shrink b ]
       Try a b ->
         [Actions a | not (willFail' a)]
-        ++ [ Try a' b' | a' <- [] : shrink a, b' <- [] : shrink b ]
-        ++ [ Try a' b | a' <- [] : shrink a ]
-        ++ [ Try a b' | b' <- [] : shrink b ]
+        ++ [ Try a' b' | (a',b') <- shrink (a,b) ]
 
 willFail :: Int -> [Action] -> Bool
 willFail inp xxs =
