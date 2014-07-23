@@ -68,6 +68,7 @@ module Data.Binary (
     , encodeFile                -- :: Binary a => FilePath -> a -> IO ()
     , decodeFile                -- :: Binary a => FilePath -> IO a
     , decodeFileOrFail
+    , decodeGetFileOrFail
 
     , module Data.Word -- useful
 
@@ -215,9 +216,15 @@ decodeFile f = do
 -- in 'Right'. In case of decoder errors, the error message together with
 -- the byte offset will be returned.
 decodeFileOrFail :: Binary a => FilePath -> IO (Either (ByteOffset, String) a)
-decodeFileOrFail f =
+decodeFileOrFail f = decodeGetFileOrFail get f
+
+-- | Decode a value from a file using a 'Get' monad. In case of success, the
+-- value will be returned in 'Right'. In case of decoder errors, the error
+-- message together with the byte offset will be returned.
+decodeGetFileOrFail :: Get a -> FilePath -> IO (Either (ByteOffset, String) a)
+decodeGetFileOrFail g f =
   withBinaryFile f ReadMode $ \h -> do
-    feed (runGetIncremental get) h
+    feed (runGetIncremental g) h
   where -- TODO: put in Data.Binary.Get and name pushFromHandle?
     feed (Done _ _ x) _ = return (Right x)
     feed (Fail _ pos str) _ = return (Left (pos, str))
