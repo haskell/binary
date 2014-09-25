@@ -72,13 +72,11 @@ instance ( GSum     a, GSum     b
          | otherwise = sizeError "encode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
-    {-# INLINE gput #-}
 
     gget | GETSUM(Word8) | GETSUM(Word16) | GETSUM(Word32) | GETSUM(Word64)
          | otherwise = sizeError "decode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
-    {-# INLINE gget #-}
 
 sizeError :: Show size => String -> size -> error
 sizeError s size =
@@ -102,7 +100,6 @@ instance (GSum a, GSum b, GBinary a, GBinary b) => GSum (a :+: b) where
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
-    {-# INLINE getSum #-}
 
     putSum !code !size s = case s of
                              L1 x -> putSum code           sizeL x
@@ -110,14 +107,11 @@ instance (GSum a, GSum b, GBinary a, GBinary b) => GSum (a :+: b) where
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
-    {-# INLINE putSum #-}
 
 instance GBinary a => GSum (C1 c a) where
     getSum _ _ = gget
-    {-# INLINE getSum #-}
 
     putSum !code _ x = put code *> gput x
-    {-# INLINE putSum #-}
 
 ------------------------------------------------------------------------
 
