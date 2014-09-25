@@ -1,10 +1,15 @@
 binary
 ======
 
+binary-0.7.2.2
+--------------
+
+- Make import of GHC.Base future-proof (https://github.com/kolmodin/binary/pull/59).
+
 binary-0.7.2.1
 --------------
 
-- Fix to compile on GHC 6.10.4 and older, see issue #55.
+- Fix to compile on GHC 6.10.4 and older (https://github.com/kolmodin/binary/issues/55).
 
 binary-0.7.2.0
 --------------
