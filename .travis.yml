@@ -19,7 +19,7 @@ install:
  - cabal-1.20 install criterion deepseq mtl "QuickCheck >= 2.7.3" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
 
 script:
- - cabal-1.20 configure --enable-tests --enable-benchmarks -v2
+ - cabal-1.20 configure --enable-tests --enable-benchmarks -v2 --ghc-options=-fno-spec-constr
  - cabal-1.20 build
  - cabal-1.20 test
 # "cabal check" disabled due to -O2 warning
