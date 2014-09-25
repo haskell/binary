@@ -116,7 +116,7 @@ benchmark get
     base >= 3.0 && < 5,
     bytestring,
     cereal,
-    criterion,
+    criterion == 1.*,
     deepseq,
     mtl
   -- build dependencies from using binary source rather than depending on the library
@@ -130,7 +130,7 @@ benchmark builder
   build-depends:
     base >= 3.0 && < 5,
     bytestring,
-    criterion,
+    criterion == 1.*,
     deepseq,
     mtl
   -- build dependencies from using binary source rather than depending on the library

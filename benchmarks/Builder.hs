@@ -9,7 +9,6 @@ module Main (main) where
 import Control.DeepSeq
 import Control.Exception (evaluate)
 import Control.Monad.Trans (liftIO)
-import Criterion.Config
 import Criterion.Main hiding (run)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
