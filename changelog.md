@@ -1,6 +1,15 @@
 binary
 ======
 
+binary-0.7.2.3
+--------------
+
+- Remove INLINEs from GBinary/GSum methods. These interact very badly with the
+  GHC 7.9.x simplifier. See also;
+     - https://github.com/kolmodin/binary/pull/62
+     - https://ghc.haskell.org/trac/ghc/ticket/9630
+     - https://ghc.haskell.org/trac/ghc/ticket/9583
+
 binary-0.7.2.2
 --------------
 
