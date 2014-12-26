@@ -2,35 +2,36 @@
 # See https://github.com/hvr/multi-ghc-travis for more information
 
 env:
- - GHCVER=7.4.2
- - GHCVER=7.6.3
- - GHCVER=7.8.3
+ - CABALVER=1.16 GHCVER=7.4.2
+ - CABALVER=1.18 GHCVER=7.6.3
+ - CABALVER=1.18 GHCVER=7.8.3
+ - CABALVER=1.22 GHCVER=7.10.1
 
 before_install:
  - sudo add-apt-repository -y ppa:hvr/ghc
  - sudo apt-get update
- - sudo apt-get install cabal-install-1.20 ghc-$GHCVER
- - export PATH=/opt/ghc/$GHCVER/bin:$PATH
+ - sudo apt-get install cabal-install-$CABALVER ghc-$GHCVER
+ - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH
 
 install:
- - cabal-1.20 update
- - cabal-1.20 sandbox init
+ - cabal update
+ - cabal sandbox init
 # can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
- - cabal-1.20 install criterion deepseq mtl "QuickCheck >= 2.7.3" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
+ - cabal install criterion deepseq mtl "QuickCheck >= 2.7.3" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
 
 script:
- - cabal-1.20 configure --enable-tests --enable-benchmarks -v2 --ghc-options=-fno-spec-constr
- - cabal-1.20 build
- - cabal-1.20 test
+ - cabal configure --enable-tests --enable-benchmarks -v2 --ghc-options=-fno-spec-constr
+ - cabal build
+ - cabal test
 # "cabal check" disabled due to -O2 warning
-# - cabal-1.20 check
- - cabal-1.20 sdist
+# - cabal check
+ - cabal sdist
 # check that the generated source-distribution can be built & installed
- - export SRC_TGZ=$(cabal-1.20 info . | awk '{print $2 ".tar.gz";exit}') ;
+ - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
-   cabal-1.20 sandbox init;
+   cabal sandbox init;
    if [ -f "$SRC_TGZ" ]; then
-      cabal-1.20 install "$SRC_TGZ";
+      cabal install --force-reinstalls "$SRC_TGZ";
    else
       echo "expected '$SRC_TGZ' not found";
       exit 1;
