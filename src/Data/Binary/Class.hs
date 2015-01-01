@@ -5,6 +5,11 @@
 #ifdef GENERICS
 {-# LANGUAGE DefaultSignatures #-}
 #endif
+
+#if MIN_VERSION_base(4,8,0)
+#define HAS_NATURAL
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Class
@@ -61,6 +66,9 @@ import Data.Array.Unboxed
 import GHC.Generics
 #endif
 
+#ifdef HAS_NATURAL
+import Numeric.Natural
+#endif
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -225,16 +233,41 @@ instance Binary Integer where
 --
 -- Fold and unfold an Integer to and from a list of its bytes
 --
-unroll :: Integer -> [Word8]
+unroll :: (Integral a, Num a, Bits a) => a -> [Word8]
 unroll = unfoldr step
   where
     step 0 = Nothing
     step i = Just (fromIntegral i, i `shiftR` 8)
 
-roll :: [Word8] -> Integer
+roll :: (Integral a, Num a, Bits a) => [Word8] -> a
 roll   = foldr unstep 0
   where
     unstep b a = a `shiftL` 8 .|. fromIntegral b
+
+#ifdef HAS_NATURAL
+-- Fixed-size type for a subset of Natural
+type NaturalWord = Word64
+
+instance Binary Natural where
+    {-# INLINE put #-}
+    put n | n <= hi = do
+        putWord8 0
+        put (fromIntegral n :: NaturalWord)  -- fast path
+     where
+        hi = fromIntegral (maxBound :: NaturalWord) :: Natural
+
+    put n = do
+        putWord8 1
+        put (unroll (abs n))         -- unroll the bytes
+
+    {-# INLINE get #-}
+    get = do
+        tag <- get :: Get Word8
+        case tag of
+            0 -> liftM fromIntegral (get :: Get NaturalWord)
+            _ -> do bytes <- get
+                    return $! roll bytes
+#endif
 
 {-
 

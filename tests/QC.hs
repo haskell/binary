@@ -1,5 +1,9 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP, ScopedTypeVariables #-}
 module Main ( main ) where
+
+#if MIN_VERSION_base(4,8,0)
+#define HAS_NATURAL
+#endif
 
 import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
@@ -17,7 +21,7 @@ import           Test.Framework.Providers.QuickCheck2
 import           Test.QuickCheck
 
 import qualified Action                               (tests)
-import           Arbitrary                            ()
+import           Arbitrary                            (arbitrarySizedNatural)
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -349,6 +353,15 @@ main = defaultMain tests
 
 ------------------------------------------------------------------------
 
+#ifdef HAS_NATURAL
+-- | Until the QuickCheck library implements instance Arbitrary Natural,
+-- we need this test.
+prop_test_Natural :: Property
+prop_test_Natural = forAll arbitrarySizedNatural test
+#endif
+
+------------------------------------------------------------------------
+
 type T a = a -> Property
 type B a = a -> Bool
 
@@ -426,6 +439,9 @@ tests =
             , ("Word",       p (test :: T Word                   ))
             , ("Int",        p (test :: T Int                    ))
             , ("Integer",    p (test :: T Integer                ))
+#ifdef HAS_NATURAL
+            , ("Natural",      (prop_test_Natural :: Property    ))
+#endif
 
             , ("Float",      p (test :: T Float                  ))
             , ("Double",     p (test :: T Double                 ))
