@@ -21,7 +21,11 @@ import           Test.Framework.Providers.QuickCheck2
 import           Test.QuickCheck
 
 import qualified Action                               (tests)
-import           Arbitrary
+import           Arbitrary                            (
+#ifdef HAS_NATURAL
+                                                       arbitrarySizedNatural
+#endif
+                                                      )
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
