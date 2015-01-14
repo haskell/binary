@@ -21,12 +21,6 @@ import Data.Word (Word8)
 
 import Data.Binary.Builder
 
-#if !MIN_VERSION_bytestring(0,10,0)
-instance NFData S.ByteString
-instance NFData L.ByteString where
-  rnf = rnf . L.toChunks
-#endif
-
 main :: IO ()
 main = do
   evaluate $ rnf
