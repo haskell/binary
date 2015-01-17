@@ -173,7 +173,7 @@ instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
     get     = liftM fromIntegral (get :: Get Word32)
 
--- Int64s are written as a 4 bytes in big endian format
+-- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
     get     = liftM fromIntegral (get :: Get Word64)
