@@ -1,6 +1,12 @@
 binary
 ======
 
+
+binary-0.7.3.0
+--------------
+
+- Add Binary instance for Natural (only with base > 4.8).
+
 binary-0.7.2.3
 --------------
 
