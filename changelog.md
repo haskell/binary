@@ -2,6 +2,13 @@ binary
 ======
 
 
+binary-0.7.4.0
+--------------
+
+- Some invalid UTF-8 strings caused an exception when decoded. Those errors will
+  now now fail in the Get monad instead. See #70.
+  Patch contributed by @ttuegel.
+
 binary-0.7.3.0
 --------------
 
