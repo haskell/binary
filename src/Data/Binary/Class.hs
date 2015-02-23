@@ -47,7 +47,7 @@ import Foreign
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Char    (chr,ord)
+import Data.Char    (ord)
 import Data.List    (unfoldr)
 
 -- And needed for the instances:
@@ -382,7 +382,11 @@ instance Binary Char where
                                 z <- liftM (xor 0x80) getByte
                                 return (z .|. shiftL6 (y .|. shiftL6
                                         (x .|. shiftL6 (xor 0xf0 w))))
-        return $! chr r
+        getChr r
+      where
+        getChr w
+          | w <= 0x10ffff = return $! toEnum $ fromEnum w
+          | otherwise = fail "Not a valid Unicode code point!"
 
 ------------------------------------------------------------------------
 -- Instances for the first few tuples
