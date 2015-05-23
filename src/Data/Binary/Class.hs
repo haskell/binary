@@ -77,6 +77,10 @@ import qualified Data.Sequence as Seq
 import qualified Data.Foldable as Fold
 #endif
 
+#if __GLASGOW_HASKELL__ >= 704
+import GHC.Fingerprint
+#endif
+
 ------------------------------------------------------------------------
 
 #ifdef GENERICS
@@ -577,3 +581,17 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
         n  <- get
         xs <- getMany n
         return (listArray bs xs)
+
+------------------------------------------------------------------------
+-- Fingerprints
+
+#if __GLASGOW_HASKELL__ >= 704
+instance Binary Fingerprint where
+    put (Fingerprint x1 x2) = do
+        put x1
+        put x2
+    get = do
+        x1 <- get
+        x2 <- get
+        return (Fingerprint x1 x2)
+#endif
