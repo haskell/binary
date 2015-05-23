@@ -16,16 +16,16 @@ import           Data.Int
 import           Data.Ratio
 import           System.IO.Unsafe
 
+#ifdef HAS_NATURAL
+import           Numeric.Natural
+#endif
+
 import           Test.Framework
 import           Test.Framework.Providers.QuickCheck2
 import           Test.QuickCheck
 
 import qualified Action                               (tests)
-import           Arbitrary                            (
-#ifdef HAS_NATURAL
-                                                       arbitrarySizedNatural
-#endif
-                                                      )
+import           Arbitrary                            ()
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -361,7 +361,7 @@ main = defaultMain tests
 -- | Until the QuickCheck library implements instance Arbitrary Natural,
 -- we need this test.
 prop_test_Natural :: Property
-prop_test_Natural = forAll arbitrarySizedNatural test
+prop_test_Natural = forAll (arbitrarySizedNatural :: Gen Natural) test
 #endif
 
 ------------------------------------------------------------------------
