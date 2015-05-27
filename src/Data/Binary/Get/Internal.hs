@@ -381,16 +381,20 @@ readN !n f = ensureN n >> unsafeReadN n f
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN !n0 = C $ \inp ks -> do
-  if B.length inp >= n0
-    then ks inp ()
-    else runCont (go n0) inp ks
-  where -- might look a bit funny, but plays very well with GHC's inliner.
-        -- GHC won't inline recursive functions, so we make ensureN non-recursive
-    go n = C $ \inp ks -> do
-      if B.length inp >= n
-        then ks inp ()
-        else runCont (demandInput >> go n) inp ks
+ensureN !n0 = go n0 []
+  where
+    go !remaining0 bss0 = C $ \inp ks ->
+      let remaining = remaining0 - B.length inp
+          bss = inp : bss0
+      in if remaining <= 0
+        then ks (B.concat $ reverse bss) ()
+        else
+          Partial $ \mbBs -> case mbBs of
+            Just bs -> runCont (go remaining bss) bs ks
+            -- We keep the error message referencing @demandInput@,
+            -- for legacy reasons -- people have been seeing this for
+            -- years.
+            Nothing -> Fail (B.concat $ reverse bss) "demandInput: not enough bytes"
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
