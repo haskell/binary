@@ -381,7 +381,11 @@ readN !n f = ensureN n >> unsafeReadN n f
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN !n0 = go n0 []
+ensureN !n0 = C $ \inp ks -> do
+  let inpLen = B.length inp
+  if inpLen >= n0
+    then ks inp ()
+    else runCont (go n0 []) inp ks
   where
     go !remaining0 bss0 = C $ \inp ks ->
       let remaining = remaining0 - B.length inp
