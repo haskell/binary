@@ -168,14 +168,17 @@ noMeansNo r0 = go r0
       Done _ _ -> r
 
 prompt :: B.ByteString -> Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
-prompt inp kf ks =
-    let loop =
-         Partial $ \sm ->
-           case sm of
-             Just s | B.null s -> loop
-                    | otherwise -> ks (inp `B.append` s)
-             Nothing -> kf
-    in loop
+prompt inp kf ks = prompt' kf (\inp' -> ks (inp `B.append` inp'))
+
+prompt' :: Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
+prompt' kf ks =
+  let loop =
+        Partial $ \sm ->
+          case sm of
+            Just s | B.null s -> loop
+                   | otherwise -> ks s
+            Nothing -> kf
+  in loop
 
 -- | Get the total number of bytes read to this point.
 bytesRead :: Get Int64
@@ -382,23 +385,23 @@ readN !n f = ensureN n >> unsafeReadN n f
 -- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
 ensureN !n0 = C $ \inp ks -> do
-  let inpLen = B.length inp
-  if inpLen >= n0
+  if B.length inp >= n0
     then ks inp ()
     else runCont (go n0 []) inp ks
-  where
-    go !remaining0 bss0 = C $ \inp ks ->
-      let remaining = remaining0 - B.length inp
+  where -- might look a bit funny, but plays very well with GHC's inliner.
+        -- GHC won't inline recursive functions, so we make ensureN non-recursive
+    go !n bss0 = C $ \inp ks ->
+      let n' = n - B.length inp
           bss = inp : bss0
-      in if remaining <= 0
+      in if n' <= 0
         then ks (B.concat $ reverse bss) ()
         else
-          Partial $ \mbBs -> case mbBs of
-            Just bs -> runCont (go remaining bss) bs ks
+          prompt'
             -- We keep the error message referencing @demandInput@,
             -- for legacy reasons -- people have been seeing this for
             -- years.
-            Nothing -> Fail (B.concat $ reverse bss) "demandInput: not enough bytes"
+            (Fail (B.concat $ reverse bss) "demandInput: not enough bytes")
+            (\inp' -> runCont (go n' bss) inp' ks)
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
