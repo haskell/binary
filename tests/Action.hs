@@ -23,6 +23,8 @@ tests = [ testProperty "action" prop_action
 data Action
   = Actions [Action]
   | GetByteString Int
+  | GetByteStringL Int
+  | Skip Int
   | Isolate Int [Action]
   | Try [Action] [Action]
   | Label String [Action]
@@ -43,6 +45,8 @@ instance Arbitrary Action where
       BytesRead -> []
       Fail -> []
       GetByteString n -> [ GetByteString n' | n' <- shrink n ]
+      GetByteStringL n -> [ GetByteStringL n' | n' <- shrink n ]
+      Skip n -> [ Skip n' | n' <- shrink n ]
       Isolate n as -> nub $ Actions as :
         [ Isolate n' as' | (n',as') <- shrink (n,as)
                          , n' >= 0
@@ -76,6 +80,8 @@ max_len (x:xs) =
     BytesRead -> max_len xs
     Fail -> 0
     GetByteString n -> n + max_len xs
+    GetByteStringL n -> n + max_len xs
+    Skip n -> n + max_len xs
     Isolate n xs'
       | Just _ <- actual_len' [Isolate n xs'] -> n + max_len xs
       | otherwise -> n
@@ -212,7 +218,7 @@ eval inp0 = go inp0 []
     step :: Int -> Int -> [String] -> [Action] -> Eval
     step inp n lbls xs
       | inp - n < 0 =
-          let msg = "demandInput: not enough bytes"
+          let msg = "not enough bytes"
           in EFail FRTooMuch (msg:lbls) inp
       | otherwise = go (inp-n) lbls xs
     go :: Int -> [String] -> [Action] -> Eval
@@ -223,6 +229,8 @@ eval inp0 = go inp0 []
         BytesRead -> go inp lbls xs
         Fail -> EFail FRFail ("fail":lbls) inp
         GetByteString n -> step inp n lbls xs
+        GetByteStringL n -> step inp n lbls xs
+        Skip n -> step inp n lbls xs
         Isolate n xs'
           | n > inp ->
               case go inp lbls xs' of
@@ -281,6 +289,18 @@ execute inp acts0 = go 0 acts0 >> return ()
           "execute(getByteString): actual /= expected at pos " ++ show pos ++
           ", got: " ++ show actual ++ ", expected: " ++ show expected
         go (pos+n) xs
+      GetByteStringL n -> do
+        -- Run the operation in the Get monad...
+        actual <- L.toStrict <$> Binary.getLazyByteString (fromIntegral n)
+        let expected = B.take n . B.drop pos $ inp
+        -- ... and compare that we got what we expected.
+        when (actual /= expected) $ error $
+          "execute(getLazyByteString): actual /= expected at pos " ++ show pos ++
+          ", got: " ++ show actual ++ ", expected: " ++ show expected
+        go (pos+n) xs
+      Skip n -> do
+        Binary.skip n
+        go (pos+n) xs
       BytesRead -> do
         pos' <- Binary.bytesRead
         if pos == fromIntegral pos'
@@ -332,6 +352,10 @@ gen_actions genFail = do
   go     _ 0 = return []
   go inTry s = oneof $ [ do n <- choose (0,10)
                             (:) (GetByteString n) <$> go inTry (s-1)
+                       , do n <- choose (0,10)
+                            (:) (GetByteStringL n) <$> go inTry (s-1)
+                       , do n <- choose (0,10)
+                            (:) (Skip n) <$> go inTry (s-1)
                        , do (:) BytesRead <$> go inTry (s-1)
                        , do t1 <- go True (s `div` 2)
                             t2 <- go inTry (s `div` 2)

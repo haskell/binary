@@ -16,13 +16,16 @@ module Data.Binary.Get.Internal (
     , readNWith
 
     -- * Parsing
-    , skip
     , bytesRead
     , isolate
+
+    -- * With input chunks
+    , withInputChunks
+    , Consume
+    , failOnEOF
     
     , get
     , put
-    , demandInput
     , ensureN
 
     -- * Utility
@@ -219,15 +222,23 @@ isolate n0 act
   go n (BytesRead r resume) =
     go n (resume $! fromIntegral n0 - fromIntegral n - r)
 
--- | Demand more input. If none available, fail.
-demandInput :: Get ()
-demandInput = C $ \inp ks ->
-  prompt inp (Fail inp "demandInput: not enough bytes") (\inp' -> ks inp' ())
+type Consume s = s -> B.ByteString -> Either s (B.ByteString, B.ByteString)
 
--- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
-skip :: Int -> Get ()
-skip n = readN n (const ())
-{-# INLINE skip #-}
+withInputChunks :: s -> Consume s -> ([B.ByteString] -> b) -> ([B.ByteString] -> Get b) -> Get b
+withInputChunks initS consume onSucc onFail = go initS []
+  where
+  go state acc = C $ \inp ks ->
+    case consume state inp of
+      Left state' -> do
+        let acc' = inp : acc
+        prompt'
+          (runCont (onFail (reverse acc')) mempty ks)
+          (\str' -> runCont (go state' acc') str' ks)
+      Right (want,rest) -> do
+        ks rest (onSucc (reverse (want:acc)))
+
+failOnEOF :: [B.ByteString] -> Get a
+failOnEOF bs = C $ \_ _ -> Fail (B.concat bs) "not enough bytes"
 
 -- | Test whether all input has been consumed, i.e. there are no remaining
 -- undecoded bytes.
@@ -397,10 +408,7 @@ ensureN !n0 = C $ \inp ks -> do
         then ks (B.concat $ reverse bss) ()
         else
           prompt'
-            -- We keep the error message referencing @demandInput@,
-            -- for legacy reasons -- people have been seeing this for
-            -- years.
-            (Fail (B.concat $ reverse bss) "demandInput: not enough bytes")
+            (Fail (B.concat $ reverse bss) "not enough bytes")
             (\inp' -> runCont (go n' bss) inp' ks)
 {-# INLINE ensureN #-}
 

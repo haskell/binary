@@ -360,59 +360,43 @@ pushEndOfInput r =
     Partial k -> k Nothing
     Fail _ _ _ -> r
 
+-- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
+skip :: Int -> Get ()
+skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
+
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
 -- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n0 = L.fromChunks <$> go n0
-  where
-  consume n str
-    | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
-    | otherwise = Left (fromIntegral (B.length str))
-  go n = do
-    str <- get
-    case consume n str of
-      Left used -> do
-        put B.empty
-        demandInput
-        fmap (str:) (go (n - used))
-      Right (want,rest) -> do
-        put rest
-        return [want]
+getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
+
+consumeBytes :: Consume Int64
+consumeBytes n str
+  | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
+  | otherwise = Left (n - fromIntegral (B.length str))
+
+consumeUntilNul :: Consume ()
+consumeUntilNul _ str =
+  case B.break (==0) str of
+    (want, rest) | B.null rest -> Left ()
+                 | otherwise -> Right (want, B.drop 1 rest)
+
+consumeAll :: Consume ()
+consumeAll _ _ = Left ()
+
+resumeOnEOF :: [B.ByteString] -> Get L.ByteString
+resumeOnEOF = return . L.fromChunks
 
 -- | Get a lazy ByteString that is terminated with a NUL byte.
 -- The returned string does not contain the NUL byte. Fails
 -- if it reaches the end of input without finding a NUL.
 getLazyByteStringNul :: Get L.ByteString
-getLazyByteStringNul = L.fromChunks <$> go
-  where
-  findNull str =
-    case B.break (==0) str of
-      (want,rest) | B.null rest -> Nothing
-                  | otherwise -> Just (want, B.drop 1 rest)
-  go = do
-    str <- get
-    case findNull str of
-      Nothing -> do
-        put B.empty
-        demandInput
-        fmap (str:) go
-      Just (want,rest) -> do
-        put rest
-        return [want]
+getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
 
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
 -- all input and keeping the string in-memory.
 getRemainingLazyByteString :: Get L.ByteString
-getRemainingLazyByteString = L.fromChunks <$> go
-  where
-  go = do
-    str <- get
-    put B.empty
-    done <- isEmpty
-    if done
-      then return [str]
-      else fmap (str:) go
+getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
 ------------------------------------------------------------------------
 -- Primtives
