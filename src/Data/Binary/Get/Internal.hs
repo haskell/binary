@@ -398,18 +398,14 @@ ensureN :: Int -> Get ()
 ensureN !n0 = C $ \inp ks -> do
   if B.length inp >= n0
     then ks inp ()
-    else runCont (go n0 []) inp ks
+    else runCont (withInputChunks n0 enoughChunks onSucc onFail >>= put) inp ks
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
-    go !n bss0 = C $ \inp ks ->
-      let n' = n - B.length inp
-          bss = inp : bss0
-      in if n' <= 0
-        then ks (B.concat $ reverse bss) ()
-        else
-          prompt'
-            (Fail (B.concat $ reverse bss) "not enough bytes")
-            (\inp' -> runCont (go n' bss) inp' ks)
+    enoughChunks n str
+      | B.length str >= n = Right (str,B.empty)
+      | otherwise = Left (n - B.length str)
+    onSucc = B.concat
+    onFail bss = C $ \_ _ -> Fail (B.concat bss) "not enough bytes"
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
