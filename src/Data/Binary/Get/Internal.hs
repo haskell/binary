@@ -232,7 +232,7 @@ withInputChunks initS consume onSucc onFail = go initS []
       Left state' -> do
         let acc' = inp : acc
         prompt'
-          (runCont (onFail (reverse acc')) mempty ks)
+          (runCont (onFail (reverse acc')) B.empty ks)
           (\str' -> runCont (go state' acc') str' ks)
       Right (want,rest) -> do
         ks rest (onSucc (reverse (want:acc)))
