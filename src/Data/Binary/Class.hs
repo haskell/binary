@@ -537,11 +537,17 @@ instance (Binary e) => Binary (Seq.Seq e) where
 
 instance Binary Double where
     put d = put (decodeFloat d)
-    get   = liftM2 encodeFloat get get
+    get   = do
+        x <- get
+        y <- get
+        return $! encodeFloat x y
 
 instance Binary Float where
     put f = put (decodeFloat f)
-    get   = liftM2 encodeFloat get get
+    get   =  do
+        x <- get
+        y <- get
+        return $! encodeFloat x y
 
 ------------------------------------------------------------------------
 -- Trees
