@@ -1,6 +1,16 @@
 binary
 ======
 
+binary-0.7.5.0
+--------------
+
+- Fix performance bug that was noticable when you get a big strict ByteString
+  and the input to the decoder consists of many small chunks.
+    - https://github.com/kolmodin/binary/issues/73
+    - https://github.com/kolmodin/binary/pull/76
+- Fix memory leak when decoding Double and Float.
+    - Commit 497a181c083fa9faf7fa3aa64d1d8deb9ac76ecb
+- We now require QuickCheck >= 2.8. Remove our version of arbitrarySizedNatural.
 
 binary-0.7.4.0
 --------------
