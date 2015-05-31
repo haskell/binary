@@ -17,7 +17,7 @@ install:
  - cabal update
  - cabal sandbox init
 # can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
- - cabal install criterion deepseq mtl "QuickCheck >= 2.7.3" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
+ - cabal install criterion deepseq mtl "QuickCheck >= 2.8" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal -j
 
 script:
  - cabal configure --enable-tests --enable-benchmarks -v2 --ghc-options=-fno-spec-constr
