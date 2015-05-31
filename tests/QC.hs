@@ -358,10 +358,20 @@ main = defaultMain tests
 ------------------------------------------------------------------------
 
 #ifdef HAS_NATURAL
--- | Until the QuickCheck library implements instance Arbitrary Natural,
--- we need this test.
 prop_test_Natural :: Property
-prop_test_Natural = forAll (arbitrarySizedNatural :: Gen Natural) test
+prop_test_Natural = forAll (gen :: Gen Natural) test
+  where
+    gen :: Gen Natural
+    gen = do
+      b <- arbitrary
+      if b
+        then do
+          x <- arbitrarySizedNatural :: Gen Natural
+          -- arbitrarySizedNatural generates numbers smaller than
+          -- (maxBound :: Word64), so let's make them bigger to better test
+          -- the Binary instance.
+          return (x + fromIntegral (maxBound :: Word64))
+        else arbitrarySizedNatural
 #endif
 
 ------------------------------------------------------------------------
