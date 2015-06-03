@@ -599,5 +599,5 @@ instance Binary Fingerprint where
     get = do
         x1 <- get
         x2 <- get
-        return (Fingerprint x1 x2)
+        return $! Fingerprint x1 x2
 #endif
