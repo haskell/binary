@@ -10,6 +10,10 @@
 #define HAS_NATURAL
 #endif
 
+#if __GLASGOW_HASKELL__ >= 704
+#define HAS_GHC_FINGERPRINT
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Class
@@ -77,7 +81,7 @@ import qualified Data.Sequence as Seq
 import qualified Data.Foldable as Fold
 #endif
 
-#if __GLASGOW_HASKELL__ >= 704
+#ifdef HAS_GHC_FINGERPRINT
 import GHC.Fingerprint
 #endif
 
@@ -591,7 +595,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 ------------------------------------------------------------------------
 -- Fingerprints
 
-#if __GLASGOW_HASKELL__ >= 704
+#ifdef HAS_GHC_FINGERPRINT
 instance Binary Fingerprint where
     put (Fingerprint x1 x2) = do
         put x1

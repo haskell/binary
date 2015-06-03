@@ -5,10 +5,14 @@ module Main ( main ) where
 #define HAS_NATURAL
 #endif
 
+#if __GLASGOW_HASKELL__ >= 704
+#define HAS_GHC_FINGERPRINT
+#endif
+
 import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
                                                             catch, evaluate)
-import           Control.Monad                        (unless)
+import           Control.Monad                        (unless, liftM2)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as L
 import qualified Data.ByteString.Lazy.Internal        as L
@@ -18,6 +22,10 @@ import           System.IO.Unsafe
 
 #ifdef HAS_NATURAL
 import           Numeric.Natural
+#endif
+
+#ifdef HAS_GHC_FINGERPRINT
+import           GHC.Fingerprint
 #endif
 
 import           Test.Framework
@@ -376,6 +384,16 @@ prop_test_Natural = forAll (gen :: Gen Natural) test
 
 ------------------------------------------------------------------------
 
+#ifdef HAS_GHC_FINGERPRINT
+prop_test_GHC_Fingerprint :: Property
+prop_test_GHC_Fingerprint = forAll gen test
+  where
+    gen :: Gen Fingerprint
+    gen = liftM2 Fingerprint arbitrary arbitrary
+#endif
+
+------------------------------------------------------------------------
+
 type T a = a -> Property
 type B a = a -> Bool
 
@@ -454,7 +472,10 @@ tests =
             , ("Int",        p (test :: T Int                    ))
             , ("Integer",    p (test :: T Integer                ))
 #ifdef HAS_NATURAL
-            , ("Natural",      (prop_test_Natural :: Property    ))
+            , ("Natural",         prop_test_Natural               )
+#endif
+#ifdef HAS_GHC_FINGERPRINT
+            , ("GHC.Fingerprint", prop_test_GHC_Fingerprint       )
 #endif
 
             , ("Float",      p (test :: T Float                  ))
