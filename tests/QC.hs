@@ -390,6 +390,10 @@ prop_test_GHC_Fingerprint = forAll gen test
   where
     gen :: Gen Fingerprint
     gen = liftM2 Fingerprint arbitrary arbitrary
+#if !MIN_VERSION_base(4,7,0)
+instance Show Fingerprint where
+  show (Fingerprint x1 x2) = show (x1,x2)
+#endif
 #endif
 
 ------------------------------------------------------------------------
