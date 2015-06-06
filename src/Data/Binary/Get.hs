@@ -203,8 +203,6 @@ import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
 
-import Control.Applicative
-
 import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
 

@@ -26,6 +26,7 @@ import Data.Binary.Put
 import Data.Bits
 import Data.Word
 import GHC.Generics
+import Prelude -- Silence AMP warning.
 
 -- Type without constructors
 instance GBinary V1 where
