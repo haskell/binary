@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns, CPP, FlexibleInstances, KindSignatures,
-    ScopedTypeVariables, Trustworthy, TypeOperators, TypeSynonymInstances #-}
+    ScopedTypeVariables, Safe, TypeOperators, TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
