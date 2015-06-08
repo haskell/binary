@@ -87,6 +87,7 @@ import GHC.Word (Word32(..),Word16(..),Word64(..))
 import GHC.Word (uncheckedShiftRL64#)
 # endif
 #endif
+import Prelude -- Silence AMP warning.
 
 ------------------------------------------------------------------------
 

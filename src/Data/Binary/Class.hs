@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
 #if __GLASGOW_HASKELL__ >= 701
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE Safe #-}
 #endif
 #ifdef GENERICS
 {-# LANGUAGE DefaultSignatures #-}
@@ -41,12 +41,13 @@ module Data.Binary.Class (
     ) where
 
 import Data.Word
+import Data.Bits
+import Data.Int
 
 import Data.Binary.Put
 import Data.Binary.Get
 
 import Control.Monad
-import Foreign
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
