@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.7.6.0
+--------------
+
+- Added binary instance for GHC.Fingerprint (from GHC >= 7.4).
+
 binary-0.7.5.0
 --------------
 
