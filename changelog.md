@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.7.6.1
+--------------
+
+- Fix compilation for GHC == 7.2.*.
+
 binary-0.7.6.0
 --------------
 
