@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
-#if __GLASGOW_HASKELL__ >= 701
+#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
 {-# LANGUAGE Safe #-}
 #endif
 #ifdef GENERICS
