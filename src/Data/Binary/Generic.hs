@@ -1,5 +1,8 @@
 {-# LANGUAGE BangPatterns, CPP, FlexibleInstances, KindSignatures,
-    ScopedTypeVariables, Safe, TypeOperators, TypeSynonymInstances #-}
+    ScopedTypeVariables, TypeOperators, TypeSynonymInstances #-}
+#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
+{-# LANGUAGE Safe #-}
+#endif
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
