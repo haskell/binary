@@ -191,6 +191,7 @@ flush = Builder $ \ k buf@(Buffer p o u l) ->
       else let !b  = Buffer p (o+u) 0 l
                !bs = S.PS p o u
            in return $! L.Chunk bs (inlinePerformIO (k b))
+{-# INLINE [0] flush #-}
 
 ------------------------------------------------------------------------
 
