@@ -409,7 +409,7 @@ getPtr n = readNWith n peek
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
 getWord8 = readN 1 B.unsafeHead
-{-# INLINE getWord8 #-}
+{-# INLINE[2] getWord8 #-}
 
 -- force GHC to inline getWordXX
 {-# RULES
@@ -429,7 +429,7 @@ word16be :: B.ByteString -> Word16
 word16be = \s ->
         (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
-{-# INLINE getWord16be #-}
+{-# INLINE[2] getWord16be #-}
 {-# INLINE word16be #-}
 
 -- | Read a Word16 in little endian format
@@ -440,7 +440,7 @@ word16le :: B.ByteString -> Word16
 word16le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord16le #-}
+{-# INLINE[2] getWord16le #-}
 {-# INLINE word16le #-}
 
 -- | Read a Word32 in big endian format
@@ -453,7 +453,7 @@ word32be = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
-{-# INLINE getWord32be #-}
+{-# INLINE[2] getWord32be #-}
 {-# INLINE word32be #-}
 
 -- | Read a Word32 in little endian format
@@ -466,7 +466,7 @@ word32le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord32le #-}
+{-# INLINE[2] getWord32le #-}
 {-# INLINE word32le #-}
 
 -- | Read a Word64 in big endian format
@@ -483,7 +483,7 @@ word64be = \s ->
               (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
-{-# INLINE getWord64be #-}
+{-# INLINE[2] getWord64be #-}
 {-# INLINE word64be #-}
 
 -- | Read a Word64 in little endian format
@@ -500,7 +500,7 @@ word64le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord64le #-}
+{-# INLINE[2] getWord64le #-}
 {-# INLINE word64le #-}
 
 ------------------------------------------------------------------------
