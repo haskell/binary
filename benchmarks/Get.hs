@@ -8,21 +8,17 @@ module Main where
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.Monad.Trans (liftIO)
 import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
 import Data.Char (ord)
-import Data.Monoid (Monoid(mappend, mempty))
-import Data.Word (Word8, Word16, Word32)
+import Data.Word (Word8)
 
 import Control.Applicative
 import Data.Binary.Get
-import Data.Binary ( get )
 
 import qualified Data.Serialize.Get as Cereal
-import qualified Data.Serialize as Cereal
 
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString.Lazy as AL
@@ -86,16 +82,24 @@ main = do
         whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
     ]
 
+checkBracket :: Int -> Int
 checkBracket x | x == bracketCount = x
                | otherwise = error "argh!"
 
+runTest :: Get a -> L.ByteString -> a
 runTest decoder inp = runGet decoder inp
+
+runCereal :: Cereal.Get a -> C8.ByteString -> a
 runCereal decoder inp = case Cereal.runGet decoder inp of
                           Right a -> a
                           Left err -> error err
+
+runAtto :: AL.Parser a -> C8.ByteString -> a
 runAtto decoder inp = case A.parseOnly decoder inp of
                         Right a -> a
                         Left err -> error err
+
+runAttoL :: Show a => AL.Parser a -> L.ByteString -> a
 runAttoL decoder inp = case AL.parse decoder inp of
                         AL.Done _ r -> r
                         a -> error (show a)
@@ -108,15 +112,20 @@ oneMegabyte = S.replicate mega $ fromIntegral $ ord 'a'
 oneMegabyteLBS :: L.ByteString
 oneMegabyteLBS = L.fromChunks [oneMegabyte]
 
+mega :: Int
 mega = 1024 * 1024
 
 -- 100k of brackets
+bracketTest :: L.ByteString -> Int
 bracketTest inp = runTest bracketParser inp
 
 bracketCount :: Int
 bracketCount = fromIntegral $ L.length brackets `div` 2
 
+brackets :: L.ByteString
 brackets = L.fromChunks [C8.concat (L.toChunks bracketsInChunks)]
+
+bracketsInChunks :: L.ByteString
 bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
   where
     oneChunk = "((()((()()))((()(()()()()()()()(((()()()()(()()(()(()())))))()((())())))()())(((())())(()))))()(()))"
@@ -143,9 +152,9 @@ bracketParser_cereal = cont <|> return 0
 bracketParser_atto :: A.Parser Int
 bracketParser_atto = cont <|> return 0
   where
-  cont = do v <- some ( do A.word8 40
+  cont = do v <- some ( do _ <- A.word8 40
                            n <- bracketParser_atto
-                           A.word8 41
+                           _ <- A.word8 41
                            return $! n + 1)
             return $! sum v
 
