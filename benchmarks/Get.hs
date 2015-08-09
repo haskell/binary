@@ -39,47 +39,56 @@ main = do
     rnf oneMegabyteLBS
      ]
   defaultMain
-    [
-      bench "brackets 100kb one chunk input" $
-        whnf (checkBracket . runTest bracketParser) brackets
-    , bench "brackets 100kb in 100 byte chunks" $
-        whnf (checkBracket . runTest bracketParser) bracketsInChunks
-    , bench "Attoparsec lazy-bs brackets 100kb one chunk" $
-        whnf (checkBracket . runAttoL bracketParser_atto) brackets
-    , bench "Attoparsec lazy-bs brackets 100kb in 100 byte chunks" $
-        whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
-    , bench "Attoparsec strict-bs brackets 100kb" $
-        whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
-    , bench "Cereal strict-bs brackets 100kb" $
-        whnf (checkBracket . runCereal bracketParser_cereal) $ S.concat (L.toChunks brackets)
-    , bench "Binary getStruct4 1MB struct of 4 word8" $
-        whnf (runTest (getStruct4 mega)) oneMegabyteLBS
-    , bench "Cereal getStruct4 1MB struct of 4 word8" $
-        whnf (runCereal (getStruct4_cereal mega)) oneMegabyte
-    , bench "Attoparsec getStruct4 1MB struct of 4 word8" $
-        whnf (runAtto (getStruct4_atto mega)) oneMegabyte
-    , bench "Binary getWord8 1MB chunk size 1 byte" $
-        whnf (runTest (getWord8N1 mega)) oneMegabyteLBS
-    , bench "Cereal getWord8 1MB chunk size 1 byte" $
-        whnf (runCereal (getWord8N1_cereal mega)) oneMegabyte
-    , bench "Attoparsec getWord8 1MB chunk size 1 byte" $
-        whnf (runAtto (getWord8N1_atto mega)) oneMegabyte
-    , bench "getWord8 1MB chunk size 2 bytes" $
-        whnf (runTest (getWord8N2 mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 4 bytes" $
-        whnf (runTest (getWord8N4 mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 8 bytes" $
-        whnf (runTest (getWord8N8 mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 16 bytes" $
-        whnf (runTest (getWord8N16 mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 2 bytes Applicative" $
-        whnf (runTest (getWord8N2A mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 4 bytes Applicative" $
-        whnf (runTest (getWord8N4A mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 8 bytes Applicative" $
-        whnf (runTest (getWord8N8A mega)) oneMegabyteLBS
-    , bench "getWord8 1MB chunk size 16 bytes Applicative" $
-        whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
+    [ bgroup "brackets"
+        [ bench "Binary 100kb, one chunk" $
+            whnf (checkBracket . runTest bracketParser) brackets
+        , bench "Binary 100kb, 100 byte chunks" $
+            whnf (checkBracket . runTest bracketParser) bracketsInChunks
+        , bench "Attoparsec lazy-bs 100kb, one chunk" $
+            whnf (checkBracket . runAttoL bracketParser_atto) brackets
+        , bench "Attoparsec lazy-bs 100kb, 100 byte chunks" $
+            whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
+        , bench "Attoparsec strict-bs 100kb" $
+            whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
+        , bench "Cereal strict-bs 100kb" $
+            whnf (checkBracket . runCereal bracketParser_cereal) $ S.concat (L.toChunks brackets)
+        ]
+    , bgroup "comparison getStruct4, 1MB of struct of 4 Word8s"
+      [ bench "Attoparsec" $
+          whnf (runAtto (getStruct4_atto mega)) oneMegabyte
+      , bench "Binary" $
+          whnf (runTest (getStruct4 mega)) oneMegabyteLBS
+      , bench "Cereal" $
+          whnf (runCereal (getStruct4_cereal mega)) oneMegabyte
+      ]
+    , bgroup "comparison getWord8, 1MB"
+        [ bench "Attoparsec" $
+            whnf (runAtto (getWord8N1_atto mega)) oneMegabyte
+        , bench "Binary" $
+            whnf (runTest (getWord8N1 mega)) oneMegabyteLBS
+        , bench "Cereal" $
+            whnf (runCereal (getWord8N1_cereal mega)) oneMegabyte
+        ]
+    , bgroup "getWord8 1MB"
+        [ bench "chunk size 2 bytes" $
+            whnf (runTest (getWord8N2 mega)) oneMegabyteLBS
+        , bench "chunk size 4 bytes" $
+            whnf (runTest (getWord8N4 mega)) oneMegabyteLBS
+        , bench "chunk size 8 bytes" $
+            whnf (runTest (getWord8N8 mega)) oneMegabyteLBS
+        , bench "chunk size 16 bytes" $
+            whnf (runTest (getWord8N16 mega)) oneMegabyteLBS
+        ]
+    , bgroup "getWord8 1MB Applicative"
+        [ bench "chunk size 2 bytes" $
+            whnf (runTest (getWord8N2A mega)) oneMegabyteLBS
+        , bench "chunk size 4 bytes" $
+            whnf (runTest (getWord8N4A mega)) oneMegabyteLBS
+        , bench "chunk size 8 bytes" $
+            whnf (runTest (getWord8N8A mega)) oneMegabyteLBS
+        , bench "chunk size 16 bytes" $
+            whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
+        ]
     ]
 
 checkBracket :: Int -> Int
