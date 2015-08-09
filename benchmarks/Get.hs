@@ -159,12 +159,16 @@ bracketParser_atto = cont <|> return 0
             return $! sum v
 
 -- Strict struct of 4 Word8s
-data Struct4 = Struct4 {-# UNPACK #-} !Word8
-                       {-# UNPACK #-} !Word8
-                       {-# UNPACK #-} !Word8
-                       {-# UNPACK #-} !Word8
-               deriving Show
+data S2 = S2 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+data S4 = S4 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+data S8 = S8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+             {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+data S16 = S16 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+               {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+               {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+               {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
 
+getStruct4 :: Int -> Get [S4]
 getStruct4 = loop []
   where loop acc 0 = return acc
         loop acc n = do
@@ -172,9 +176,10 @@ getStruct4 = loop []
           !w1 <- getWord8
           !w2 <- getWord8
           !w3 <- getWord8
-          let !s = Struct4 w0 w1 w2 w3
+          let !s = S4 w0 w1 w2 w3
           loop (s : acc) (n - 4)
 
+getStruct4_cereal :: Int -> Cereal.Get [S4]
 getStruct4_cereal = loop []
   where loop acc 0 = return acc
         loop acc n = do
@@ -182,9 +187,10 @@ getStruct4_cereal = loop []
           !w1 <- Cereal.getWord8
           !w2 <- Cereal.getWord8
           !w3 <- Cereal.getWord8
-          let !s = Struct4 w0 w1 w2 w3
+          let !s = S4 w0 w1 w2 w3
           loop (s : acc) (n - 4)
 
+getStruct4_atto :: Int -> A.Parser [S4]
 getStruct4_atto = loop []
   where loop acc 0 = return acc
         loop acc n = do
@@ -192,48 +198,53 @@ getStruct4_atto = loop []
           !w1 <- A.anyWord8
           !w2 <- A.anyWord8
           !w3 <- A.anyWord8
-          let !s = Struct4 w0 w1 w2 w3
+          let !s = S4 w0 w1 w2 w3
           loop (s : acc) (n - 4)
 
--- No-allocation loops.
-
-getWord8N1 = loop 0
+getWord8N1 :: Int -> Get [Word8]
+getWord8N1 = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
           s0 <- getWord8
-          loop (s0+s) (n-1)
+          loop (s0:s) (n-1)
 
-getWord8N1_cereal = loop 0
+getWord8N1_cereal :: Int -> Cereal.Get [Word8]
+getWord8N1_cereal = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
           s0 <- Cereal.getWord8
-          loop (s0+s) (n-1)
+          loop (s0:s) (n-1)
 
-getWord8N1_atto = loop 0
+getWord8N1_atto :: Int -> A.Parser [Word8]
+getWord8N1_atto = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
           s0 <- A.anyWord8
-          loop (s0+s) (n-1)
+          loop (s0:s) (n-1)
 
-getWord8N2 = loop 0
+getWord8N2 :: Int -> Get [S2]
+getWord8N2 = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
           s0 <- getWord8
           s1 <- getWord8
-          loop (s0+s1+s) (n-2)
+          let !v = S2 s0 s1
+          loop (v:s) (n-2)
 
-getWord8N2A = loop 0
+getWord8N2A :: Int -> Get [S2]
+getWord8N2A = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
-          v <- (+) <$> getWord8 <*> getWord8
-          loop (s+v) (n-2)
+          !v <- S2 <$> getWord8 <*> getWord8
+          loop (v:s) (n-2)
 
-getWord8N4 = loop 0
+getWord8N4 :: Int -> Get [S4]
+getWord8N4 = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
@@ -241,17 +252,19 @@ getWord8N4 = loop 0
           s1 <- getWord8
           s2 <- getWord8
           s3 <- getWord8
-          loop (s+s0+s1+s2+s3) (n-4)
+          let !v = S4 s0 s1 s2 s3
+          loop (v:s) (n-4)
 
-getWord8N4A = loop 0
+getWord8N4A :: Int -> Get [S4]
+getWord8N4A = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
-          let p !s0 !s1 !s2 !s3 = s0 + s1 + s2 + s3
-          v <- p <$> getWord8 <*> getWord8 <*> getWord8 <*> getWord8
-          loop (s+v) (n-4)
+          !v <- S4 <$> getWord8 <*> getWord8 <*> getWord8 <*> getWord8
+          loop (v:s) (n-4)
 
-getWord8N8 = loop 0
+getWord8N8 :: Int -> Get [S8]
+getWord8N8 = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
@@ -263,15 +276,15 @@ getWord8N8 = loop 0
           s5 <- getWord8
           s6 <- getWord8
           s7 <- getWord8
-          loop (s+s0+s1+s2+s3+s4+s5+s6+s7) (n-8)
+          let !v = S8 s0 s1 s2 s3 s4 s5 s6 s7
+          loop (v:s) (n-8)
 
-getWord8N8A = loop 0
+getWord8N8A :: Int -> Get [S8]
+getWord8N8A = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
-          let p !s0 !s1 !s2 !s3 !s4 !s5 !s6 !s7 =
-                s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7
-          v <- p <$> getWord8
+          !v <- S8 <$> getWord8
                    <*> getWord8
                    <*> getWord8
                    <*> getWord8
@@ -279,9 +292,10 @@ getWord8N8A = loop 0
                    <*> getWord8
                    <*> getWord8
                    <*> getWord8
-          loop (s+v) (n-8)
+          loop (v:s) (n-8)
 
-getWord8N16 = loop 0
+getWord8N16 :: Int -> Get [S16]
+getWord8N16 = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
@@ -301,28 +315,28 @@ getWord8N16 = loop 0
           s13 <- getWord8
           s14 <- getWord8
           s15 <- getWord8
-          loop (s+s0+s1+s2+s3+s4+s5+s6+s7+s8+s9+s10+s11+s12+s13+s14+s15) (n-16)
+          let !v = S16 s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15
+          loop (v:s) (n-16)
 
-getWord8N16A = loop 0
+getWord8N16A :: Int -> Get [S16]
+getWord8N16A = loop []
   where loop s n | s `seq` n `seq` False = undefined
         loop s 0 = return s
         loop s n = do
-          let p !s0 !s1 !s2 !s3 !s4 !s5 !s6 !s7 !s8 !s9 !s10 !s11 !s12 !s13 !s14 !s15 =
-                s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s13 + s14 + s15
-          !v <- p <$> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-                   <*> getWord8
-          loop (s+v) (n-16)
+          !v <- S16 <$> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+                    <*> getWord8
+          loop (v:s) (n-16)
