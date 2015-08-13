@@ -120,7 +120,7 @@ benchmark get
     mtl
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
-  ghc-options: -O2
+  ghc-options: -O2 -Wall
 
 benchmark builder
   type: exitcode-stdio-1.0
