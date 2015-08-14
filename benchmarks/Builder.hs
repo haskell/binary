@@ -12,7 +12,6 @@ import Data.Monoid (Monoid(mappend, mempty))
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.Monad.Trans (liftIO)
 import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
