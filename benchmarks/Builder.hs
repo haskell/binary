@@ -86,7 +86,7 @@ from4Word8s (x:xs) = singleton x <> singleton x <> singleton x <> singleton x <>
 
 -- Write 100 short, length-prefixed ByteStrings.
 lengthPrefixedBS :: S.ByteString -> Builder
-lengthPrefixedBS bs = loop 100
+lengthPrefixedBS bs = loop (100 :: Int)
   where loop n | n `seq` False = undefined
         loop 0 = mempty
         loop n =
