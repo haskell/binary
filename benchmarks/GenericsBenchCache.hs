@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, StandaloneDeriving, BangPatterns #-}
+{-# LANGUAGE DeriveGeneric, StandaloneDeriving, BangPatterns, CPP #-}
 module GenericsBenchCache (readPackageDescriptionCache) where
 
 import qualified Text.ParserCombinators.ReadP                  as Read
@@ -20,6 +20,9 @@ import           System.Exit
 
 import           GenericsBenchTypes                            ()
 
+#if ! MIN_VERSION_base(4,8,0)
+import           Control.Applicative                           ((<$>))
+#endif
 
 readTar :: String -> Int -> IO [PackageDescription]
 readTar tarPath limit = do
