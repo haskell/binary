@@ -28,6 +28,8 @@ import           Numeric.Natural
 import           GHC.Fingerprint
 #endif
 
+import qualified Data.Fixed as Fixed
+
 import           Test.Framework
 import           Test.Framework.Providers.QuickCheck2
 import           Test.QuickCheck
@@ -475,6 +477,7 @@ tests =
             , ("Word",       p (test :: T Word                   ))
             , ("Int",        p (test :: T Int                    ))
             , ("Integer",    p (test :: T Integer                ))
+            , ("Fixed",      p (test :: T (Fixed.Fixed Fixed.E3) ))
 #ifdef HAS_NATURAL
             , ("Natural",         prop_test_Natural               )
 #endif
