@@ -53,7 +53,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
 import Data.Char    (ord)
-import Data.List    (unfoldr)
+import Data.List    (unfoldr, foldl')
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
@@ -249,9 +249,9 @@ unroll = unfoldr step
     step i = Just (fromIntegral i, i `shiftR` 8)
 
 roll :: (Integral a, Num a, Bits a) => [Word8] -> a
-roll   = foldr unstep 0
+roll   = foldl' unstep 0 . reverse
   where
-    unstep b a = a `shiftL` 8 .|. fromIntegral b
+    unstep a b = a `shiftL` 8 .|. fromIntegral b
 
 #ifdef HAS_NATURAL
 -- Fixed-size type for a subset of Natural
