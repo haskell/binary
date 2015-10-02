@@ -86,6 +86,8 @@ import qualified Data.Foldable as Fold
 import GHC.Fingerprint
 #endif
 
+import Data.Version (Version(..))
+
 ------------------------------------------------------------------------
 
 #ifdef GENERICS
@@ -606,3 +608,14 @@ instance Binary Fingerprint where
         x2 <- get
         return $! Fingerprint x1 x2
 #endif
+
+------------------------------------------------------------------------
+-- Version
+
+-- | /Since: binary-0.8/
+instance Binary Version where
+    get = do
+        br <- get
+        tags <- get
+        return $ Version br tags
+    put (Version br tags) = put br >> put tags
