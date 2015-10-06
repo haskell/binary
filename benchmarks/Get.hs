@@ -12,10 +12,12 @@ import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
+import Data.Bits
 import Data.Char (ord)
-import Data.Word (Word8)
+import Data.List (foldl')
 
 import Control.Applicative
+import Data.Binary
 import Data.Binary.Get
 
 import qualified Data.Serialize.Get as Cereal
@@ -36,7 +38,9 @@ main = do
     rnf bracketsInChunks,
     rnf bracketCount,
     rnf oneMegabyte,
-    rnf oneMegabyteLBS
+    rnf oneMegabyteLBS,
+    rnf manyBytes,
+    rnf encodedBigInteger
      ]
   defaultMain
     [ bgroup "brackets"
@@ -88,6 +92,13 @@ main = do
             whnf (runTest (getWord8N8A mega)) oneMegabyteLBS
         , bench "chunk size 16 bytes" $
             whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
+        ]
+    , bgroup "roll"
+        [ bench "foldr"  $ nf (roll_foldr  :: [Word8] -> Integer) manyBytes
+        , bench "foldl'" $ nf (roll_foldl' :: [Word8] -> Integer) manyBytes
+        ]
+    , bgroup "Integer"
+        [ bench "decode" $ nf (decode :: L.ByteString -> Integer) encodedBigInteger
         ]
     ]
 
@@ -349,3 +360,22 @@ getWord8N16A = loop []
                     <*> getWord8
                     <*> getWord8
           loop (v:s) (n-16)
+
+manyBytes :: [Word8]
+manyBytes = concat $ replicate 256 [0..255]
+
+bigInteger :: Integer
+bigInteger = roll_foldl' manyBytes
+
+encodedBigInteger :: L.ByteString
+encodedBigInteger = encode bigInteger
+
+roll_foldr :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll_foldr   = foldr unstep 0
+  where
+    unstep b a = a `shiftL` 8 .|. fromIntegral b
+
+roll_foldl' :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll_foldl'   = foldl' unstep 0 . reverse
+  where
+    unstep a b = a `shiftL` 8 .|. fromIntegral b
