@@ -50,6 +50,10 @@ library
       -- prior to ghc-7.4 generics lived in ghc-prim
       build-depends: ghc-prim
 
+  if impl(ghc <= 7.8)
+    -- Data.Void was moved to base for 7.10
+    build-depends: void
+
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
 -- Due to circular dependency, we cannot make any of the test-suites or
