@@ -43,6 +43,7 @@ module Data.Binary.Class (
 import Data.Word
 import Data.Bits
 import Data.Int
+import Data.Void
 
 import Data.Binary.Put
 import Data.Binary.Get
@@ -127,6 +128,12 @@ class Binary t where
 
 ------------------------------------------------------------------------
 -- Simple instances
+
+-- Void never gets written nor reconstructed since it's impossible to have a
+-- value of that type
+instance Binary Void where
+    put     = absurd
+    get     = mzero
 
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone

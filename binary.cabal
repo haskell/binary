@@ -50,6 +50,10 @@ library
       -- prior to ghc-7.4 generics lived in ghc-prim
       build-depends: ghc-prim
 
+  if impl(ghc < 7.9)
+    -- Data.Void was moved to base for 7.10
+    build-depends: void
+
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
 -- Due to circular dependency, we cannot make any of the test-suites or
@@ -73,7 +77,7 @@ test-suite qc
     QuickCheck>=2.8
 
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   ghc-options: -Wall -O2 -threaded
 
 test-suite read-write-file
@@ -89,7 +93,7 @@ test-suite read-write-file
     HUnit
 
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   ghc-options: -Wall
 
 benchmark bench
@@ -101,7 +105,7 @@ benchmark bench
     base >= 3.0 && < 5,
     bytestring
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   c-sources: benchmarks/CBenchmark.c
   include-dirs: benchmarks
   ghc-options: -O2
@@ -119,7 +123,7 @@ benchmark get
     deepseq,
     mtl
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   ghc-options: -O2 -Wall
 
 benchmark generics-bench
@@ -140,7 +144,7 @@ benchmark generics-bench
     GenericsBenchCache
     GenericsBenchTypes
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   ghc-options: -O2 -Wall
   if impl(ghc >= 7.2.1)
     cpp-options: -DGENERICS
@@ -160,5 +164,5 @@ benchmark builder
     deepseq,
     mtl
   -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
+  build-depends: array, containers, void
   ghc-options: -O2
