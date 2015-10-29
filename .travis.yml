@@ -26,6 +26,8 @@ before_install:
 install:
  - cabal --version
  - travis_retry cabal update
+# workaround for https://ghc.haskell.org/trac/ghc/ticket/9221
+ - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
  - cabal sandbox init
 # can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
  - cabal install criterion deepseq mtl "QuickCheck >= 2.8" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal 'Cabal == 1.22.*' tar zlib -j
