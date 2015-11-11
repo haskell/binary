@@ -43,5 +43,4 @@ instance Binary SourceRepo
 instance Binary TestSuite
 instance Binary TestSuiteInterface
 instance Binary TestType
-instance Binary Version
 instance Binary VersionRange
