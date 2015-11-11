@@ -8,6 +8,7 @@
 
 #if MIN_VERSION_base(4,8,0)
 #define HAS_NATURAL
+#define HAS_VOID
 #endif
 
 #if __GLASGOW_HASKELL__ >= 704
@@ -43,6 +44,9 @@ module Data.Binary.Class (
 import Data.Word
 import Data.Bits
 import Data.Int
+#ifdef HAS_VOID
+import Data.Void
+#endif
 
 import Data.Binary.Put
 import Data.Binary.Get
@@ -127,6 +131,14 @@ class Binary t where
 
 ------------------------------------------------------------------------
 -- Simple instances
+
+#ifdef HAS_VOID
+-- Void never gets written nor reconstructed since it's impossible to have a
+-- value of that type
+instance Binary Void where
+    put     = absurd
+    get     = mzero
+#endif
 
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone
