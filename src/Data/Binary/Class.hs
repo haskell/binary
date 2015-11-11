@@ -47,6 +47,9 @@ import Data.Int
 import Data.Binary.Put
 import Data.Binary.Get
 
+#if ! MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -614,8 +617,5 @@ instance Binary Fingerprint where
 
 -- | /Since: binary-0.8/
 instance Binary Version where
-    get = do
-        br <- get
-        tags <- get
-        return $ Version br tags
+    get = Version <$> get <*> get
     put (Version br tags) = put br >> put tags
