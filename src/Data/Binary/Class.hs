@@ -51,6 +51,9 @@ import Data.Void
 import Data.Binary.Put
 import Data.Binary.Get
 
+#if ! MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -89,6 +92,8 @@ import qualified Data.Foldable as Fold
 #ifdef HAS_GHC_FINGERPRINT
 import GHC.Fingerprint
 #endif
+
+import Data.Version (Version(..))
 
 ------------------------------------------------------------------------
 
@@ -618,3 +623,11 @@ instance Binary Fingerprint where
         x2 <- get
         return $! Fingerprint x1 x2
 #endif
+
+------------------------------------------------------------------------
+-- Version
+
+-- | /Since: binary-0.8/
+instance Binary Version where
+    get = Version <$> get <*> get
+    put (Version br tags) = put br >> put tags
