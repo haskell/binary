@@ -5,6 +5,10 @@ module Main ( main ) where
 #define HAS_NATURAL
 #endif
 
+#if MIN_VERSION_base(4,7,0)
+#define HAS_FIXED_CONSTRUCTOR
+#endif
+
 #if __GLASGOW_HASKELL__ >= 704
 #define HAS_GHC_FINGERPRINT
 #endif
@@ -400,6 +404,30 @@ instance Show Fingerprint where
 
 ------------------------------------------------------------------------
 
+#ifdef HAS_FIXED_CONSTRUCTOR
+
+fixedPut :: forall a. Fixed.HasResolution a => Fixed.Fixed a -> Put
+fixedPut x = put (truncate (x * fromInteger (Fixed.resolution (undefined :: Maybe a))) :: Integer)
+
+fixedGet :: forall a. Fixed.HasResolution a => Get (Fixed.Fixed a)
+fixedGet = (\x -> fromInteger x / fromInteger (Fixed.resolution (undefined :: Maybe a))) `liftA` get
+
+-- | Serialise using base >=4.7 and <4.7 methods agree
+prop_fixed_ser :: Fixed.Fixed Fixed.E3 -> Bool
+prop_fixed_ser x = runPut (put x) == runPut (fixedPut x)
+
+-- | Serialised with base >=4.7, unserialised with base <4.7 method roundtrip
+prop_fixed_constr_resolution :: Fixed.Fixed Fixed.E3 -> Bool
+prop_fixed_constr_resolution x = runGet fixedGet (runPut (put x)) == x
+
+-- | Serialised with base <4.7, unserialised with base >=4.7 method roundtrip
+prop_fixed_resolution_constr :: Fixed.Fixed Fixed.E3 -> Bool
+prop_fixed_resolution_constr x = runGet get (runPut (fixedPut x)) == x
+
+#endif
+
+------------------------------------------------------------------------
+
 type T a = a -> Property
 type B a = a -> Bool
 
@@ -539,4 +567,11 @@ tests =
             , ("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
             ]
+#ifdef HAS_FIXED_CONSTRUCTOR
+        , testGroup "Fixed"
+            [ testProperty "Serialisation same"       $ p prop_fixed_ser
+            , testProperty "MkFixed -> HasResolution" $ p prop_fixed_constr_resolution
+            , testProperty "HasResolution -> MkFixed" $ p prop_fixed_resolution_constr
+            ]
+#endif
         ]
