@@ -1,6 +1,12 @@
 binary
 ======
 
+binary-0.8.0.0
+--------------
+
+- Added binary instance for `Version` from `Data.Version`.
+- Added binary instance for `Void` (from `base >= 4.8`).
+
 binary-0.7.6.1
 --------------
 
