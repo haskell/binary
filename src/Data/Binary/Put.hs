@@ -201,32 +201,32 @@ putWord64le         :: Word64 -> Put
 putWord64le         = tell . B.putWord64le
 {-# INLINE putWord64le #-}
 
--- | Write a Int16 in big endian format
+-- | Write an Int16 in big endian format
 putInt16be         :: Int16 -> Put
 putInt16be         = tell . B.putInt16be
 {-# INLINE putInt16be #-}
 
--- | Write a Int16 in little endian format
+-- | Write an Int16 in little endian format
 putInt16le         :: Int16 -> Put
 putInt16le         = tell . B.putInt16le
 {-# INLINE putInt16le #-}
 
--- | Write a Int32 in big endian format
+-- | Write an Int32 in big endian format
 putInt32be         :: Int32 -> Put
 putInt32be         = tell . B.putInt32be
 {-# INLINE putInt32be #-}
 
--- | Write a Int32 in little endian format
+-- | Write an Int32 in little endian format
 putInt32le         :: Int32 -> Put
 putInt32le         = tell . B.putInt32le
 {-# INLINE putInt32le #-}
 
--- | Write a Int64 in big endian format
+-- | Write an Int64 in big endian format
 putInt64be         :: Int64 -> Put
 putInt64be         = tell . B.putInt64be
 {-# INLINE putInt64be #-}
 
--- | Write a Int64 in little endian format
+-- | Write an Int64 in little endian format
 putInt64le         :: Int64 -> Put
 putInt64le         = tell . B.putInt64le
 {-# INLINE putInt64le #-}
@@ -273,19 +273,19 @@ putInthost         :: Int -> Put
 putInthost         = tell . B.putInthost
 {-# INLINE putInthost #-}
 
--- | /O(1)./ Write a Int16 in native host order and host endianness.
+-- | /O(1)./ Write an Int16 in native host order and host endianness.
 -- For portability issues see @putInthost@.
 putInt16host       :: Int16 -> Put
 putInt16host       = tell . B.putInt16host
 {-# INLINE putInt16host #-}
 
--- | /O(1)./ Write a Int32 in native host order and host endianness.
+-- | /O(1)./ Write an Int32 in native host order and host endianness.
 -- For portability issues see @putInthost@.
 putInt32host       :: Int32 -> Put
 putInt32host       = tell . B.putInt32host
 {-# INLINE putInt32host #-}
 
--- | /O(1)./ Write a Int64 in native host order
+-- | /O(1)./ Write an Int64 in native host order
 -- On a 32 bit machine we write two host order Int32s, in big endian form.
 -- For portability issues see @putInthost@.
 putInt64host       :: Int64 -> Put
