@@ -299,6 +299,8 @@ dropHeadChunk lbs =
 -- success. In both cases any unconsumed input and the number of bytes
 -- consumed is returned. In the case of failure, a human-readable
 -- error message is included as well.
+--
+-- /Since: 0.6.4.0/
 runGetOrFail :: Get a -> L.ByteString
              -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
 runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
