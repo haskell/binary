@@ -23,7 +23,7 @@ module Data.Binary.Get.Internal (
     , withInputChunks
     , Consume
     , failOnEOF
-    
+
     , get
     , put
     , ensureN
@@ -123,6 +123,7 @@ instance Applicative Get where
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
+-- | /Since: 0.7.1.0/
 instance MonadPlus Get where
   mzero = empty
   mplus = (<|>)
@@ -192,6 +193,8 @@ bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
 -- If the given decoder fails, 'isolate' will also fail.
 -- Offset from 'bytesRead' will be relative to the start of 'isolate', not the
 -- absolute of the input.
+--
+-- /Since: 0.7.2.0/
 isolate :: Int   -- ^ The number of bytes that must be consumed
         -> Get a -- ^ The decoder to isolate
         -> Get a
@@ -254,6 +257,7 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 {-# INLINE getBytes #-}
 
+-- | /Since: 0.7.0.0/
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
   (<|>) f g = do
@@ -272,7 +276,7 @@ instance Alternative Get where
 #endif
 
 -- | Run a decoder and keep track of all the input it consumes.
--- Once it's finished, return the final decoder (always 'Done' or 'Fail'), 
+-- Once it's finished, return the final decoder (always 'Done' or 'Fail'),
 -- and unconsume all the the input the decoder required to run.
 -- Any additional chunks which was required to run the decoder
 -- will also be returned.
@@ -298,6 +302,8 @@ pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
 
 -- | Run the given decoder, but without consuming its input. If the given
 -- decoder fails, then so will this function.
+--
+-- /Since: 0.7.0.0/
 lookAhead :: Get a -> Get a
 lookAhead g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -309,6 +315,8 @@ lookAhead g = do
 -- | Run the given decoder, and only consume its input if it returns 'Just'.
 -- If 'Nothing' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
+--
+-- /Since: 0.7.0.0/
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM g = do
   let g' = maybe (Left ()) Right <$> g
@@ -317,6 +325,8 @@ lookAheadM g = do
 -- | Run the given decoder, and only consume its input if it returns 'Right'.
 -- If 'Left' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
+--
+-- /Since: 0.7.1.0/
 lookAheadE :: Get (Either a b) -> Get (Either a b)
 lookAheadE g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -326,8 +336,10 @@ lookAheadE g = do
     Fail inp s -> C $ \_ _ -> Fail inp s
     _ -> error "Binary: impossible"
 
--- Label a decoder. If the decoder fails, the label will be appended on
+-- | Label a decoder. If the decoder fails, the label will be appended on
 -- a new line to the error message string.
+--
+-- /Since: 0.7.2.0/
 label :: String -> Get a -> Get a
 label msg decoder = C $ \inp ks ->
   let r0 = runCont decoder inp (\inp' a -> Done inp' a)

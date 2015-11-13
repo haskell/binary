@@ -140,6 +140,8 @@ class Binary t where
 #ifdef HAS_VOID
 -- Void never gets written nor reconstructed since it's impossible to have a
 -- value of that type
+
+-- | /Since: 0.8.0.0/
 instance Binary Void where
     put     = absurd
     get     = mzero
@@ -274,6 +276,7 @@ roll   = foldl' unstep 0 . reverse
 -- Fixed-size type for a subset of Natural
 type NaturalWord = Word64
 
+-- | /Since: 0.7.3.0/
 instance Binary Natural where
     {-# INLINE put #-}
     put n | n <= hi = do
@@ -614,6 +617,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 -- Fingerprints
 
 #ifdef HAS_GHC_FINGERPRINT
+-- | /Since: 0.7.6.0/
 instance Binary Fingerprint where
     put (Fingerprint x1 x2) = do
         put x1
@@ -627,7 +631,7 @@ instance Binary Fingerprint where
 ------------------------------------------------------------------------
 -- Version
 
--- | /Since: binary-0.8/
+-- | /Since: 0.8.0.0/
 instance Binary Version where
     get = Version <$> get <*> get
     put (Version br tags) = put br >> put tags
