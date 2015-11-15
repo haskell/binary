@@ -160,9 +160,11 @@ module Data.Binary.Get (
     , skip
     , isEmpty
     , bytesRead
+    , isolate
     , lookAhead
     , lookAheadM
     , lookAheadE
+    , label
 
     -- ** ByteStrings
     , getByteString
@@ -219,8 +221,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
-
-import Control.Applicative
 
 import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
@@ -318,6 +318,8 @@ dropHeadChunk lbs =
 -- success. In both cases any unconsumed input and the number of bytes
 -- consumed is returned. In the case of failure, a human-readable
 -- error message is included as well.
+--
+-- /Since: 0.6.4.0/
 runGetOrFail :: Get a -> L.ByteString
              -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
 runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
@@ -377,59 +379,43 @@ pushEndOfInput r =
     Partial k -> k Nothing
     Fail _ _ _ -> r
 
+-- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
+skip :: Int -> Get ()
+skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
+
 -- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
 -- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n0 = L.fromChunks <$> go n0
-  where
-  consume n str
-    | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
-    | otherwise = Left (fromIntegral (B.length str))
-  go n = do
-    str <- get
-    case consume n str of
-      Left used -> do
-        put B.empty
-        demandInput
-        fmap (str:) (go (n - used))
-      Right (want,rest) -> do
-        put rest
-        return [want]
+getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
+
+consumeBytes :: Consume Int64
+consumeBytes n str
+  | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
+  | otherwise = Left (n - fromIntegral (B.length str))
+
+consumeUntilNul :: Consume ()
+consumeUntilNul _ str =
+  case B.break (==0) str of
+    (want, rest) | B.null rest -> Left ()
+                 | otherwise -> Right (want, B.drop 1 rest)
+
+consumeAll :: Consume ()
+consumeAll _ _ = Left ()
+
+resumeOnEOF :: [B.ByteString] -> Get L.ByteString
+resumeOnEOF = return . L.fromChunks
 
 -- | Get a lazy ByteString that is terminated with a NUL byte.
 -- The returned string does not contain the NUL byte. Fails
 -- if it reaches the end of input without finding a NUL.
 getLazyByteStringNul :: Get L.ByteString
-getLazyByteStringNul = L.fromChunks <$> go
-  where
-  findNull str =
-    case B.break (==0) str of
-      (want,rest) | B.null rest -> Nothing
-                  | otherwise -> Just (want, B.drop 1 rest)
-  go = do
-    str <- get
-    case findNull str of
-      Nothing -> do
-        put B.empty
-        demandInput
-        fmap (str:) go
-      Just (want,rest) -> do
-        put rest
-        return [want]
+getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
 
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
 -- all input and keeping the string in-memory.
 getRemainingLazyByteString :: Get L.ByteString
-getRemainingLazyByteString = L.fromChunks <$> go
-  where
-  go = do
-    str <- get
-    put B.empty
-    done <- isEmpty
-    if done
-      then return [str]
-      else fmap (str:) go
+getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
 ------------------------------------------------------------------------
 -- Primtives
@@ -444,7 +430,7 @@ getPtr n = readNWith n peek
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
 getWord8 = readN 1 B.unsafeHead
-{-# INLINE getWord8 #-}
+{-# INLINE[2] getWord8 #-}
 
 -- | Read an Int8 from the monad state
 getInt8 :: Get Int8
@@ -460,8 +446,7 @@ getInt8 = fromIntegral <$> getWord8
 "getWord32be/readN" getWord32be = readN 4 word32be
 "getWord32le/readN" getWord32le = readN 4 word32le
 "getWord64be/readN" getWord64be = readN 8 word64be
-"getWord64le/readN" getWord64le = readN 8 word64le
- #-}
+"getWord64le/readN" getWord64le = readN 8 word64le #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
@@ -471,7 +456,7 @@ word16be :: B.ByteString -> Word16
 word16be = \s ->
         (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
-{-# INLINE getWord16be #-}
+{-# INLINE[2] getWord16be #-}
 {-# INLINE word16be #-}
 
 -- | Read a Word16 in little endian format
@@ -482,7 +467,7 @@ word16le :: B.ByteString -> Word16
 word16le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord16le #-}
+{-# INLINE[2] getWord16le #-}
 {-# INLINE word16le #-}
 
 -- | Read a Word32 in big endian format
@@ -495,7 +480,7 @@ word32be = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
-{-# INLINE getWord32be #-}
+{-# INLINE[2] getWord32be #-}
 {-# INLINE word32be #-}
 
 -- | Read a Word32 in little endian format
@@ -508,7 +493,7 @@ word32le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord32le #-}
+{-# INLINE[2] getWord32le #-}
 {-# INLINE word32le #-}
 
 -- | Read a Word64 in big endian format
@@ -525,7 +510,7 @@ word64be = \s ->
               (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
-{-# INLINE getWord64be #-}
+{-# INLINE[2] getWord64be #-}
 {-# INLINE word64be #-}
 
 -- | Read a Word64 in little endian format
@@ -542,7 +527,7 @@ word64le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE getWord64le #-}
+{-# INLINE[2] getWord64le #-}
 {-# INLINE word64le #-}
 
 

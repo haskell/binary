@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns #-}
+{-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns, TypeFamilies #-}
 
 -- CPP C style pre-precessing, the #if defined lines
 -- RankNTypes forall r. statement
@@ -16,12 +16,16 @@ module Data.Binary.Get.Internal (
     , readNWith
 
     -- * Parsing
-    , skip
     , bytesRead
-    
+    , isolate
+
+    -- * With input chunks
+    , withInputChunks
+    , Consume
+    , failOnEOF
+
     , get
     , put
-    , demandInput
     , ensureN
 
     -- * Utility
@@ -31,6 +35,7 @@ module Data.Binary.Get.Internal (
     , lookAhead
     , lookAheadM
     , lookAheadE
+    , label
 
     -- ** ByteStrings
     , getByteString
@@ -118,6 +123,7 @@ instance Applicative Get where
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
+-- | /Since: 0.7.1.0/
 instance MonadPlus Get where
   mzero = empty
   mplus = (<|>)
@@ -166,28 +172,76 @@ noMeansNo r0 = go r0
       Done _ _ -> r
 
 prompt :: B.ByteString -> Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
-prompt inp kf ks =
-    let loop =
-         Partial $ \sm ->
-           case sm of
-             Just s | B.null s -> loop
-                    | otherwise -> ks (inp `B.append` s)
-             Nothing -> kf
-    in loop
+prompt inp kf ks = prompt' kf (\inp' -> ks (inp `B.append` inp'))
+
+prompt' :: Decoder a -> (B.ByteString -> Decoder a) -> Decoder a
+prompt' kf ks =
+  let loop =
+        Partial $ \sm ->
+          case sm of
+            Just s | B.null s -> loop
+                   | otherwise -> ks s
+            Nothing -> kf
+  in loop
 
 -- | Get the total number of bytes read to this point.
 bytesRead :: Get Int64
 bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
 
--- | Demand more input. If none available, fail.
-demandInput :: Get ()
-demandInput = C $ \inp ks ->
-  prompt inp (Fail inp "demandInput: not enough bytes") (\inp' -> ks inp' ())
+-- | Isolate a decoder to operate with a fixed number of bytes, and fail if
+-- fewer bytes were consumed, or more bytes were attempted to be consumed.
+-- If the given decoder fails, 'isolate' will also fail.
+-- Offset from 'bytesRead' will be relative to the start of 'isolate', not the
+-- absolute of the input.
+--
+-- /Since: 0.7.2.0/
+isolate :: Int   -- ^ The number of bytes that must be consumed
+        -> Get a -- ^ The decoder to isolate
+        -> Get a
+isolate n0 act
+  | n0 < 0 = fail "isolate: negative size"
+  | otherwise = go n0 (runCont act B.empty Done)
+  where
+  go !n (Done left x)
+    | n == 0 && B.null left = return x
+    | otherwise = do
+        pushFront left
+        let consumed = n0 - n - B.length left
+        fail $ "isolate: the decoder consumed " ++ show consumed ++ " bytes" ++
+                 " which is less than the expected " ++ show n0 ++ " bytes"
+  go 0 (Partial resume) = go 0 (resume Nothing)
+  go n (Partial resume) = do
+    inp <- C $ \inp k -> do
+      let takeLimited str =
+            let (inp', out) = B.splitAt n str
+            in k out (Just inp')
+      case not (B.null inp) of
+        True -> takeLimited inp
+        False -> prompt inp (k B.empty Nothing) takeLimited
+    case inp of
+      Nothing -> go n (resume Nothing)
+      Just str -> go (n - B.length str) (resume (Just str))
+  go _ (Fail bs err) = pushFront bs >> fail err
+  go n (BytesRead r resume) =
+    go n (resume $! fromIntegral n0 - fromIntegral n - r)
 
--- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
-skip :: Int -> Get ()
-skip n = readN n (const ())
-{-# INLINE skip #-}
+type Consume s = s -> B.ByteString -> Either s (B.ByteString, B.ByteString)
+
+withInputChunks :: s -> Consume s -> ([B.ByteString] -> b) -> ([B.ByteString] -> Get b) -> Get b
+withInputChunks initS consume onSucc onFail = go initS []
+  where
+  go state acc = C $ \inp ks ->
+    case consume state inp of
+      Left state' -> do
+        let acc' = inp : acc
+        prompt'
+          (runCont (onFail (reverse acc')) B.empty ks)
+          (\str' -> runCont (go state' acc') str' ks)
+      Right (want,rest) -> do
+        ks rest (onSucc (reverse (want:acc)))
+
+failOnEOF :: [B.ByteString] -> Get a
+failOnEOF bs = C $ \_ _ -> Fail (B.concat bs) "not enough bytes"
 
 -- | Test whether all input has been consumed, i.e. there are no remaining
 -- undecoded bytes.
@@ -203,6 +257,7 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 {-# INLINE getBytes #-}
 
+-- | /Since: 0.7.0.0/
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
   (<|>) f g = do
@@ -211,15 +266,17 @@ instance Alternative Get where
       Done inp x -> C $ \_ ks -> ks inp x
       Fail _ _ -> pushBack bs >> g
       _ -> error "Binary: impossible"
+#if MIN_VERSION_base(4,2,0)
   some p = (:) <$> p <*> many p
   many p = do
     v <- (Just <$> p) <|> pure Nothing
     case v of
       Nothing -> pure []
       Just x -> (:) x <$> many p
+#endif
 
 -- | Run a decoder and keep track of all the input it consumes.
--- Once it's finished, return the final decoder (always 'Done' or 'Fail'), 
+-- Once it's finished, return the final decoder (always 'Done' or 'Fail'),
 -- and unconsume all the the input the decoder required to run.
 -- Any additional chunks which was required to run the decoder
 -- will also be returned.
@@ -239,8 +296,14 @@ pushBack [] = C $ \ inp ks -> ks inp ()
 pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
 {-# INLINE pushBack #-}
 
+pushFront :: B.ByteString -> Get ()
+pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
+{-# INLINE pushFront #-}
+
 -- | Run the given decoder, but without consuming its input. If the given
 -- decoder fails, then so will this function.
+--
+-- /Since: 0.7.0.0/
 lookAhead :: Get a -> Get a
 lookAhead g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -252,6 +315,8 @@ lookAhead g = do
 -- | Run the given decoder, and only consume its input if it returns 'Just'.
 -- If 'Nothing' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
+--
+-- /Since: 0.7.0.0/
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM g = do
   let g' = maybe (Left ()) Right <$> g
@@ -260,6 +325,8 @@ lookAheadM g = do
 -- | Run the given decoder, and only consume its input if it returns 'Right'.
 -- If 'Left' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
+--
+-- /Since: 0.7.1.0/
 lookAheadE :: Get (Either a b) -> Get (Either a b)
 lookAheadE g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -268,6 +335,20 @@ lookAheadE g = do
     Done inp (Right x) -> C $ \_ ks -> ks inp (Right x)
     Fail inp s -> C $ \_ _ -> Fail inp s
     _ -> error "Binary: impossible"
+
+-- | Label a decoder. If the decoder fails, the label will be appended on
+-- a new line to the error message string.
+--
+-- /Since: 0.7.2.0/
+label :: String -> Get a -> Get a
+label msg decoder = C $ \inp ks ->
+  let r0 = runCont decoder inp (\inp' a -> Done inp' a)
+      go r = case r of
+                 Done inp' a -> ks inp' a
+                 Partial k -> Partial (go . k)
+                 Fail inp' s -> Fail inp' (s ++ "\n" ++ msg)
+                 BytesRead u k -> BytesRead u (go . k)
+  in go r0
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
@@ -321,8 +402,7 @@ readN !n f = ensureN n >> unsafeReadN n f
   returnG f = readN 0 (const f)
 
 "readN 0/returnG swapback" [1] forall f.
-  readN 0 f = returnG (f B.empty)
- #-}
+  readN 0 f = returnG (f B.empty) #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
@@ -330,13 +410,14 @@ ensureN :: Int -> Get ()
 ensureN !n0 = C $ \inp ks -> do
   if B.length inp >= n0
     then ks inp ()
-    else runCont (go n0) inp ks
+    else runCont (withInputChunks n0 enoughChunks onSucc onFail >>= put) inp ks
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
-    go n = C $ \inp ks -> do
-      if B.length inp >= n
-        then ks inp ()
-        else runCont (demandInput >> go n) inp ks
+    enoughChunks n str
+      | B.length str >= n = Right (str,B.empty)
+      | otherwise = Left (n - B.length str)
+    onSucc = B.concat
+    onFail bss = C $ \_ _ -> Fail (B.concat bss) "not enough bytes"
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a

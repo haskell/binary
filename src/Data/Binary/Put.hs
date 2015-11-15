@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
-#if __GLASGOW_HASKELL__ >= 701
-{-# LANGUAGE Trustworthy #-}
+#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
+{-# LANGUAGE Safe #-}
 #endif
 
 -----------------------------------------------------------------------------
@@ -8,7 +8,7 @@
 -- Module      : Data.Binary.Put
 -- Copyright   : Lennart Kolmodin
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : stable
 -- Portability : Portable to Hugs and GHC. Requires MPTCs
@@ -74,11 +74,12 @@ import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 
 import Control.Applicative
+import Prelude -- Silence AMP warning.
 
 
 ------------------------------------------------------------------------
 
--- XXX Strict in buffer only. 
+-- XXX Strict in buffer only.
 data PairS a = PairS a !Builder
 
 sndS :: PairS a -> Builder

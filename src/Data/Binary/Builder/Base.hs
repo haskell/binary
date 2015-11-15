@@ -91,12 +91,13 @@ import qualified Data.ByteString.Lazy.Internal as L
 #endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
-import GHC.Base
+import GHC.Base (ord,Int(..),uncheckedShiftRL#)
 import GHC.Word (Word32(..),Word16(..),Word64(..))
 # if WORD_SIZE_IN_BITS < 64
 import GHC.Word (uncheckedShiftRL64#)
 # endif
 #endif
+import Prelude -- Silence AMP warning.
 
 ------------------------------------------------------------------------
 
@@ -200,6 +201,7 @@ flush = Builder $ \ k buf@(Buffer p o u l) ->
       else let !b  = Buffer p (o+u) 0 l
                !bs = S.PS p o u
            in return $! L.Chunk bs (inlinePerformIO (k b))
+{-# INLINE [0] flush #-}
 
 ------------------------------------------------------------------------
 
@@ -585,7 +587,5 @@ shiftr_w64 = shiftR
     append (ensureFree a) (ensureFree b) = ensureFree (max a b)
 
 "flush/flush"
-    append flush flush = flush
-
- #-}
+    append flush flush = flush #-}
 #endif

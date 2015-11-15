@@ -1,5 +1,5 @@
 name:            binary
-version:         0.7.1.0
+version:         0.8.0.0
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
@@ -18,10 +18,9 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
-tested-with:     GHC == 7.0.4, GHC == 7.4.1, GHC == 7.6.1
+tested-with:     GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.2
 extra-source-files:
-  README.md index.html docs/hcar/binary-Lb.tex
-  tools/derive/*.hs tests/Makefile benchmarks/Makefile
+  README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
 
 -- from the benchmark 'bench'
 extra-source-files:
@@ -30,9 +29,6 @@ extra-source-files:
 source-repository head
   type: git
   location: git://github.com/kolmodin/binary.git
-
-flag development
-  default: False
 
 library
   build-depends:   base >= 3.0 && < 5, bytestring >= 0.9, containers, array
@@ -56,78 +52,113 @@ library
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
+-- Due to circular dependency, we cannot make any of the test-suites or
+-- benchmark depend on the binary library. Instead, for each test-suite and
+-- benchmark, we include the source directory of binary and build-depend on all
+-- the dependencies binary has.
+
 test-suite qc
   type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
+  hs-source-dirs: src tests
   main-is: QC.hs
   other-modules:
     Action
     Arbitrary
   build-depends:
-    array,
     base >= 3.0 && < 5,
     bytestring >= 0.9,
-    containers,
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.5
+    QuickCheck>=2.8
 
-  ghc-options: -Wall -O2
-  hs-source-dirs: src
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
+  ghc-options: -Wall -O2 -threaded
 
 test-suite read-write-file
   type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
+  hs-source-dirs: src tests
   main-is: File.hs
   build-depends:
     base >= 3.0 && < 5,
     bytestring >= 0.9,
-    binary,
     Cabal,
     directory,
     filepath,
     HUnit
 
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -Wall
 
 benchmark bench
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Benchmark.hs
   other-modules: MemBench
   build-depends:
     base >= 3.0 && < 5,
-    binary,
     bytestring
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   c-sources: benchmarks/CBenchmark.c
   include-dirs: benchmarks
   ghc-options: -O2
 
 benchmark get
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Get.hs
   build-depends:
     attoparsec,
     base >= 3.0 && < 5,
-    binary,
     bytestring,
     cereal,
-    criterion,
+    criterion == 1.*,
     deepseq,
     mtl
-  ghc-options: -O2
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
+  ghc-options: -O2 -Wall
+
+benchmark generics-bench
+  type: exitcode-stdio-1.0
+  hs-source-dirs: src benchmarks
+  main-is: GenericsBench.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    bytestring,
+    Cabal == 1.22.*,
+    directory,
+    filepath,
+    tar,
+    unordered-containers,
+    zlib,
+    criterion
+  other-modules:
+    GenericsBenchCache
+    GenericsBenchTypes
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
+  ghc-options: -O2 -Wall
+  if impl(ghc >= 7.2.1)
+    cpp-options: -DGENERICS
+    other-modules: Data.Binary.Generic
+    if impl(ghc <= 7.6)
+      -- prior to ghc-7.4 generics lived in ghc-prim
+      build-depends: ghc-prim
 
 benchmark builder
   type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
+  hs-source-dirs: src benchmarks
   main-is: Builder.hs
   build-depends:
     base >= 3.0 && < 5,
-    binary,
     bytestring,
-    criterion,
+    criterion == 1.*,
     deepseq,
     mtl
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
   ghc-options: -O2

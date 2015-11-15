@@ -1,10 +1,20 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
-#if __GLASGOW_HASKELL__ >= 701
-{-# LANGUAGE Trustworthy #-}
+#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
+{-# LANGUAGE Safe #-}
 #endif
 #ifdef GENERICS
 {-# LANGUAGE DefaultSignatures #-}
 #endif
+
+#if MIN_VERSION_base(4,8,0)
+#define HAS_NATURAL
+#define HAS_VOID
+#endif
+
+#if __GLASGOW_HASKELL__ >= 704
+#define HAS_GHC_FINGERPRINT
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Class
@@ -32,18 +42,25 @@ module Data.Binary.Class (
     ) where
 
 import Data.Word
+import Data.Bits
+import Data.Int
+#ifdef HAS_VOID
+import Data.Void
+#endif
 
 import Data.Binary.Put
 import Data.Binary.Get
 
+#if ! MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 import Control.Monad
-import Foreign
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Char    (chr,ord)
-import Data.List    (unfoldr)
+import Data.Char    (ord)
+import Data.List    (unfoldr, foldl')
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
@@ -61,6 +78,9 @@ import Data.Array.Unboxed
 import GHC.Generics
 #endif
 
+#ifdef HAS_NATURAL
+import Numeric.Natural
+#endif
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -68,6 +88,12 @@ import GHC.Generics
 import qualified Data.Sequence as Seq
 import qualified Data.Foldable as Fold
 #endif
+
+#ifdef HAS_GHC_FINGERPRINT
+import GHC.Fingerprint
+#endif
+
+import Data.Version (Version(..))
 
 ------------------------------------------------------------------------
 
@@ -110,6 +136,16 @@ class Binary t where
 
 ------------------------------------------------------------------------
 -- Simple instances
+
+#ifdef HAS_VOID
+-- Void never gets written nor reconstructed since it's impossible to have a
+-- value of that type
+
+-- | /Since: 0.8.0.0/
+instance Binary Void where
+    put     = absurd
+    get     = mzero
+#endif
 
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone
@@ -165,7 +201,7 @@ instance Binary Int32 where
     put i   = put (fromIntegral i :: Word32)
     get     = liftM fromIntegral (get :: Get Word32)
 
--- Int64s are written as a 4 bytes in big endian format
+-- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
     put i   = put (fromIntegral i :: Word64)
     get     = liftM fromIntegral (get :: Get Word64)
@@ -225,16 +261,42 @@ instance Binary Integer where
 --
 -- Fold and unfold an Integer to and from a list of its bytes
 --
-unroll :: Integer -> [Word8]
+unroll :: (Integral a, Num a, Bits a) => a -> [Word8]
 unroll = unfoldr step
   where
     step 0 = Nothing
     step i = Just (fromIntegral i, i `shiftR` 8)
 
-roll :: [Word8] -> Integer
-roll   = foldr unstep 0
+roll :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll   = foldl' unstep 0 . reverse
   where
-    unstep b a = a `shiftL` 8 .|. fromIntegral b
+    unstep a b = a `shiftL` 8 .|. fromIntegral b
+
+#ifdef HAS_NATURAL
+-- Fixed-size type for a subset of Natural
+type NaturalWord = Word64
+
+-- | /Since: 0.7.3.0/
+instance Binary Natural where
+    {-# INLINE put #-}
+    put n | n <= hi = do
+        putWord8 0
+        put (fromIntegral n :: NaturalWord)  -- fast path
+     where
+        hi = fromIntegral (maxBound :: NaturalWord) :: Natural
+
+    put n = do
+        putWord8 1
+        put (unroll (abs n))         -- unroll the bytes
+
+    {-# INLINE get #-}
+    get = do
+        tag <- get :: Get Word8
+        case tag of
+            0 -> liftM fromIntegral (get :: Get NaturalWord)
+            _ -> do bytes <- get
+                    return $! roll bytes
+#endif
 
 {-
 
@@ -349,7 +411,11 @@ instance Binary Char where
                                 z <- liftM (xor 0x80) getByte
                                 return (z .|. shiftL6 (y .|. shiftL6
                                         (x .|. shiftL6 (xor 0xf0 w))))
-        return $! chr r
+        getChr r
+      where
+        getChr w
+          | w <= 0x10ffff = return $! toEnum $ fromEnum w
+          | otherwise = fail "Not a valid Unicode code point!"
 
 ------------------------------------------------------------------------
 -- Instances for the first few tuples
@@ -500,11 +566,17 @@ instance (Binary e) => Binary (Seq.Seq e) where
 
 instance Binary Double where
     put d = put (decodeFloat d)
-    get   = liftM2 encodeFloat get get
+    get   = do
+        x <- get
+        y <- get
+        return $! encodeFloat x y
 
 instance Binary Float where
     put f = put (decodeFloat f)
-    get   = liftM2 encodeFloat get get
+    get   =  do
+        x <- get
+        y <- get
+        return $! encodeFloat x y
 
 ------------------------------------------------------------------------
 -- Trees
@@ -540,3 +612,26 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
         n  <- get
         xs <- getMany n
         return (listArray bs xs)
+
+------------------------------------------------------------------------
+-- Fingerprints
+
+#ifdef HAS_GHC_FINGERPRINT
+-- | /Since: 0.7.6.0/
+instance Binary Fingerprint where
+    put (Fingerprint x1 x2) = do
+        put x1
+        put x2
+    get = do
+        x1 <- get
+        x2 <- get
+        return $! Fingerprint x1 x2
+#endif
+
+------------------------------------------------------------------------
+-- Version
+
+-- | /Since: 0.8.0.0/
+instance Binary Version where
+    get = Version <$> get <*> get
+    put (Version br tags) = put br >> put tags

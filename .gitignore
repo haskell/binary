@@ -3,6 +3,7 @@
 *.p_hi
 *.prof
 *.tix
+*.swp
 .hpc/
 /benchmarks/bench
 /benchmarks/builder
@@ -13,3 +14,4 @@ dist-boot
 dist-install
 ghc.mk
 .cabal-sandbox
+cabal.sandbox.config

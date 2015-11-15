@@ -1,46 +1,42 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-module Main where
+{-# LANGUAGE CPP, ScopedTypeVariables #-}
+module Main ( main ) where
 
-import Data.Binary
-import Data.Binary.Put
-import Data.Binary.Get
+#if MIN_VERSION_base(4,8,0)
+#define HAS_NATURAL
+#endif
 
-import Control.Applicative
-import Control.Monad (unless)
+#if __GLASGOW_HASKELL__ >= 704
+#define HAS_GHC_FINGERPRINT
+#endif
 
-import qualified Data.ByteString as B
--- import qualified Data.ByteString.Internal as B
--- import qualified Data.ByteString.Unsafe as B
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Internal as L
--- import qualified Data.Map as Map
--- import qualified Data.Set as Set
--- import qualified Data.IntMap as IntMap
--- import qualified Data.IntSet as IntSet
+import           Control.Applicative
+import           Control.Exception                    as C (SomeException,
+                                                            catch, evaluate)
+import           Control.Monad                        (unless, liftM2)
+import qualified Data.ByteString                      as B
+import qualified Data.ByteString.Lazy                 as L
+import qualified Data.ByteString.Lazy.Internal        as L
+import           Data.Int
+import           Data.Ratio
+import           System.IO.Unsafe
 
--- import Data.Array (Array)
--- import Data.Array.IArray
--- import Data.Array.Unboxed (UArray)
+#ifdef HAS_NATURAL
+import           Numeric.Natural
+#endif
 
--- import Data.Word
-import Data.Int
-import Data.Ratio
+#ifdef HAS_GHC_FINGERPRINT
+import           GHC.Fingerprint
+#endif
 
-import Control.Exception as C (catch,evaluate,SomeException)
--- import Control.Monad
--- import System.Environment
--- import System.IO
-import System.IO.Unsafe
+import           Test.Framework
+import           Test.Framework.Providers.QuickCheck2
+import           Test.QuickCheck
 
-import Test.QuickCheck
--- import Text.Printf
-
-import Test.Framework
-import Test.Framework.Providers.QuickCheck2
--- import Data.Monoid
-
-import Action (prop_action)
-import Arbitrary()
+import qualified Action                               (tests)
+import           Arbitrary                            ()
+import           Data.Binary
+import           Data.Binary.Get
+import           Data.Binary.Put
 
 ------------------------------------------------------------------------
 
@@ -244,10 +240,10 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- > data S = S {-# UNPACK #-} !B.ByteString
 -- >            L.ByteString
 -- >            {-# UNPACK #-} !Int64
--- > 
+-- >
 -- > newtype Get a = Get { unGet :: S -> (# a, S #) }
--- 
--- with a helper function 
+--
+-- with a helper function
 --
 -- > mkState :: L.ByteString -> Int64 -> S
 -- > mkState l = case l of
@@ -277,13 +273,13 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- >                             return now
 --
 -- Consider the else-branch of this function; suppose we ask for n bytes;
--- the call to L.splitAt gives us a lazy bytestring 'consuming' of precisely @n@ 
--- bytes (unless we don't have enough data, in which case we fail); but then 
+-- the call to L.splitAt gives us a lazy bytestring 'consuming' of precisely @n@
+-- bytes (unless we don't have enough data, in which case we fail); but then
 -- the strict evaluation of mkState on 'rest' means we look ahead too far.
 --
 -- Although this is all done completely differently in binary-0.7 it is
 -- important that the same bug does not get introduced in some other way. The
--- test is basically the same test that already exists in this test suite, 
+-- test is basically the same test that already exists in this test suite,
 -- verifying that
 --
 -- > decode . refragment . encode == id
@@ -292,15 +288,15 @@ prop_readTooMuch x = mustThrowError $ x == a && x /= b
 -- as the tail of the bytestring after rechunking. If we don't look ahead too
 -- far then this should make no difference, but if we do then this will throw
 -- an exception (for instance, in binary-0.5, this will throw an exception for
--- certain rechunkings, but not for others). 
--- 
+-- certain rechunkings, but not for others).
+--
 -- To make sure that the property holds no matter what refragmentation we use,
--- we test exhaustively for a single chunk, and all ways to break the string 
+-- we test exhaustively for a single chunk, and all ways to break the string
 -- into 2, 3 and 4 chunks.
 prop_lookAheadIndepOfChunking :: (Eq a, Binary a) => a -> Property
 prop_lookAheadIndepOfChunking testInput =
-   forAll (testCuts (L.length (encode testInput))) $ 
-     roundTrip testInput . rechunk 
+   forAll (testCuts (L.length (encode testInput))) $
+     roundTrip testInput . rechunk
   where
     testCuts :: forall a. (Num a, Enum a) => a -> Gen [a]
     testCuts len = elements $ [ [] ]
@@ -320,7 +316,7 @@ prop_lookAheadIndepOfChunking testInput =
       where
         cut :: [a] -> B.ByteString -> [B.ByteString]
         cut []     bs = [bs]
-        cut (i:is) bs = let (bs0, bs1) = B.splitAt (fromIntegral i) bs 
+        cut (i:is) bs = let (bs0, bs1) = B.splitAt (fromIntegral i) bs
                         in bs0 : cut is bs1
 
         fromChunks :: [B.ByteString] ->  L.ByteString
@@ -409,6 +405,39 @@ main = defaultMain tests
 
 ------------------------------------------------------------------------
 
+#ifdef HAS_NATURAL
+prop_test_Natural :: Property
+prop_test_Natural = forAll (gen :: Gen Natural) test
+  where
+    gen :: Gen Natural
+    gen = do
+      b <- arbitrary
+      if b
+        then do
+          x <- arbitrarySizedNatural :: Gen Natural
+          -- arbitrarySizedNatural generates numbers smaller than
+          -- (maxBound :: Word64), so let's make them bigger to better test
+          -- the Binary instance.
+          return (x + fromIntegral (maxBound :: Word64))
+        else arbitrarySizedNatural
+#endif
+
+------------------------------------------------------------------------
+
+#ifdef HAS_GHC_FINGERPRINT
+prop_test_GHC_Fingerprint :: Property
+prop_test_GHC_Fingerprint = forAll gen test
+  where
+    gen :: Gen Fingerprint
+    gen = liftM2 Fingerprint arbitrary arbitrary
+#if !MIN_VERSION_base(4,7,0)
+instance Show Fingerprint where
+  show (Fingerprint x1 x2) = show (x1,x2)
+#endif
+#endif
+
+------------------------------------------------------------------------
+
 type T a = a -> Property
 type B a = a -> Bool
 
@@ -431,7 +460,7 @@ tests =
         , testGroup "Boundaries"
             [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
-            , -- Arbitrary test input 
+            , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
             ]
@@ -444,8 +473,7 @@ tests =
             ]
 
         , testGroup "Model"
-            [ testProperty "action" Action.prop_action
-            ]
+            Action.tests
 
         , testGroup "Primitives"
             [ testProperty "Word8"      (p prop_Word8)
@@ -475,9 +503,9 @@ tests =
 
         , testGroup "String utils"
             [ testProperty "getLazyByteString"          prop_getLazyByteString
-            , testProperty "getLazyByteStringNul"       prop_getLazyByteStringNul 
+            , testProperty "getLazyByteStringNul"       prop_getLazyByteStringNul
             , testProperty "getLazyByteStringNul No Null" prop_getLazyByteStringNul_noNul
-            , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString 
+            , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString
             ]
 
         , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
@@ -500,6 +528,12 @@ tests =
             , ("Word",       p (test :: T Word                   ))
             , ("Int",        p (test :: T Int                    ))
             , ("Integer",    p (test :: T Integer                ))
+#ifdef HAS_NATURAL
+            , ("Natural",         prop_test_Natural               )
+#endif
+#ifdef HAS_GHC_FINGERPRINT
+            , ("GHC.Fingerprint", prop_test_GHC_Fingerprint       )
+#endif
 
             , ("Float",      p (test :: T Float                  ))
             , ("Double",     p (test :: T Double                 ))
@@ -544,10 +578,6 @@ tests =
                       p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int)))
             , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)",
                       p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)))
-    {-
-            , ("IntSet",            p (test      :: T IntSet.IntSet          ))
-            , ("IntMap ByteString", p (test      :: T (IntMap.IntMap B.ByteString) ))
-    -}
 
             , ("B.ByteString",  p (test :: T B.ByteString        ))
             , ("L.ByteString",  p (test :: T L.ByteString        ))
@@ -560,6 +590,3 @@ tests =
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
             ]
         ]
-
--- GHC only:
---      ,("Sequence", p (roundTrip :: Seq.Seq Int64 -> Bool))

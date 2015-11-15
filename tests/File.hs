@@ -1,14 +1,18 @@
+{-# LANGUAGE CPP #-}
 module Main where
 
-import Control.Applicative
-import Test.HUnit
-import System.Directory ( getTemporaryDirectory )
-import System.FilePath ( (</>) )
+#if ! MIN_VERSION_base(4,8,0)
+import           Control.Applicative
+#endif
 
-import Distribution.Simple.Utils ( withTempDirectory )
-import Distribution.Verbosity ( silent )
+import           System.Directory          (getTemporaryDirectory)
+import           System.FilePath           ((</>))
+import           Test.HUnit
 
-import Data.Binary
+import           Distribution.Simple.Utils (withTempDirectory)
+import           Distribution.Verbosity    (silent)
+
+import           Data.Binary
 
 data Foo = Bar !Word32 !Word32 !Word32 deriving (Eq, Show)
 

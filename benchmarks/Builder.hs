@@ -6,22 +6,25 @@
 
 module Main (main) where
 
+#if ! MIN_VERSION_base(4,8,0)
+import Data.Monoid (Monoid(mappend, mempty))
+#endif
+
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Control.Monad.Trans (liftIO)
-import Criterion.Config
-import Criterion.Main hiding (run)
+import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
 import Data.Char (ord)
-import Data.Monoid (Monoid(mappend, mempty))
 import Data.Word (Word8)
 
 import Data.Binary.Builder
 
-#if __GLASGOW_HASKELL__ < 706
+#if !MIN_VERSION_bytestring(0,10,0)
 instance NFData S.ByteString
+instance NFData L.ByteString where
+  rnf = rnf . L.toChunks
 #endif
 
 main :: IO ()
@@ -83,7 +86,7 @@ from4Word8s (x:xs) = singleton x <> singleton x <> singleton x <> singleton x <>
 
 -- Write 100 short, length-prefixed ByteStrings.
 lengthPrefixedBS :: S.ByteString -> Builder
-lengthPrefixedBS bs = loop 100
+lengthPrefixedBS bs = loop (100 :: Int)
   where loop n | n `seq` False = undefined
         loop 0 = mempty
         loop n =
