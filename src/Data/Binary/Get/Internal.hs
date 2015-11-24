@@ -91,7 +91,7 @@ newtype Get a = C { runCont :: forall r.
 type Success a r = B.ByteString -> a -> Decoder r
 
 instance Monad Get where
-  return = returnG
+  return = pure
   (>>=) = bindG
   fail = failG
 
