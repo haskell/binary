@@ -32,28 +32,38 @@ import GHC.Generics
 import Prelude -- Silence AMP warning.
 
 -- Type without constructors
-instance GBinary V1 where
+instance GBinaryPut V1 where
     gput _ = return ()
+
+instance GBinaryGet V1 where
     gget   = return undefined
 
 -- Constructor without arguments
-instance GBinary U1 where
+instance GBinaryPut U1 where
     gput U1 = return ()
+
+instance GBinaryGet U1 where
     gget    = return U1
 
 -- Product: constructor with parameters
-instance (GBinary a, GBinary b) => GBinary (a :*: b) where
+instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
     gput (x :*: y) = gput x >> gput y
+
+instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
     gget = (:*:) <$> gget <*> gget
 
 -- Metadata (constructor name, etc)
-instance GBinary a => GBinary (M1 i c a) where
+instance GBinaryPut a => GBinaryPut (M1 i c a) where
     gput = gput . unM1
+
+instance GBinaryGet a => GBinaryGet (M1 i c a) where
     gget = M1 <$> gget
 
 -- Constants, additional parameters, and rank-1 recursion
-instance Binary a => GBinary (K1 i a) where
+instance Binary a => GBinaryPut (K1 i a) where
     gput = put . unK1
+
+instance Binary a => GBinaryGet (K1 i a) where
     gget = K1 <$> get
 
 -- Borrowed from the cereal package.
@@ -69,14 +79,17 @@ instance Binary a => GBinary (K1 i a) where
 #define PUTSUM(WORD) GUARD(WORD) = putSum (0 :: WORD) (fromIntegral size)
 #define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral size)
 
-instance ( GSum     a, GSum     b
-         , GBinary a, GBinary b
-         , SumSize    a, SumSize    b) => GBinary (a :+: b) where
+instance ( GSumPut  a, GSumPut  b
+         , GBinaryPut a, GBinaryPut b
+         , SumSize    a, SumSize    b) => GBinaryPut (a :+: b) where
     gput | PUTSUM(Word8) | PUTSUM(Word16) | PUTSUM(Word32) | PUTSUM(Word64)
          | otherwise = sizeError "encode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
 
+instance ( GSumGet  a, GSumGet  b
+         , GBinaryGet a, GBinaryGet b
+         , SumSize    a, SumSize    b) => GBinaryGet (a :+: b) where
     gget | GETSUM(Word8) | GETSUM(Word16) | GETSUM(Word32) | GETSUM(Word64)
          | otherwise = sizeError "decode" size
       where
@@ -88,23 +101,26 @@ sizeError s size =
 
 ------------------------------------------------------------------------
 
-checkGetSum :: (Ord word, Num word, Bits word, GSum f)
+checkGetSum :: (Ord word, Num word, Bits word, GSumGet f)
             => word -> word -> Get (f a)
 checkGetSum size code | code < size = getSum code size
                       | otherwise   = fail "Unknown encoding for constructor"
 {-# INLINE checkGetSum #-}
 
-class GSum f where
+class GSumGet f where
     getSum :: (Ord word, Num word, Bits word) => word -> word -> Get (f a)
+
+class GSumPut f where
     putSum :: (Num w, Bits w, Binary w) => w -> w -> f a -> Put
 
-instance (GSum a, GSum b, GBinary a, GBinary b) => GSum (a :+: b) where
+instance (GSumGet a, GSumGet b, GBinaryGet a, GBinaryGet b) => GSumGet (a :+: b) where
     getSum !code !size | code < sizeL = L1 <$> getSum code           sizeL
                        | otherwise    = R1 <$> getSum (code - sizeL) sizeR
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
 
+instance (GSumPut a, GSumPut b, GBinaryPut a, GBinaryPut b) => GSumPut (a :+: b) where
     putSum !code !size s = case s of
                              L1 x -> putSum code           sizeL x
                              R1 x -> putSum (code + sizeL) sizeR x
@@ -112,9 +128,10 @@ instance (GSum a, GSum b, GBinary a, GBinary b) => GSum (a :+: b) where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
 
-instance GBinary a => GSum (C1 c a) where
+instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
 
+instance GBinaryPut a => GSumPut (C1 c a) where
     putSum !code _ x = put code *> gput x
 
 ------------------------------------------------------------------------

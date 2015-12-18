@@ -30,7 +30,8 @@
 -- If the specifics of the data format is not important to you, for example,
 -- you are more interested in serializing and deserializing values than
 -- in which format will be used, it is possible to derive 'Binary'
--- instances using the generic support. See 'GBinary'.
+-- instances using the generic support. See 'GBinaryGet' and
+-- 'GBinaryPut'.
 --
 -- If you have specific requirements about the encoding format, you can use
 -- the encoding and decoding primitives directly, see the modules
@@ -48,7 +49,8 @@ module Data.Binary (
 #ifdef GENERICS
     -- * Generic support
     -- $generics
-    , GBinary(..)
+    , GBinaryGet(..)
+    , GBinaryPut(..)
 #endif
 
     -- * The Get and Put monads
