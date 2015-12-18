@@ -36,7 +36,8 @@ module Data.Binary.Class (
 
 #ifdef GENERICS
     -- * Support for generics
-    , GBinary(..)
+    , GBinaryGet(..)
+    , GBinaryPut(..)
 #endif
 
     ) where
@@ -98,8 +99,14 @@ import Data.Version (Version(..))
 ------------------------------------------------------------------------
 
 #ifdef GENERICS
-class GBinary f where
+-- Factored into two classes because this makes GHC optimize the
+-- instances faster.  This doesn't matter for builds of binary,
+-- but it matters a lot for end-users who write 'instance Binary T'.
+-- See also: https://ghc.haskell.org/trac/ghc/ticket/9630
+class GBinaryPut f where
     gput :: f t -> Put
+
+class GBinaryGet f where
     gget :: Get (f t)
 #endif
 
@@ -127,10 +134,10 @@ class Binary t where
     get :: Get t
 
 #ifdef GENERICS
-    default put :: (Generic t, GBinary (Rep t)) => t -> Put
+    default put :: (Generic t, GBinaryPut (Rep t)) => t -> Put
     put = gput . from
 
-    default get :: (Generic t, GBinary (Rep t)) => Get t
+    default get :: (Generic t, GBinaryGet (Rep t)) => Get t
     get = to `fmap` gget
 #endif
 
