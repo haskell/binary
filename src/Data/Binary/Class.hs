@@ -268,13 +268,13 @@ instance Binary Integer where
 --
 -- Fold and unfold an Integer to and from a list of its bytes
 --
-unroll :: (Integral a, Num a, Bits a) => a -> [Word8]
+unroll :: (Integral a, Bits a) => a -> [Word8]
 unroll = unfoldr step
   where
     step 0 = Nothing
     step i = Just (fromIntegral i, i `shiftR` 8)
 
-roll :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll :: (Integral a, Bits a) => [Word8] -> a
 roll   = foldl' unstep 0 . reverse
   where
     unstep a b = a `shiftL` 8 .|. fromIntegral b

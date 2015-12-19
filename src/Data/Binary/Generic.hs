@@ -80,7 +80,6 @@ instance Binary a => GBinaryGet (K1 i a) where
 #define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral size)
 
 instance ( GSumPut  a, GSumPut  b
-         , GBinaryPut a, GBinaryPut b
          , SumSize    a, SumSize    b) => GBinaryPut (a :+: b) where
     gput | PUTSUM(Word8) | PUTSUM(Word16) | PUTSUM(Word32) | PUTSUM(Word64)
          | otherwise = sizeError "encode" size
@@ -88,7 +87,6 @@ instance ( GSumPut  a, GSumPut  b
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
 
 instance ( GSumGet  a, GSumGet  b
-         , GBinaryGet a, GBinaryGet b
          , SumSize    a, SumSize    b) => GBinaryGet (a :+: b) where
     gget | GETSUM(Word8) | GETSUM(Word16) | GETSUM(Word32) | GETSUM(Word64)
          | otherwise = sizeError "decode" size
@@ -113,14 +111,14 @@ class GSumGet f where
 class GSumPut f where
     putSum :: (Num w, Bits w, Binary w) => w -> w -> f a -> Put
 
-instance (GSumGet a, GSumGet b, GBinaryGet a, GBinaryGet b) => GSumGet (a :+: b) where
+instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
     getSum !code !size | code < sizeL = L1 <$> getSum code           sizeL
                        | otherwise    = R1 <$> getSum (code - sizeL) sizeR
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
 
-instance (GSumPut a, GSumPut b, GBinaryPut a, GBinaryPut b) => GSumPut (a :+: b) where
+instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
     putSum !code !size s = case s of
                              L1 x -> putSum code           sizeL x
                              R1 x -> putSum (code + sizeL) sizeR x
