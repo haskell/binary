@@ -64,7 +64,11 @@ module Data.Binary.Builder.Base (
 
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
+#if MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#else
 import Data.Monoid
+#endif
 import Data.Word
 import Foreign
 
@@ -107,10 +111,20 @@ newtype Builder = Builder {
                    -> IO L.ByteString
     }
 
+#if MIN_VERSION_base(4,9,0)
+instance Semigroup Builder where
+    (<>) = append
+    {-# INLINE (<>) #-}
+#endif
+
 instance Monoid Builder where
     mempty  = empty
     {-# INLINE mempty #-}
+#if MIN_VERSION_base(4,9,0)
+    mappend = (<>)
+#else
     mappend = append
+#endif
     {-# INLINE mappend #-}
     mconcat = foldr mappend mempty
     {-# INLINE mconcat #-}
