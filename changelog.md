@@ -5,7 +5,8 @@ binary-0.8.0.0
 --------------
 
 - Added binary instance for `Version` from `Data.Version`.
-- Added binary instance for `Void` (from `base >= 4.8`).
+- Added binary instance for `Void` from GHC 7.10.1.
+- Added binary instance for `(Data.Fixed a)` from GHC 7.8.1.
 
 binary-0.7.6.1
 --------------
