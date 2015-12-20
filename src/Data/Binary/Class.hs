@@ -11,8 +11,16 @@
 #define HAS_VOID
 #endif
 
+#if MIN_VERSION_base(4,7,0)
+#define HAS_FIXED_CONSTRUCTOR
+#endif
+
 #if __GLASGOW_HASKELL__ >= 704
 #define HAS_GHC_FINGERPRINT
+#endif
+
+#ifndef HAS_FIXED_CONSTRUCTOR
+{-# LANGUAGE ScopedTypeVariables #-}
 #endif
 
 -----------------------------------------------------------------------------
@@ -82,6 +90,9 @@ import GHC.Generics
 #ifdef HAS_NATURAL
 import Numeric.Natural
 #endif
+
+import qualified Data.Fixed as Fixed
+
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -264,6 +275,18 @@ instance Binary Integer where
                     bytes <- get
                     let v = roll bytes
                     return $! if sign == (1 :: Word8) then v else - v
+
+-- | /Since: 0.8.0.0/
+#ifdef HAS_FIXED_CONSTRUCTOR
+instance Binary (Fixed.Fixed a) where
+  put (Fixed.MkFixed a) = put a
+  get = Fixed.MkFixed `liftM` get
+#else
+instance forall a. Fixed.HasResolution a => Binary (Fixed.Fixed a) where
+  -- Using undefined :: Maybe a as a proxy, as Data.Proxy is introduced only in base-4.7
+  put x = put (truncate (x * fromInteger (Fixed.resolution (undefined :: Maybe a))) :: Integer)
+  get = (\x -> fromInteger x / fromInteger (Fixed.resolution (undefined :: Maybe a))) `liftM` get
+#endif
 
 --
 -- Fold and unfold an Integer to and from a list of its bytes
