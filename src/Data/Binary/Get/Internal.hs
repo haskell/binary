@@ -95,10 +95,6 @@ instance Monad Get where
   (>>=) = bindG
   fail = failG
 
-returnG :: a -> Get a
-returnG a = C $ \s ks -> ks s a
-{-# INLINE [0] returnG #-}
-
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
 {-# INLINE bindG #-}
@@ -118,8 +114,8 @@ fmapG f m = C $ \i ks -> runCont m i (\i' a -> ks i' (f a))
 {-# INLINE fmapG #-}
 
 instance Applicative Get where
-  pure = returnG
-  {-# INLINE pure #-}
+  pure = \x -> C $ \s ks -> ks s x
+  {-# INLINE [0] pure #-}
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
@@ -392,17 +388,10 @@ readN !n f = ensureN n >> unsafeReadN n f
 
 {-# RULES
 
-"<$> to <*>" forall f g.
-  (<$>) f g = returnG f <*> g
-
 "readN/readN merge" forall n m f g.
   apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs))
 
-"returnG/readN swap" [~1] forall f.
-  returnG f = readN 0 (const f)
-
-"readN 0/returnG swapback" [1] forall f.
-  readN 0 f = returnG (f B.empty) #-}
+ #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.

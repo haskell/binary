@@ -63,9 +63,6 @@
 --getTrade' = Trade '<$>' 'getWord32le' '<*>' 'getWord32le' '<*>' 'getWord16le'
 -- @
 --
--- The applicative style can sometimes result in faster code, as @binary@
--- will try to optimize the code by grouping the reads together.
---
 -- There are two kinds of ways to execute this decoder, the lazy input
 -- method and the incremental input method. Here we will use the lazy
 -- input method.
