@@ -74,15 +74,9 @@ import Foreign
 
 import System.IO.Unsafe as IO ( unsafePerformIO )
 
-#ifdef BYTESTRING_IN_BASE
-import Data.ByteString.Base (inlinePerformIO)
-import qualified Data.ByteString.Base as S
-import qualified Data.ByteString.Lazy.Base as L
-#else
 import Data.ByteString.Internal (inlinePerformIO)
 import qualified Data.ByteString.Internal as S
 import qualified Data.ByteString.Lazy.Internal as L
-#endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 import GHC.Base (ord,Int(..),uncheckedShiftRL#)
