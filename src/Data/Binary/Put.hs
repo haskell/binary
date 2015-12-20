@@ -84,27 +84,32 @@ instance Functor PutM where
         {-# INLINE fmap #-}
 
 instance Applicative PutM where
-        pure    = return
+        pure a  = Put $ PairS a mempty
+        {-# INLINE pure #-}
+
         m <*> k = Put $
             let PairS f w  = unPut m
                 PairS x w' = unPut k
             in PairS (f x) (w `mappend` w')
 
+        m *> k  = Put $
+            let PairS _ w  = unPut m
+                PairS b w' = unPut k
+            in PairS b (w `mappend` w')
+        {-# INLINE (*>) #-}
+
 -- Standard Writer monad, with aggressive inlining
 instance Monad PutM where
-    return a = Put $ PairS a mempty
-    {-# INLINE return #-}
-
     m >>= k  = Put $
         let PairS a w  = unPut m
             PairS b w' = unPut (k a)
         in PairS b (w `mappend` w')
     {-# INLINE (>>=) #-}
 
-    m >> k  = Put $
-        let PairS _ w  = unPut m
-            PairS b w' = unPut k
-        in PairS b (w `mappend` w')
+    return = pure
+    {-# INLINE return #-}
+
+    (>>) = (*>)
     {-# INLINE (>>) #-}
 
 tell :: Builder -> Put
