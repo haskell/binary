@@ -44,11 +44,12 @@ module Data.Binary.Get.Internal (
 
 import Foreign
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as B
 import qualified Data.ByteString.Unsafe as B
 
 import Control.Applicative
 import Control.Monad
+
+import Data.Binary.Internal ( accursedUnutterablePerformIO )
 
 #if __GLASGOW_HASKELL__ < 704 && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
@@ -415,5 +416,5 @@ unsafeReadN !n f = C $ \inp ks -> do
 
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith n f = do
-    readN n $ \s -> B.inlinePerformIO $ B.unsafeUseAsCString s (f . castPtr)
+    readN n $ \s -> accursedUnutterablePerformIO $ B.unsafeUseAsCString s (f . castPtr)
 {-# INLINE readNWith #-}

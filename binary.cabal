@@ -41,7 +41,8 @@ library
                    Data.Binary.Builder.Internal
 
   other-modules:   Data.Binary.Builder.Base,
-                   Data.Binary.Class
+                   Data.Binary.Class,
+                   Data.Binary.Internal
 
   if impl(ghc >= 7.2.1)
     cpp-options: -DGENERICS

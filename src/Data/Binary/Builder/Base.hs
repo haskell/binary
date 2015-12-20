@@ -74,7 +74,7 @@ import Foreign
 
 import System.IO.Unsafe as IO ( unsafePerformIO )
 
-import Data.ByteString.Internal (inlinePerformIO)
+import Data.Binary.Internal ( accursedUnutterablePerformIO )
 import qualified Data.ByteString.Internal as S
 import qualified Data.ByteString.Lazy.Internal as L
 
@@ -198,7 +198,7 @@ flush = Builder $ \ k buf@(Buffer p o u l) ->
       then k buf
       else let !b  = Buffer p (o+u) 0 l
                !bs = S.PS p o u
-           in return $! L.Chunk bs (inlinePerformIO (k b))
+           in return $! L.Chunk bs (accursedUnutterablePerformIO (k b))
 {-# INLINE [0] flush #-}
 
 ------------------------------------------------------------------------
