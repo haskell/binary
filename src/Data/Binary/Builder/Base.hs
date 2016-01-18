@@ -198,6 +198,11 @@ flush = Builder $ \ k buf@(Buffer p o u l) ->
       then k buf
       else let !b  = Buffer p (o+u) 0 l
                !bs = S.PS p o u
+           -- It should be safe to use accursedUnutterablePerformIO here.
+           -- The place in the buffer where we write is determined by the 'b'
+           -- value, and writes should be deterministic. The thunk should not
+           -- be floated out and shared since the buffer references the
+           -- incoming foreign ptr.
            in return $! L.Chunk bs (accursedUnutterablePerformIO (k b))
 {-# INLINE [0] flush #-}
 

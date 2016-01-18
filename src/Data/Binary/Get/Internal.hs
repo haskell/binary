@@ -414,7 +414,11 @@ unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
 unsafeReadN !n f = C $ \inp ks -> do
   ks (B.unsafeDrop n inp) $! f inp -- strict return
 
+-- | @readNWith n f@ where @f@ must be deterministic and not have side effects.
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith n f = do
+    -- It should be safe to use accursedUnutterablePerformIO here.
+    -- The action must be deterministic and not have any external side effects.
+    -- It depends on the value of the ByteString so the value dependencies look OK.
     readN n $ \s -> accursedUnutterablePerformIO $ B.unsafeUseAsCString s (f . castPtr)
 {-# INLINE readNWith #-}
