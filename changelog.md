@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.0.1
+--------------
+
+- Address compiler warnings.
+
 binary-0.8.0.0
 --------------
 
