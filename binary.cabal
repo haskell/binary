@@ -53,6 +53,9 @@ library
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
+  if impl(ghc >= 7.11)
+    ghc-options: -Wcompat -Wnoncanonical-monad-instances
+
 -- Due to circular dependency, we cannot make any of the test-suites or
 -- benchmark depend on the binary library. Instead, for each test-suite and
 -- benchmark, we include the source directory of binary and build-depend on all
