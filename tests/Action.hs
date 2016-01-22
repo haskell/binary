@@ -38,6 +38,7 @@ data Action
   deriving (Show, Eq)
 
 instance Arbitrary Action where
+  arbitrary = fmap Actions (gen_actions False)
   shrink action =
     case action of
       Actions [a] -> [a]
