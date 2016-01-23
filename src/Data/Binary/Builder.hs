@@ -7,7 +7,7 @@
 -- Module      : Data.Binary.Builder
 -- Copyright   : Lennart Kolmodin, Ross Paterson
 -- License     : BSD3-style (see LICENSE)
--- 
+--
 -- Maintainer  : Lennart Kolmodin <kolmodin@gmail.com>
 -- Stability   : experimental
 -- Portability : portable to Hugs and GHC
@@ -28,6 +28,9 @@ module Data.Binary.Builder (
     , append
     , fromByteString        -- :: S.ByteString -> Builder
     , fromLazyByteString    -- :: L.ByteString -> Builder
+#if MIN_VERSION_bytestring(0,10,4)
+    , fromShortByteString   -- :: T.ByteString -> Builder
+#endif
 
     -- * Flushing the buffer state
     , flush
