@@ -33,7 +33,9 @@ module Data.Binary.Builder.Base (
     , append
     , fromByteString        -- :: S.ByteString -> Builder
     , fromLazyByteString    -- :: L.ByteString -> Builder
-
+#if MIN_VERSION_bytestring(0,10,4)
+    , fromShortByteString   -- :: T.ByteString -> Builder
+#endif
     -- * Flushing the buffer state
     , flush
 
@@ -64,6 +66,10 @@ module Data.Binary.Builder.Base (
 
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
+#if MIN_VERSION_bytestring(0,10,4)
+import qualified Data.ByteString.Short as T
+import qualified Data.ByteString.Short.Internal as T
+#endif
 #if MIN_VERSION_base(4,9,0)
 import Data.Semigroup
 #else
@@ -169,6 +175,17 @@ fromByteString bs
 fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString bss = flush `append` mapBuilder (bss `L.append`)
 {-# INLINE fromLazyByteString #-}
+
+#if MIN_VERSION_bytestring(0,10,4)
+-- | /O(n)./ A builder taking 'T.ShortByteString' and copy it to a Builder,
+-- satisfying
+--
+-- * @'toLazyByteString' ('fromShortByteString' bs) = 'L.fromChunks' ['T.fromShort' bs]
+fromShortByteString :: T.ShortByteString -> Builder
+fromShortByteString sbs = writeN (T.length sbs) $ \ptr ->
+   T.copyToPtr sbs 0 ptr (T.length sbs)
+{-# INLINE fromShortByteString #-}
+#endif
 
 ------------------------------------------------------------------------
 

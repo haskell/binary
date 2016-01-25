@@ -73,6 +73,9 @@ import Data.List    (unfoldr, foldl')
 
 -- And needed for the instances:
 import qualified Data.ByteString as B
+#if MIN_VERSION_bytestring(0,10,4)
+import qualified Data.ByteString.Short as BS
+#endif
 import qualified Data.Map        as Map
 import qualified Data.Set        as Set
 import qualified Data.IntMap     as IntMap
@@ -552,6 +555,14 @@ instance Binary ByteString where
     put bs = do put (fromIntegral (L.length bs) :: Int)
                 putLazyByteString bs
     get    = get >>= getLazyByteString
+
+
+#if MIN_VERSION_bytestring(0,10,4)
+instance Binary BS.ShortByteString where
+   put bs = do put (BS.length bs)
+               putShortByteString bs
+   get = get >>= fmap BS.toShort . getByteString
+#endif
 
 ------------------------------------------------------------------------
 -- Maps and Sets
