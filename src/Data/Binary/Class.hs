@@ -209,35 +209,35 @@ instance Binary Word64 where
 
 -- Int8s are written as a single byte.
 instance Binary Int8 where
-    put i   = put (fromIntegral i :: Word8)
-    get     = liftM fromIntegral (get :: Get Word8)
+    put     = putInt8
+    get     = getInt8
 
 -- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
-    put i   = put (fromIntegral i :: Word16)
-    get     = liftM fromIntegral (get :: Get Word16)
+    put     = putInt16be
+    get     = getInt16be
 
 -- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
-    put i   = put (fromIntegral i :: Word32)
-    get     = liftM fromIntegral (get :: Get Word32)
+    put     = putInt32be
+    get     = getInt32be
 
 -- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
-    put i   = put (fromIntegral i :: Word64)
-    get     = liftM fromIntegral (get :: Get Word64)
+    put     = putInt64be
+    get     = getInt64be
 
 ------------------------------------------------------------------------
 
 -- Words are are written as Word64s, that is, 8 bytes in big endian format
 instance Binary Word where
-    put i   = put (fromIntegral i :: Word64)
-    get     = liftM fromIntegral (get :: Get Word64)
+    put     = putWord64be . fromIntegral
+    get     = liftM fromIntegral getWord64be
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
-    put i   = put (fromIntegral i :: Int64)
-    get     = liftM fromIntegral (get :: Get Int64)
+    put     = putInt64be . fromIntegral
+    get     = liftM fromIntegral getInt64be
 
 ------------------------------------------------------------------------
 --
