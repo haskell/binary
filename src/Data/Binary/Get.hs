@@ -169,7 +169,7 @@ module Data.Binary.Get (
     , getLazyByteStringNul
     , getRemainingLazyByteString
 
-    -- ** Decoding words
+    -- ** Decoding Words
     , getWord8
 
     -- *** Big-endian decoding
@@ -188,7 +188,7 @@ module Data.Binary.Get (
     , getWord32host
     , getWord64host
 
-    -- ** Decoding words
+    -- ** Decoding Ints
     , getInt8
 
     -- *** Big-endian decoding
