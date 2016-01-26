@@ -44,17 +44,27 @@ module Data.Binary.Builder.Base (
     , putWord16be           -- :: Word16 -> Builder
     , putWord32be           -- :: Word32 -> Builder
     , putWord64be           -- :: Word64 -> Builder
+    , putInt16be            -- :: Int16 -> Builder
+    , putInt32be            -- :: Int32 -> Builder
+    , putInt64be            -- :: Int64 -> Builder
 
     -- ** Little-endian writes
     , putWord16le           -- :: Word16 -> Builder
     , putWord32le           -- :: Word32 -> Builder
     , putWord64le           -- :: Word64 -> Builder
+    , putInt16le            -- :: Int16 -> Builder
+    , putInt32le            -- :: Int32 -> Builder
+    , putInt64le            -- :: Int64 -> Builder
 
     -- ** Host-endian, unaligned writes
     , putWordhost           -- :: Word -> Builder
     , putWord16host         -- :: Word16 -> Builder
     , putWord32host         -- :: Word32 -> Builder
     , putWord64host         -- :: Word64 -> Builder
+    , putInthost            -- :: Int -> Builder
+    , putInt16host          -- :: Int16 -> Builder
+    , putInt32host          -- :: Int32 -> Builder
+    , putInt64host          -- :: Int64 -> Builder
 
       -- ** Unicode
     , putCharUtf8
@@ -393,8 +403,41 @@ putWord64le w = writeN 8 $ \p -> do
 #endif
 {-# INLINE putWord64le #-}
 
+
+
 -- on a little endian machine:
 -- putWord64le w64 = writeN 8 (\p -> poke (castPtr p) w64)
+
+
+-- | Write a Int16 in big endian format
+putInt16be :: Int16 -> Builder
+putInt16be = putWord16be . fromIntegral
+{-# INLINE putInt16be #-}
+
+-- | Write a Int16 in little endian format
+putInt16le :: Int16 -> Builder
+putInt16le = putWord16le . fromIntegral
+{-# INLINE putInt16le #-}
+
+-- | Write a Int32 in big endian format
+putInt32be :: Int32 -> Builder
+putInt32be = putWord32be . fromIntegral
+{-# INLINE putInt32be #-}
+
+-- | Write a Int32 in little endian format
+putInt32le :: Int32 -> Builder
+putInt32le = putWord32le . fromIntegral
+{-# INLINE putInt32le #-}
+
+-- | Write a Int64 in big endian format
+putInt64be :: Int64 -> Builder
+putInt64be = putWord64be . fromIntegral
+
+-- | Write a Int64 in little endian format
+putInt64le :: Int64 -> Builder
+putInt64le = putWord64le . fromIntegral
+
+
 
 ------------------------------------------------------------------------
 -- Unaligned, word size ops
@@ -431,6 +474,40 @@ putWord64host :: Word64 -> Builder
 putWord64host w =
     writeN (sizeOf (undefined :: Word64)) (\p -> poke (castPtr p) w)
 {-# INLINE putWord64host #-}
+
+-- | /O(1)./ A Builder taking a single native machine word. The word is
+-- written in host order, host endian form, for the machine you're on.
+-- On a 64 bit machine the Int is an 8 byte value, on a 32 bit machine,
+-- 4 bytes. Values written this way are not portable to
+-- different endian or word sized machines, without conversion.
+--
+putInthost :: Int -> Builder
+putInthost w =
+    writeN (sizeOf (undefined :: Int)) (\p -> poke (castPtr p) w)
+{-# INLINE putInthost #-}
+
+-- | Write a Int16 in native host order and host endianness.
+-- 2 bytes will be written, unaligned.
+putInt16host :: Int16 -> Builder
+putInt16host w16 =
+    writeN (sizeOf (undefined :: Int16)) (\p -> poke (castPtr p) w16)
+{-# INLINE putInt16host #-}
+
+-- | Write a Int32 in native host order and host endianness.
+-- 4 bytes will be written, unaligned.
+putInt32host :: Int32 -> Builder
+putInt32host w32 =
+    writeN (sizeOf (undefined :: Int32)) (\p -> poke (castPtr p) w32)
+{-# INLINE putInt32host #-}
+
+-- | Write a Int64 in native host order.
+-- On a 32 bit machine we write two host order Int32s, in big endian form.
+-- 8 bytes will be written, unaligned.
+putInt64host :: Int64 -> Builder
+putInt64host w =
+    writeN (sizeOf (undefined :: Int64)) (\p -> poke (castPtr p) w)
+{-# INLINE putInt64host #-}
+
 
 ------------------------------------------------------------------------
 -- Unicode

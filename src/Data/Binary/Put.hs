@@ -32,6 +32,7 @@ module Data.Binary.Put (
 
     -- * Primitives
     , putWord8
+    , putInt8
     , putByteString
     , putLazyByteString
 #if MIN_VERSION_bytestring(0,10,4)
@@ -42,17 +43,27 @@ module Data.Binary.Put (
     , putWord16be
     , putWord32be
     , putWord64be
+    , putInt16be
+    , putInt32be
+    , putInt64be
 
     -- * Little-endian primitives
     , putWord16le
     , putWord32le
     , putWord64le
+    , putInt16le
+    , putInt32le
+    , putInt64le
 
     -- * Host-endian, unaligned writes
     , putWordhost           -- :: Word   -> Put
     , putWord16host         -- :: Word16 -> Put
     , putWord32host         -- :: Word32 -> Put
     , putWord64host         -- :: Word64 -> Put
+    , putInthost            -- :: Int    -> Put
+    , putInt16host          -- :: Int16  -> Put
+    , putInt32host          -- :: Int32  -> Put
+    , putInt64host          -- :: Int64  -> Put
 
   ) where
 
@@ -60,6 +71,7 @@ import Data.Monoid
 import Data.Binary.Builder (Builder, toLazyByteString)
 import qualified Data.Binary.Builder as B
 
+import Data.Int
 import Data.Word
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
@@ -154,6 +166,11 @@ putWord8            :: Word8 -> Put
 putWord8            = tell . B.singleton
 {-# INLINE putWord8 #-}
 
+-- | Efficiently write a signed byte into the output buffer
+putInt8            :: Int8 -> Put
+putInt8            = tell . B.singleton . fromIntegral
+{-# INLINE putInt8 #-}
+
 -- | An efficient primitive to write a strict ByteString into the output buffer.
 -- It flushes the current buffer, and writes the argument into a new chunk.
 putByteString       :: S.ByteString -> Put
@@ -203,6 +220,37 @@ putWord64le         :: Word64 -> Put
 putWord64le         = tell . B.putWord64le
 {-# INLINE putWord64le #-}
 
+-- | Write an Int16 in big endian format
+putInt16be         :: Int16 -> Put
+putInt16be         = tell . B.putInt16be
+{-# INLINE putInt16be #-}
+
+-- | Write an Int16 in little endian format
+putInt16le         :: Int16 -> Put
+putInt16le         = tell . B.putInt16le
+{-# INLINE putInt16le #-}
+
+-- | Write an Int32 in big endian format
+putInt32be         :: Int32 -> Put
+putInt32be         = tell . B.putInt32be
+{-# INLINE putInt32be #-}
+
+-- | Write an Int32 in little endian format
+putInt32le         :: Int32 -> Put
+putInt32le         = tell . B.putInt32le
+{-# INLINE putInt32le #-}
+
+-- | Write an Int64 in big endian format
+putInt64be         :: Int64 -> Put
+putInt64be         = tell . B.putInt64be
+{-# INLINE putInt64be #-}
+
+-- | Write an Int64 in little endian format
+putInt64le         :: Int64 -> Put
+putInt64le         = tell . B.putInt64le
+{-# INLINE putInt64le #-}
+
+
 ------------------------------------------------------------------------
 
 -- | /O(1)./ Write a single native machine word. The word is
@@ -233,3 +281,32 @@ putWord32host       = tell . B.putWord32host
 putWord64host       :: Word64 -> Put
 putWord64host       = tell . B.putWord64host
 {-# INLINE putWord64host #-}
+
+-- | /O(1)./ Write a single native machine word. The word is
+-- written in host order, host endian form, for the machine you're on.
+-- On a 64 bit machine the Int is an 8 byte value, on a 32 bit machine,
+-- 4 bytes. Values written this way are not portable to
+-- different endian or word sized machines, without conversion.
+--
+putInthost         :: Int -> Put
+putInthost         = tell . B.putInthost
+{-# INLINE putInthost #-}
+
+-- | /O(1)./ Write an Int16 in native host order and host endianness.
+-- For portability issues see @putInthost@.
+putInt16host       :: Int16 -> Put
+putInt16host       = tell . B.putInt16host
+{-# INLINE putInt16host #-}
+
+-- | /O(1)./ Write an Int32 in native host order and host endianness.
+-- For portability issues see @putInthost@.
+putInt32host       :: Int32 -> Put
+putInt32host       = tell . B.putInt32host
+{-# INLINE putInt32host #-}
+
+-- | /O(1)./ Write an Int64 in native host order
+-- On a 32 bit machine we write two host order Int32s, in big endian form.
+-- For portability issues see @putInthost@.
+putInt64host       :: Int64 -> Put
+putInt64host       = tell . B.putInt64host
+{-# INLINE putInt64host #-}
