@@ -5,6 +5,7 @@ binary-0.9.0.0
 --------------
 
 - Add binary instance for `Data.ByteString.Short`.
+- Add get/put functions for all Int sizes to `Data.Binary.Builder`, `Data.Binary.Get` and `Data.Binary.Put`.
 
 binary-0.8.0.1
 --------------
