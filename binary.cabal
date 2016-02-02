@@ -32,6 +32,10 @@ source-repository head
 
 library
   build-depends:   base >= 3.0 && < 5, bytestring >= 0.9, containers, array
+
+  if !impl(ghc >= 8.0)
+    build-depends: fail == 4.9.*
+
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
@@ -53,8 +57,8 @@ library
 
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
-  if impl(ghc >= 7.11)
-    ghc-options: -Wcompat -Wnoncanonical-monad-instances
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
 
 -- Due to circular dependency, we cannot make any of the test-suites or
 -- benchmark depend on the binary library. Instead, for each test-suite and
