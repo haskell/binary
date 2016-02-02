@@ -1,7 +1,7 @@
 binary
 ======
 
-binary-0.9.0.0
+binary-0.8.1.0
 --------------
 
 - Add binary instance for `Data.ByteString.Short`.
