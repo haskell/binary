@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.2.0
+--------------
+
+- When using GHC >= 8, `Data.Binary.Get.Get` implements MonadFail and delegates its `fail` to `MonadFail.fail`.
+
 binary-0.8.1.0
 --------------
 
