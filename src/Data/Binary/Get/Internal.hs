@@ -48,6 +48,9 @@ import qualified Data.ByteString.Unsafe as B
 
 import Control.Applicative
 import Control.Monad
+#if MIN_VERSION_base(4,9,0)
+import qualified Control.Monad.Fail as Fail
+#endif
 
 import Data.Binary.Internal ( accursedUnutterablePerformIO )
 
@@ -94,6 +97,11 @@ type Success a r = B.ByteString -> a -> Decoder r
 instance Monad Get where
   return = pure
   (>>=) = bindG
+#if MIN_VERSION_base(4,9,0)
+  fail = Fail.fail
+
+instance Fail.MonadFail Get where
+#endif
   fail = failG
 
 bindG :: Get a -> (a -> Get b) -> Get b
