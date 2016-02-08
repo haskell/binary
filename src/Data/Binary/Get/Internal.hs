@@ -398,9 +398,7 @@ readN !n f = ensureN n >> unsafeReadN n f
 {-# RULES
 
 "readN/readN merge" forall n m f g.
-  apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs))
-
- #-}
+  apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs)) #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.

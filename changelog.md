@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.2.1
+--------------
+
+- Fix compilation error when using older GHC versions and clang. clang barfs on some of its CPP input (#105).
+
 binary-0.8.2.0
 --------------
 
