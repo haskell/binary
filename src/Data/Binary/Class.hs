@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleContexts #-}
+{-# LANGUAGE CPP, FlexibleContexts, ScopedTypeVariables #-}
 #if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
 {-# LANGUAGE Safe #-}
 #endif
@@ -17,10 +17,6 @@
 
 #if __GLASGOW_HASKELL__ >= 704
 #define HAS_GHC_FINGERPRINT
-#endif
-
-#ifndef HAS_FIXED_CONSTRUCTOR
-{-# LANGUAGE ScopedTypeVariables #-}
 #endif
 
 -----------------------------------------------------------------------------
