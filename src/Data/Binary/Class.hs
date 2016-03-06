@@ -177,12 +177,21 @@ instance Binary () where
 -- Bools are encoded as a byte in the range 0 .. 1
 instance Binary Bool where
     put     = putWord8 . fromIntegral . fromEnum
-    get     = liftM (toEnum . fromIntegral) getWord8
+    get     = getWord8 >>= toBool
+      where
+        toBool 0 = return False
+        toBool 1 = return True
+        toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
 
 -- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
     put     = putWord8 . fromIntegral . fromEnum
-    get     = liftM (toEnum . fromIntegral) getWord8
+    get     = getWord8 >>= toOrd
+      where
+        toOrd 0 = return LT
+        toOrd 1 = return EQ
+        toOrd 2 = return GT
+        toOrd c = fail ("Could not map value " ++ show c ++ " to Ordering")
 
 ------------------------------------------------------------------------
 -- Words and Ints
