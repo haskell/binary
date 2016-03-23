@@ -31,17 +31,15 @@ source-repository head
   location: git://github.com/kolmodin/binary.git
 
 library
-  build-depends:   base >= 3.0 && < 5, bytestring >= 0.9, containers, array
+  build-depends:   base >= 3.0 && < 5, bytestring >= 0.10.2, containers, array
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
                    Data.Binary.Get,
                    Data.Binary.Get.Internal,
-                   Data.Binary.Builder,
-                   Data.Binary.Builder.Internal
+                   Data.Binary.Builder
 
-  other-modules:   Data.Binary.Builder.Base,
-                   Data.Binary.Class,
+  other-modules:   Data.Binary.Class,
                    Data.Binary.Internal
 
   if impl(ghc >= 7.2.1)
@@ -70,7 +68,7 @@ test-suite qc
     Arbitrary
   build-depends:
     base >= 3.0 && < 5,
-    bytestring >= 0.9,
+    bytestring >= 0.10.2,
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
@@ -86,7 +84,7 @@ test-suite read-write-file
   main-is: File.hs
   build-depends:
     base >= 3.0 && < 5,
-    bytestring >= 0.9,
+    bytestring >= 0.10.2,
     Cabal,
     directory,
     filepath,
