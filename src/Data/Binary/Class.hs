@@ -53,6 +53,7 @@ module Data.Binary.Class (
 import Data.Word
 import Data.Bits
 import Data.Int
+import Data.Complex (Complex(..))
 #ifdef HAS_VOID
 import Data.Void
 #endif
@@ -409,6 +410,12 @@ freezeByteArray arr = IO $ \s ->
 instance (Binary a,Integral a) => Binary (R.Ratio a) where
     put r = put (R.numerator r) >> put (R.denominator r)
     get = liftM2 (R.%) get get
+
+instance Binary a => Binary (Complex a) where
+    {-# INLINE put #-}
+    put (r :+ i) = put (r, i)
+    {-# INLINE get #-}
+    get = (\(r,i) -> r :+ i) <$> get
 
 ------------------------------------------------------------------------
 
