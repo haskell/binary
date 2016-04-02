@@ -68,7 +68,6 @@ import Control.Monad
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Char    (ord)
 import Data.List    (unfoldr, foldl')
 
 -- And needed for the instances:
@@ -414,25 +413,7 @@ instance (Binary a,Integral a) => Binary (R.Ratio a) where
 
 -- Char is serialised as UTF-8
 instance Binary Char where
-    put a | c <= 0x7f     = put (fromIntegral c :: Word8)
-          | c <= 0x7ff    = do put (0xc0 .|. y)
-                               put (0x80 .|. z)
-          | c <= 0xffff   = do put (0xe0 .|. x)
-                               put (0x80 .|. y)
-                               put (0x80 .|. z)
-          | c <= 0x10ffff = do put (0xf0 .|. w)
-                               put (0x80 .|. x)
-                               put (0x80 .|. y)
-                               put (0x80 .|. z)
-          | otherwise     = error "Not a valid Unicode code point"
-     where
-        c = ord a
-        z, y, x, w :: Word8
-        z = fromIntegral (c           .&. 0x3f)
-        y = fromIntegral (shiftR c 6  .&. 0x3f)
-        x = fromIntegral (shiftR c 12 .&. 0x3f)
-        w = fromIntegral (shiftR c 18 .&. 0x7)
-
+    put = putCharUtf8
     get = do
         let getByte = liftM (fromIntegral :: Word8 -> Int) get
             shiftL6 = flip shiftL 6 :: Int -> Int
