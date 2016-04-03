@@ -65,6 +65,10 @@ module Data.Binary.Put (
     , putInt32host          -- :: Int32  -> Put
     , putInt64host          -- :: Int64  -> Put
 
+    -- * Unicode
+    , putCharUtf8
+    , putStringUtf8
+
   ) where
 
 import Data.Monoid
@@ -310,3 +314,17 @@ putInt32host       = tell . B.putInt32host
 putInt64host       :: Int64 -> Put
 putInt64host       = tell . B.putInt64host
 {-# INLINE putInt64host #-}
+
+
+------------------------------------------------------------------------
+-- Unicode
+
+-- | Write a character using UTF-8 encoding.
+putCharUtf8 :: Char -> Put
+putCharUtf8 = tell . B.putCharUtf8
+{-# INLINE putCharUtf8 #-}
+
+-- | Write a String using UTF-8 encoding.
+putStringUtf8 :: String -> Put
+putStringUtf8 = tell . B.putStringUtf8
+{-# INLINE putStringUtf8 #-}

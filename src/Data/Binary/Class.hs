@@ -69,7 +69,6 @@ import Control.Monad
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 
-import Data.Char    (ord)
 import Data.List    (unfoldr, foldl')
 
 -- And needed for the instances:
@@ -148,6 +147,9 @@ class Binary t where
     -- | Decode a value in the Get monad
     get :: Get t
 
+    putList :: [t] -> Put
+    putList = defaultPutList
+
 #ifdef GENERICS
     default put :: (Generic t, GBinaryPut (Rep t)) => t -> Put
     put = gput . from
@@ -155,6 +157,10 @@ class Binary t where
     default get :: (Generic t, GBinaryGet (Rep t)) => Get t
     get = to `fmap` gget
 #endif
+
+{-# INLINE defaultPutList #-}
+defaultPutList :: Binary a => [a] -> Put
+defaultPutList xs = put (length xs) >> mapM_ put xs
 
 ------------------------------------------------------------------------
 -- Simple instances
@@ -421,25 +427,8 @@ instance Binary a => Binary (Complex a) where
 
 -- Char is serialised as UTF-8
 instance Binary Char where
-    put a | c <= 0x7f     = put (fromIntegral c :: Word8)
-          | c <= 0x7ff    = do put (0xc0 .|. y)
-                               put (0x80 .|. z)
-          | c <= 0xffff   = do put (0xe0 .|. x)
-                               put (0x80 .|. y)
-                               put (0x80 .|. z)
-          | c <= 0x10ffff = do put (0xf0 .|. w)
-                               put (0x80 .|. x)
-                               put (0x80 .|. y)
-                               put (0x80 .|. z)
-          | otherwise     = error "Not a valid Unicode code point"
-     where
-        c = ord a
-        z, y, x, w :: Word8
-        z = fromIntegral (c           .&. 0x3f)
-        y = fromIntegral (shiftR c 6  .&. 0x3f)
-        x = fromIntegral (shiftR c 12 .&. 0x3f)
-        w = fromIntegral (shiftR c 18 .&. 0x7)
-
+    put = putCharUtf8
+    putList str = put (length str) >> putStringUtf8 str
     get = do
         let getByte = liftM (fromIntegral :: Word8 -> Int) get
             shiftL6 = flip shiftL 6 :: Int -> Int
@@ -521,9 +510,9 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 -- Container types
 
 instance Binary a => Binary [a] where
-    put l  = put (length l) >> mapM_ put l
-    get    = do n <- get :: Get Int
-                getMany n
+    put = putList
+    get = do n <- get :: Get Int
+             getMany n
 
 -- | 'getMany n' get 'n' elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]
