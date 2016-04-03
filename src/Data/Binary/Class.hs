@@ -146,6 +146,9 @@ class Binary t where
     -- | Decode a value in the Get monad
     get :: Get t
 
+    putList :: [t] -> Put
+    putList = defaultPutList
+
 #ifdef GENERICS
     default put :: (Generic t, GBinaryPut (Rep t)) => t -> Put
     put = gput . from
@@ -153,6 +156,10 @@ class Binary t where
     default get :: (Generic t, GBinaryGet (Rep t)) => Get t
     get = to `fmap` gget
 #endif
+
+{-# INLINE defaultPutList #-}
+defaultPutList :: Binary a => [a] -> Put
+defaultPutList xs = put (length xs) >> mapM_ put xs
 
 ------------------------------------------------------------------------
 -- Simple instances
@@ -495,9 +502,9 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 -- Container types
 
 instance Binary a => Binary [a] where
-    put l  = put (length l) >> mapM_ put l
-    get    = do n <- get :: Get Int
-                getMany n
+    put = putList
+    get = do n <- get :: Get Int
+             getMany n
 
 -- | 'getMany n' get 'n' elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]
