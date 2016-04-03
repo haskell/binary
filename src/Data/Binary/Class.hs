@@ -421,6 +421,7 @@ instance (Binary a,Integral a) => Binary (R.Ratio a) where
 -- Char is serialised as UTF-8
 instance Binary Char where
     put = putCharUtf8
+    putList str = put (length str) >> putStringUtf8 str
     get = do
         let getByte = liftM (fromIntegral :: Word8 -> Int) get
             shiftL6 = flip shiftL 6 :: Int -> Int

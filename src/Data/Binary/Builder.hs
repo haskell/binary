@@ -65,6 +65,7 @@ module Data.Binary.Builder (
 
       -- ** Unicode
     , putCharUtf8
+    , putStringUtf8
     ) where
 
 import qualified Data.ByteString      as S
@@ -264,3 +265,8 @@ putInt64host = Prim.primFixed Prim.int64Host
 putCharUtf8 :: Char -> Builder
 putCharUtf8 = Prim.primBounded Prim.charUtf8
 {-# INLINE putCharUtf8 #-}
+
+-- | Write a String using UTF-8 encoding.
+putStringUtf8 :: String -> Builder
+putStringUtf8 = Prim.primMapListBounded Prim.charUtf8
+{-# INLINE putStringUtf8 #-}

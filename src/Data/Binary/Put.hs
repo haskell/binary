@@ -67,6 +67,7 @@ module Data.Binary.Put (
 
     -- * Unicode
     , putCharUtf8
+    , putStringUtf8
 
   ) where
 
@@ -323,3 +324,7 @@ putCharUtf8 :: Char -> Put
 putCharUtf8 = tell . B.putCharUtf8
 {-# INLINE putCharUtf8 #-}
 
+-- | Write a String using UTF-8 encoding.
+putStringUtf8 :: String -> Put
+putStringUtf8 = tell . B.putStringUtf8
+{-# INLINE putStringUtf8 #-}
