@@ -124,6 +124,19 @@ benchmark get
   build-depends: array, containers
   ghc-options: -O2 -Wall
 
+benchmark put
+  type: exitcode-stdio-1.0
+  hs-source-dirs: src benchmarks
+  main-is: Put.hs
+  build-depends:
+    base >= 3.0 && < 5,
+    bytestring,
+    criterion == 1.*,
+    deepseq
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
+  ghc-options: -O2 -Wall
+
 benchmark generics-bench
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
