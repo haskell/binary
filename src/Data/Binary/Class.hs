@@ -147,6 +147,9 @@ class Binary t where
     -- | Decode a value in the Get monad
     get :: Get t
 
+    -- | Encode a list of values in the Put monad.
+    -- The default implementation may be overridden to be more efficient
+    -- but must still have the same encoding format.
     putList :: [t] -> Put
     putList = defaultPutList
 
