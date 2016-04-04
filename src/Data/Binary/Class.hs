@@ -68,6 +68,7 @@ import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Builder.Prim as Prim
 
 import Data.List    (unfoldr, foldl')
 
@@ -209,6 +210,9 @@ instance Binary Ordering where
 -- Words8s are written as bytes
 instance Binary Word8 where
     put     = putWord8
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.word8 xs)
     get     = getWord8
 
 -- Words16s are written as 2 bytes in big-endian (network) order
