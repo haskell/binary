@@ -480,6 +480,13 @@ p = property
 test    :: (Eq a, Binary a) => a -> Property
 test a  = forAll positiveList (roundTrip a . refragment)
 
+test' :: (Show a, Arbitrary a, Eq a) => String -> (a -> Property) -> ([a] -> Property) -> Test
+test' desc prop propList =
+  testGroup desc [
+    testProperty desc prop,
+    testProperty ("[" ++ desc ++ "]") propList
+  ]
+
 positiveList :: Gen [Int]
 positiveList = fmap (filter (/=0) . map abs) $ arbitrary
 
@@ -541,82 +548,71 @@ tests =
             , testProperty "getRemainingLazyByteString" prop_getRemainingLazyByteString
             ]
 
-        , testGroup "Using Binary class, refragmented ByteString" $ map (uncurry testProperty)
-            [ ("()",         p (test :: T ()                     ))
-            , ("Bool",       p (test :: T Bool                   ))
-            , ("Ordering",   p (test :: T Ordering               ))
-            , ("Ratio Int",  p (test :: T (Ratio Int)            ))
+        , testGroup "Using Binary class, refragmented ByteString"
+            [ test' "()"          (test :: T ()         ) test
+            , test' "Bool"        (test :: T Bool       ) test
+            , test' "Char"        (test :: T Char       ) test
+            , test' "Ordering"    (test :: T Ordering   ) test
+            , test' "Ratio Int"   (test :: T (Ratio Int)) test
 
+            , test' "Word"        (test :: T Word  ) test
+            , test' "Word8"       (test :: T Word8 ) test
+            , test' "Word16"      (test :: T Word16) test
+            , test' "Word32"      (test :: T Word32) test
+            , test' "Word64"      (test :: T Word64) test
 
-            , ("Word8",      p (test :: T Word8                  ))
-            , ("Word16",     p (test :: T Word16                 ))
-            , ("Word32",     p (test :: T Word32                 ))
-            , ("Word64",     p (test :: T Word64                 ))
+            , test' "Int"         (test :: T Int  ) test
+            , test' "Int8"        (test :: T Int8 ) test
+            , test' "Int16"       (test :: T Int16) test
+            , test' "Int32"       (test :: T Int32) test
+            , test' "Int64"       (test :: T Int64) test
 
-            , ("Int8",       p (test :: T Int8                   ))
-            , ("Int16",      p (test :: T Int16                  ))
-            , ("Int32",      p (test :: T Int32                  ))
-            , ("Int64",      p (test :: T Int64                  ))
-
-            , ("Word",       p (test :: T Word                   ))
-            , ("Int",        p (test :: T Int                    ))
-            , ("Integer",    p (test :: T Integer                ))
-            , ("Fixed",      p (test :: T (Fixed.Fixed Fixed.E3) ))
+            , test' "Integer"     (test :: T Integer) test
+            , test' "Fixed"       (test :: T (Fixed.Fixed Fixed.E3) ) test
 #ifdef HAS_NATURAL
-            , ("Natural",         prop_test_Natural               )
+            , testProperty "Natural" prop_test_Natural
 #endif
 #ifdef HAS_GHC_FINGERPRINT
-            , ("GHC.Fingerprint", prop_test_GHC_Fingerprint       )
+            , testProperty "GHC.Fingerprint" prop_test_GHC_Fingerprint
 #endif
 
-            , ("Float",      p (test :: T Float                  ))
-            , ("Double",     p (test :: T Double                 ))
+            , test' "Float"       (test :: T Float ) test
+            , test' "Double"      (test :: T Double) test
 
-            , ("Char",       p (test :: T Char                   ))
+            , test' "((), ())"            (test :: T ((), ())            ) test
+            , test' "(Word8, Word32)"     (test :: T (Word8, Word32)     ) test
+            , test' "(Int8, Int32)"       (test :: T (Int8,  Int32)      ) test
+            , test' "(Int32, [Int])"      (test :: T (Int32, [Int])      ) test
+            , test' "Maybe Int8"          (test :: T (Maybe Int8)        ) test
+            , test' "Either Int8 Int16"   (test :: T (Either Int8 Int16) ) test
 
-            , ("[()]",       p (test :: T [()]                  ))
-            , ("[Word8]",    p (test :: T [Word8]               ))
-            , ("[Word32]",   p (test :: T [Word32]              ))
-            , ("[Word64]",   p (test :: T [Word64]              ))
-            , ("[Word]",     p (test :: T [Word]                ))
-            , ("[Int]",      p (test :: T [Int]                 ))
-            , ("[Integer]",  p (test :: T [Integer]             ))
-            , ("String",     p (test :: T String                ))
-            , ("((), ())",           p (test :: T ((), ())        ))
-            , ("(Word8, Word32)",    p (test :: T (Word8, Word32) ))
-            , ("(Int8, Int32)",      p (test :: T (Int8,  Int32)  ))
-            , ("(Int32, [Int])",     p (test :: T (Int32, [Int])  ))
+            , test' "(Int, ByteString)"
+                    (test     :: T (Int, B.ByteString)   ) test
+            , test' "[(Int, ByteString)]"
+                    (test     :: T [(Int, B.ByteString)] ) test
 
-            , ("Maybe Int8",         p (test :: T (Maybe Int8)        ))
-            , ("Either Int8 Int16",  p (test :: T (Either Int8 Int16) ))
+            , test' "(Maybe Int64, Bool, [Int])"
+                    (test :: T (Maybe Int64, Bool, [Int])) test
+            , test' "(Maybe Word8, Bool, [Int], Either Bool Word8)"
+                    (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8)) test
+            , test' "(Maybe Word16, Bool, [Int], Either Bool Word16, Int)"
+                    (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int)) test
 
-            , ("(Int, ByteString)",
-                      p (test     :: T (Int, B.ByteString)   ))
-            , ("[(Int, ByteString)]",
-                      p (test     :: T [(Int, B.ByteString)] ))
+            , test' "(Int,Int,Int,Int,Int,Int)"
+                      (test :: T (Int,Int,Int,Int,Int,Int)) test
+            , test' "(Int,Int,Int,Int,Int,Int,Int)"
+                      (test :: T (Int,Int,Int,Int,Int,Int,Int)) test
+            , test' "(Int,Int,Int,Int,Int,Int,Int,Int)"
+                      (test :: T (Int,Int,Int,Int,Int,Int,Int,Int)) test
+            , test' "(Int,Int,Int,Int,Int,Int,Int,Int,Int)"
+                      (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int)) test
+            , test' "(Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)"
+                      (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)) test
 
-            , ("(Maybe Int64, Bool, [Int])",
-                      p (test :: T (Maybe Int64, Bool, [Int])))
-            , ("(Maybe Word8, Bool, [Int], Either Bool Word8)",
-                      p (test :: T (Maybe Word8, Bool, [Int], Either Bool Word8) ))
-            , ("(Maybe Word16, Bool, [Int], Either Bool Word16, Int)",
-                      p (test :: T (Maybe Word16, Bool, [Int], Either Bool Word16, Int) ))
-
-            , ("(Int,Int,Int,Int,Int,Int)",
-                      p (test :: T (Int,Int,Int,Int,Int,Int)))
-            , ("(Int,Int,Int,Int,Int,Int,Int)",
-                      p (test :: T (Int,Int,Int,Int,Int,Int,Int)))
-            , ("(Int,Int,Int,Int,Int,Int,Int,Int)",
-                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int)))
-            , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int)",
-                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int)))
-            , ("(Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)",
-                      p (test :: T (Int,Int,Int,Int,Int,Int,Int,Int,Int,Int)))
-
-            , ("B.ByteString",  p (test :: T B.ByteString        ))
-            , ("L.ByteString",  p (test :: T L.ByteString        ))
+            , test' "B.ByteString" (test :: T B.ByteString) test
+            , test' "L.ByteString" (test :: T L.ByteString) test
 #if MIN_VERSION_bytestring(0,10,4)
-            , ("ShortByteString",  p (test :: T ShortByteString        ))
+            , test' "ShortByteString" (test :: T ShortByteString) test
 #endif
             ]
 
