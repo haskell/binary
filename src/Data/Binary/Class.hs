@@ -210,6 +210,7 @@ instance Binary Ordering where
 -- Words8s are written as bytes
 instance Binary Word8 where
     put     = putWord8
+    {-# INLINE putList #-}
     putList xs = do
         put (length xs)
         putBuilder (Prim.primMapListFixed Prim.word8 xs)
@@ -218,36 +219,64 @@ instance Binary Word8 where
 -- Words16s are written as 2 bytes in big-endian (network) order
 instance Binary Word16 where
     put     = putWord16be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.word16BE xs)
     get     = getWord16be
 
 -- Words32s are written as 4 bytes in big-endian (network) order
 instance Binary Word32 where
     put     = putWord32be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.word32BE xs)
     get     = getWord32be
 
 -- Words64s are written as 8 bytes in big-endian (network) order
 instance Binary Word64 where
     put     = putWord64be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.word64BE xs)
     get     = getWord64be
 
 -- Int8s are written as a single byte.
 instance Binary Int8 where
     put     = putInt8
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.int8 xs)
     get     = getInt8
 
 -- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
     put     = putInt16be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.int16BE xs)
     get     = getInt16be
 
 -- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
     put     = putInt32be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.int32BE xs)
     get     = getInt32be
 
 -- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
     put     = putInt64be
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.int64BE xs)
     get     = getInt64be
 
 ------------------------------------------------------------------------
@@ -255,11 +284,19 @@ instance Binary Int64 where
 -- Words are are written as Word64s, that is, 8 bytes in big endian format
 instance Binary Word where
     put     = putWord64be . fromIntegral
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
     get     = liftM fromIntegral getWord64be
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
     put     = putInt64be . fromIntegral
+    {-# INLINE putList #-}
+    putList xs = do
+        put (length xs)
+        putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
     get     = liftM fromIntegral getInt64be
 
 ------------------------------------------------------------------------
@@ -279,6 +316,7 @@ instance Binary Integer where
 
     {-# INLINE put #-}
     put n | n >= lo && n <= hi = do
+        -- putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
         putWord8 0
         put (fromIntegral n :: SmallInt)  -- fast path
      where
