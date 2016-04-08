@@ -415,30 +415,24 @@ main = defaultMain tests
 ------------------------------------------------------------------------
 
 #ifdef HAS_NATURAL
-prop_test_Natural :: Property
-prop_test_Natural = forAll (gen :: Gen Natural) test
-  where
-    gen :: Gen Natural
-    gen = do
-      b <- arbitrary
-      if b
-        then do
-          x <- arbitrarySizedNatural :: Gen Natural
-          -- arbitrarySizedNatural generates numbers smaller than
-          -- (maxBound :: Word64), so let's make them bigger to better test
-          -- the Binary instance.
-          return (x + fromIntegral (maxBound :: Word64))
-        else arbitrarySizedNatural
+genNatural :: Gen Natural
+genNatural = do
+  b <- arbitrary
+  if b
+    then do
+      x <- arbitrarySizedNatural :: Gen Natural
+      -- arbitrarySizedNatural generates numbers smaller than
+      -- (maxBound :: Word64), so let's make them bigger to better test
+      -- the Binary instance.
+      return (x + fromIntegral (maxBound :: Word64))
+    else arbitrarySizedNatural
 #endif
 
 ------------------------------------------------------------------------
 
 #ifdef HAS_GHC_FINGERPRINT
-prop_test_GHC_Fingerprint :: Property
-prop_test_GHC_Fingerprint = forAll gen test
-  where
-    gen :: Gen Fingerprint
-    gen = liftM2 Fingerprint arbitrary arbitrary
+genFingerprint :: Gen Fingerprint
+genFingerprint = liftM2 Fingerprint arbitrary arbitrary
 #if !MIN_VERSION_base(4,7,0)
 instance Show Fingerprint where
   show (Fingerprint x1 x2) = show (x1,x2)
@@ -485,6 +479,13 @@ test' desc prop propList =
   testGroup desc [
     testProperty desc prop,
     testProperty ("[" ++ desc ++ "]") propList
+  ]
+
+testWithGen :: (Show a, Eq a, Binary a) => String -> Gen a -> Test
+testWithGen desc gen =
+  testGroup desc [
+    testProperty desc (forAll gen test),
+    testProperty ("[" ++ desc ++ "]") (forAll (listOf gen) test)
   ]
 
 positiveList :: Gen [Int]
@@ -570,10 +571,10 @@ tests =
             , test' "Integer"     (test :: T Integer) test
             , test' "Fixed"       (test :: T (Fixed.Fixed Fixed.E3) ) test
 #ifdef HAS_NATURAL
-            , testProperty "Natural" prop_test_Natural
+            , testWithGen "Natural" genNatural
 #endif
 #ifdef HAS_GHC_FINGERPRINT
-            , testProperty "GHC.Fingerprint" prop_test_GHC_Fingerprint
+            , testWithGen "GHC.Fingerprint" genFingerprint
 #endif
 
             , test' "Float"       (test :: T Float ) test
