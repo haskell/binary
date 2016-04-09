@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 #if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
 {-# LANGUAGE Safe #-}
 #endif
@@ -133,6 +134,13 @@ instance Monad PutM where
 
     (>>) = (*>)
     {-# INLINE (>>) #-}
+
+instance Monoid (PutM ()) where
+    mempty = pure ()
+    {-# INLINE mempty #-}
+
+    mappend = (>>)
+    {-# INLINE mappend #-}
 
 tell :: Builder -> Put
 tell b = Put $ PairS () b
