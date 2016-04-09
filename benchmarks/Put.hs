@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy as L
 
 import Data.Binary
 import Data.Binary.Put
+import Data.ByteString.Builder as BB
 
 main :: IO ()
 main = do
@@ -36,12 +37,16 @@ main = do
       bench "[small String]" $ whnf (run . put) smallStrings,
 
       bench "Word8s" $ whnf (run . fromWord8s) word8s,
+      bench "Word8s builder" $ whnf (L.length . toLazyByteString . fromWord8sBuilder) word8s,
       bench "[Word8]" $ whnf (run . put) word8s,
       bench "Word16s" $ whnf (run . fromWord16s) word16s,
+      bench "Word16s builder" $ whnf (L.length . toLazyByteString . fromWord16sBuilder) word16s,
       bench "[Word16]" $ whnf (run . put) word16s,
       bench "Word32s" $ whnf (run . fromWord32s) word32s,
+      bench "Word32s builder" $ whnf (L.length . toLazyByteString . fromWord32sBuilder) word32s,
       bench "[Word32]" $ whnf (run . put) word32s,
       bench "Word64s" $ whnf (run . fromWord64s) word64s,
+      bench "Word64s builder" $ whnf (L.length . toLazyByteString . fromWord64sBuilder) word64s,
       bench "[Word64]" $ whnf (run . put) word64s
     ]
   where
@@ -103,15 +108,30 @@ fromWord8s :: [Word8] -> Put
 fromWord8s [] = return ()
 fromWord8s (x:xs) = put x >> fromWord8s xs
 
+fromWord8sBuilder :: [Word8] -> BB.Builder
+fromWord8sBuilder [] = mempty
+fromWord8sBuilder (x:xs) = BB.word8 x `mappend` fromWord8sBuilder xs
+
 fromWord16s :: [Word16] -> Put
 fromWord16s [] = return ()
 fromWord16s (x:xs) = put x >> fromWord16s xs
+
+fromWord16sBuilder :: [Word16] -> BB.Builder
+fromWord16sBuilder [] = mempty
+fromWord16sBuilder (x:xs) = BB.word16BE x `mappend` fromWord16sBuilder xs
 
 fromWord32s :: [Word32] -> Put
 fromWord32s [] = return ()
 fromWord32s (x:xs) = put x >> fromWord32s xs
 
+fromWord32sBuilder :: [Word32] -> BB.Builder
+fromWord32sBuilder [] = mempty
+fromWord32sBuilder (x:xs) = BB.word32BE x `mappend` fromWord32sBuilder xs
+
 fromWord64s :: [Word64] -> Put
 fromWord64s [] = return ()
 fromWord64s (x:xs) = put x >> fromWord64s xs
 
+fromWord64sBuilder :: [Word64] -> BB.Builder
+fromWord64sBuilder [] = mempty
+fromWord64sBuilder (x:xs) = BB.word64BE x `mappend` fromWord64sBuilder xs
