@@ -414,18 +414,38 @@ main = defaultMain tests
 
 ------------------------------------------------------------------------
 
+genInteger :: Gen Integer
+genInteger = do
+  b <- arbitrary
+  if b then genIntegerSmall else genIntegerSmall
+
+genIntegerSmall :: Gen Integer
+genIntegerSmall = arbitrary
+
+genIntegerBig :: Gen Integer
+genIntegerBig = do
+  x <- arbitrarySizedIntegral :: Gen Integer
+  -- arbitrarySizedIntegral generates numbers smaller than
+  -- (maxBound :: Word32), so let's make them bigger to better test
+  -- the Binary instance.
+  return (x + fromIntegral (maxBound :: Word32))
+
 #ifdef HAS_NATURAL
 genNatural :: Gen Natural
 genNatural = do
   b <- arbitrary
-  if b
-    then do
-      x <- arbitrarySizedNatural :: Gen Natural
-      -- arbitrarySizedNatural generates numbers smaller than
-      -- (maxBound :: Word64), so let's make them bigger to better test
-      -- the Binary instance.
-      return (x + fromIntegral (maxBound :: Word64))
-    else arbitrarySizedNatural
+  if b then genNaturalSmall else genNaturalBig
+
+genNaturalSmall :: Gen Natural
+genNaturalSmall = arbitrarySizedNatural
+
+genNaturalBig :: Gen Natural
+genNaturalBig = do
+  x <- arbitrarySizedNatural :: Gen Natural
+  -- arbitrarySizedNatural generates numbers smaller than
+  -- (maxBound :: Word64), so let's make them bigger to better test
+  -- the Binary instance.
+  return (x + fromIntegral (maxBound :: Word64))
 #endif
 
 ------------------------------------------------------------------------
@@ -568,10 +588,15 @@ tests =
             , test' "Int32"       (test :: T Int32) test
             , test' "Int64"       (test :: T Int64) test
 
-            , test' "Integer"     (test :: T Integer) test
+            , testWithGen "Integer mixed" genInteger
+            , testWithGen "Integer small" genIntegerSmall
+            , testWithGen "Integer big"   genIntegerBig
+
             , test' "Fixed"       (test :: T (Fixed.Fixed Fixed.E3) ) test
 #ifdef HAS_NATURAL
-            , testWithGen "Natural" genNatural
+            , testWithGen "Natural mixed" genNatural
+            , testWithGen "Natural small" genNaturalSmall
+            , testWithGen "Natural big"   genNaturalBig
 #endif
 #ifdef HAS_GHC_FINGERPRINT
             , testWithGen "GHC.Fingerprint" genFingerprint
