@@ -1,4 +1,7 @@
 {-# LANGUAGE CPP, ExistentialQuantification #-}
+#ifdef GENERICS
+{-# LANGUAGE DeriveGeneric #-}
+#endif
 
 module Main (main) where
 
@@ -8,6 +11,10 @@ import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
+
+#ifdef GENERICS
+import GHC.Generics
+#endif
 
 import Data.Binary
 import Data.Binary.Put
@@ -48,9 +55,32 @@ main = do
       bench "Word64s" $ whnf (run . fromWord64s) word64s,
       bench "Word64s builder" $ whnf (L.length . toLazyByteString . fromWord64sBuilder) word64s,
       bench "[Word64]" $ whnf (run . put) word64s
+
+#ifdef GENERICS
+      , bgroup "Generics" [
+        bench "Struct monoid put" $ whnf (run . fromStructs) structs,
+        bench "Struct put as list" $ whnf (run . put) structs,
+        bench "StructList monoid put" $ whnf (run . fromStructLists) structLists,
+        bench "StructList put as list" $ whnf (run . put) structLists
+      ]
+#endif
     ]
   where
     run = L.length . runPut
+
+#ifdef GENERICS
+data Struct = Struct Word8 Word16 Word32 Word64 deriving Generic
+instance Binary Struct
+
+data StructList = StructList [Struct] deriving Generic
+instance Binary StructList
+
+structs :: [Struct]
+structs = take 10000 $ [ Struct a b 0 0 | a <- [0 .. maxBound], b <- [0 .. maxBound] ]
+
+structLists :: [StructList]
+structLists = replicate 1000 (StructList (take 10 structs))
+#endif
 
 -- Input data
 
@@ -135,3 +165,13 @@ fromWord64s (x:xs) = put x >> fromWord64s xs
 fromWord64sBuilder :: [Word64] -> BB.Builder
 fromWord64sBuilder [] = mempty
 fromWord64sBuilder (x:xs) = BB.word64BE x `mappend` fromWord64sBuilder xs
+
+#ifdef GENERICS
+fromStructs :: [Struct] -> Put
+fromStructs [] = return ()
+fromStructs (x:xs) = put x >> fromStructs xs
+
+fromStructLists :: [StructList] -> Put
+fromStructLists [] = return ()
+fromStructLists (x:xs) = put x >> fromStructLists xs
+#endif

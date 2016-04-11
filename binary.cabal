@@ -136,6 +136,12 @@ benchmark put
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
+  if impl(ghc >= 7.2.1)
+    cpp-options: -DGENERICS
+    other-modules: Data.Binary.Generic
+    if impl(ghc <= 7.6)
+      -- prior to ghc-7.4 generics lived in ghc-prim
+      build-depends: ghc-prim
 
 benchmark generics-bench
   type: exitcode-stdio-1.0
