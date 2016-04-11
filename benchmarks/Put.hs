@@ -89,10 +89,10 @@ smallIntegers = [0..10000]
 {-# NOINLINE smallIntegers #-}
 
 bigIntegers :: [Integer]
-bigIntegers = [max .. max + 10000]
+bigIntegers = [m .. m + 10000]
   where
-    max :: Integer
-    max = fromIntegral (maxBound :: Word64)
+    m :: Integer
+    m = fromIntegral (maxBound :: Word64)
 {-# NOINLINE bigIntegers #-}
 
 smallByteStrings :: [S.ByteString]
