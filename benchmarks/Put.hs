@@ -11,6 +11,7 @@ import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
+import Data.Monoid
 
 #ifdef GENERICS
 import GHC.Generics
@@ -19,6 +20,7 @@ import GHC.Generics
 import Data.Binary
 import Data.Binary.Put
 import Data.ByteString.Builder as BB
+import Prelude -- Silence Monoid import warning.
 
 main :: IO ()
 main = do
