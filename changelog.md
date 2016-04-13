@@ -1,6 +1,20 @@
 binary
 ======
 
+binary-0.9.0.0
+--------------
+
+- Replace binary's home grown `Builder` with `Data.ByteString.Builder`.
+  `Data.Binary.Builder` now exports `Data.ByteString.Builder.Builder`.
+- Add `putList :: [a] -> Put` to the `Binary` class. This is used to be able to
+  use the list writing primitives of the new Builder. This brought a number of speedups;
+  Encoding a String is now 70% faster. [Word8] is 76% faster, which also makes
+  Integer 34% faster. Similar numbers for all [IntXX] and [WordXX].
+- Fail gracefully within `Get` when decoding `Bool` and `Ordering`. Previously
+  when decoding invalid data these instances would fail with `error`.
+- Add Binary instance for `Complex a`.
+- Add Monoid instance for `Put`.
+
 binary-0.8.2.1
 --------------
 
