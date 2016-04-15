@@ -6,9 +6,16 @@ sudo: false
 
 matrix:
   include:
-    - env: CABALVER=1.18 GHCVER=7.4.2
+    - env: CABALVER=1.18 GHCVER=6.12.3 NO_BENCHMARKS=1 NO_TESTS=1
+      addons: {apt: {packages: [cabal-install-1.18,ghc-6.12.3], sources: [hvr-ghc]}}
+    - env: CABALVER=1.18 GHCVER=7.0.4 NO_BENCHMARKS=1 NO_TESTS=1
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.0.4], sources: [hvr-ghc]}}
+      # Tests require newer bytestring than bundled one
+    - env: CABALVER=1.18 GHCVER=7.2.2 NO_BENCHMARKS=1 NO_TESTS=1
+      addons: {apt: {packages: [cabal-install-1.18,ghc-7.2.2], sources: [hvr-ghc]}}
+    - env: CABALVER=1.18 GHCVER=7.4.2 NO_BENCHMARKS=1 NO_TESTS=1
       addons: {apt: {packages: [cabal-install-1.18,ghc-7.4.2], sources: [hvr-ghc]}}
-    - env: CABALVER=1.18 GHCVER=7.6.3
+    - env: CABALVER=1.18 GHCVER=7.6.3 NO_BENCHMARKS=1
       addons: {apt: {packages: [cabal-install-1.18,ghc-7.6.3], sources: [hvr-ghc]}}
     - env: CABALVER=1.18 GHCVER=7.8.4
       addons: {apt: {packages: [cabal-install-1.18,ghc-7.8.4], sources: [hvr-ghc]}}
@@ -26,23 +33,36 @@ before_install:
 install:
  - cabal --version
  - travis_retry cabal update
+
 # workaround for https://ghc.haskell.org/trac/ghc/ticket/9221
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
- - cabal sandbox init
-# can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
- - cabal install criterion deepseq mtl "QuickCheck >= 2.8" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal 'Cabal == 1.22.*' tar zlib -j
+
+# Install only build dependencies
+ - cabal install --only-dependencies
 
 script:
- - cabal configure --enable-tests --enable-benchmarks -v2 --ghc-options=-fno-spec-constr
+ - cabal configure -v2 --ghc-options=-fno-spec-constr
  - cabal build
- - cabal test
+ - cabal install
+
+# Test part, have to install additional dependencies
+# can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle
+ - if [ ! "$NO_TESTS" = "1" ]; then cabal install "QuickCheck >= 2.8" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" -j; fi
+ - if [ ! "$NO_TESTS" = "1" ]; then cabal configure --enable-tests -v2 --ghc-options=-fno-spec-constr; fi
+ - if [ ! "$NO_TESTS" = "1" ]; then cabal test; fi
+
+# Benchmarks
+ - if [ ! "$NO_BENCHMARKS" = "1" ]; then cabal install 'criterion==1.*' cereal deepseq mtl attoparsec 'Cabal == 1.22.*' tar zlib; fi
+ - if [ ! "$NO_BENCHMARKS" = "1" ]; then cabal configure --enable-benchmarks -v2 --ghc-options=-fno-spec-constr; fi
+ - if [ ! "$NO_BENCHMARKS" = "1" ]; then cabal build; fi
+
 # "cabal check" disabled due to -O2 warning
 # - cabal check
- - cabal sdist
+
 # check that the generated source-distribution can be built & installed
+ - cabal sdist
  - export SRC_TGZ=$(cabal info . | awk '{print $2 ".tar.gz";exit}') ;
    cd dist/;
-   cabal sandbox init;
    if [ -f "$SRC_TGZ" ]; then
       cabal install --force-reinstalls "$SRC_TGZ";
    else
