@@ -29,7 +29,11 @@ main = do
     , rnf smallIntegers
     , rnf smallByteStrings
     , rnf smallStrings
+    , rnf doubles
     , rnf word8s
+    , rnf word16s
+    , rnf word32s
+    , rnf word64s
     ]
   defaultMain
     [
@@ -44,6 +48,8 @@ main = do
 
       bench "small Strings" $ whnf (run . fromStrings) smallStrings,
       bench "[small String]" $ whnf (run . put) smallStrings,
+
+      bench "Double" $ whnf (run . put) doubles,
 
       bench "Word8s monoid put" $ whnf (run . fromWord8s) word8s,
       bench "Word8s builder" $ whnf (L.length . toLazyByteString . fromWord8sBuilder) word8s,
@@ -104,6 +110,9 @@ smallByteStrings = replicate 10000 $ C.pack "abcdefghi"
 smallStrings :: [String]
 smallStrings = replicate 10000 "abcdefghi"
 {-# NOINLINE smallStrings #-}
+
+doubles :: [Double]
+doubles = take 10000 $ [ sign * 2 ** n | sign <- [-1, 1], n <- [ 0, 0.2 .. 1023 ]]
 
 word8s :: [Word8]
 word8s = take 10000 $ cycle [minBound .. maxBound]
