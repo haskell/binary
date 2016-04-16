@@ -28,26 +28,27 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.Bits
 import Data.Word
+import Data.Monoid ((<>))
 import GHC.Generics
 import Prelude -- Silence AMP warning.
 
 -- Type without constructors
 instance GBinaryPut V1 where
-    gput _ = return ()
+    gput _ = pure ()
 
 instance GBinaryGet V1 where
     gget   = return undefined
 
 -- Constructor without arguments
 instance GBinaryPut U1 where
-    gput U1 = return ()
+    gput U1 = pure ()
 
 instance GBinaryGet U1 where
     gget    = return U1
 
 -- Product: constructor with parameters
 instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
-    gput (x :*: y) = gput x >> gput y
+    gput (x :*: y) = gput x <> gput y
 
 instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
     gget = (:*:) <$> gget <*> gget
@@ -130,7 +131,7 @@ instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
 
 instance GBinaryPut a => GSumPut (C1 c a) where
-    putSum !code _ x = put code *> gput x
+    putSum !code _ x = put code <> gput x
 
 ------------------------------------------------------------------------
 

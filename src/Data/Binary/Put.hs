@@ -139,7 +139,10 @@ instance Monoid (PutM ()) where
     mempty = pure ()
     {-# INLINE mempty #-}
 
-    mappend = (>>)
+    mappend m k = Put $
+        let PairS _ w  = unPut m
+            PairS _ w' = unPut k
+        in PairS () (w `mappend` w')
     {-# INLINE mappend #-}
 
 tell :: Builder -> Put
