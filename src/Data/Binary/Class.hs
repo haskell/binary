@@ -63,7 +63,9 @@ import Data.Binary.Get
 
 #if ! MIN_VERSION_base(4,8,0)
 import Control.Applicative
+import Data.Monoid (mempty)
 #endif
+import Data.Monoid ((<>))
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -164,7 +166,7 @@ class Binary t where
 
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
-defaultPutList xs = put (length xs) >> mapM_ put xs
+defaultPutList xs = put (length xs) <> mapM_ put xs
 
 ------------------------------------------------------------------------
 -- Simple instances
@@ -182,7 +184,7 @@ instance Binary Void where
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone
 instance Binary () where
-    put ()  = return ()
+    put ()  = mempty
     get     = return ()
 
 -- Bools are encoded as a byte in the range 0 .. 1
@@ -211,72 +213,72 @@ instance Binary Ordering where
 instance Binary Word8 where
     put     = putWord8
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.word8 xs)
+        <> putBuilder (Prim.primMapListFixed Prim.word8 xs)
     get     = getWord8
 
 -- Words16s are written as 2 bytes in big-endian (network) order
 instance Binary Word16 where
     put     = putWord16be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.word16BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.word16BE xs)
     get     = getWord16be
 
 -- Words32s are written as 4 bytes in big-endian (network) order
 instance Binary Word32 where
     put     = putWord32be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.word32BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.word32BE xs)
     get     = getWord32be
 
 -- Words64s are written as 8 bytes in big-endian (network) order
 instance Binary Word64 where
     put     = putWord64be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.word64BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.word64BE xs)
     get     = getWord64be
 
 -- Int8s are written as a single byte.
 instance Binary Int8 where
     put     = putInt8
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.int8 xs)
+        <> putBuilder (Prim.primMapListFixed Prim.int8 xs)
     get     = getInt8
 
 -- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
     put     = putInt16be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.int16BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.int16BE xs)
     get     = getInt16be
 
 -- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
     put     = putInt32be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.int32BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.int32BE xs)
     get     = getInt32be
 
 -- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
     put     = putInt64be
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.int64BE xs)
+        <> putBuilder (Prim.primMapListFixed Prim.int64BE xs)
     get     = getInt64be
 
 ------------------------------------------------------------------------
@@ -285,18 +287,18 @@ instance Binary Int64 where
 instance Binary Word where
     put     = putWord64be . fromIntegral
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
+        <> putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
     get     = liftM fromIntegral getWord64be
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
     put     = putInt64be . fromIntegral
     {-# INLINE putList #-}
-    putList xs = do
+    putList xs =
         put (length xs)
-        putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
+        <> putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
     get     = liftM fromIntegral getInt64be
 
 ------------------------------------------------------------------------
@@ -315,18 +317,16 @@ type SmallInt = Int32
 instance Binary Integer where
 
     {-# INLINE put #-}
-    put n | n >= lo && n <= hi = do
-        -- putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
-        putWord8 0
-        put (fromIntegral n :: SmallInt)  -- fast path
+    put n | n >= lo && n <= hi =
+        putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
      where
         lo = fromIntegral (minBound :: SmallInt) :: Integer
         hi = fromIntegral (maxBound :: SmallInt) :: Integer
 
-    put n = do
+    put n =
         putWord8 1
-        put sign
-        put (unroll (abs n))         -- unroll the bytes
+        <> put sign
+        <> put (unroll (abs n))         -- unroll the bytes
      where
         sign = fromIntegral (signum n) :: Word8
 
@@ -373,15 +373,15 @@ type NaturalWord = Word64
 -- | /Since: 0.7.3.0/
 instance Binary Natural where
     {-# INLINE put #-}
-    put n | n <= hi = do
+    put n | n <= hi =
         putWord8 0
-        put (fromIntegral n :: NaturalWord)  -- fast path
+        <> put (fromIntegral n :: NaturalWord)  -- fast path
      where
         hi = fromIntegral (maxBound :: NaturalWord) :: Natural
 
-    put n = do
+    put n =
         putWord8 1
-        put (unroll (abs n))         -- unroll the bytes
+        <> put (unroll (abs n))         -- unroll the bytes
 
     {-# INLINE get #-}
     get = do
@@ -459,7 +459,7 @@ freezeByteArray arr = IO $ \s ->
 -}
 
 instance (Binary a,Integral a) => Binary (R.Ratio a) where
-    put r = put (R.numerator r) >> put (R.denominator r)
+    put r = put (R.numerator r) <> put (R.denominator r)
     get = liftM2 (R.%) get get
 
 instance Binary a => Binary (Complex a) where
@@ -473,7 +473,7 @@ instance Binary a => Binary (Complex a) where
 -- Char is serialised as UTF-8
 instance Binary Char where
     put = putCharUtf8
-    putList str = put (length str) >> putStringUtf8 str
+    putList str = put (length str) <> putStringUtf8 str
     get = do
         let getByte = liftM (fromIntegral :: Word8 -> Int) get
             shiftL6 = flip shiftL 6 :: Int -> Int
@@ -504,19 +504,19 @@ instance Binary Char where
 -- Instances for the first few tuples
 
 instance (Binary a, Binary b) => Binary (a,b) where
-    put (a,b)           = put a >> put b
+    put (a,b)           = put a <> put b
     get                 = liftM2 (,) get get
 
 instance (Binary a, Binary b, Binary c) => Binary (a,b,c) where
-    put (a,b,c)         = put a >> put b >> put c
+    put (a,b,c)         = put a <> put b <> put c
     get                 = liftM3 (,,) get get get
 
 instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
-    put (a,b,c,d)       = put a >> put b >> put c >> put d
+    put (a,b,c,d)       = put a <> put b <> put c <> put d
     get                 = liftM4 (,,,) get get get get
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e) where
-    put (a,b,c,d,e)     = put a >> put b >> put c >> put d >> put e
+    put (a,b,c,d,e)     = put a <> put b <> put c <> put d <> put e
     get                 = liftM5 (,,,,) get get get get get
 
 --
@@ -572,7 +572,7 @@ getMany n = go [] n
 
 instance (Binary a) => Binary (Maybe a) where
     put Nothing  = putWord8 0
-    put (Just x) = putWord8 1 >> put x
+    put (Just x) = putWord8 1 <> put x
     get = do
         w <- getWord8
         case w of
@@ -580,8 +580,8 @@ instance (Binary a) => Binary (Maybe a) where
             _ -> liftM Just get
 
 instance (Binary a, Binary b) => Binary (Either a b) where
-    put (Left  a) = putWord8 0 >> put a
-    put (Right b) = putWord8 1 >> put b
+    put (Left  a) = putWord8 0 <> put a
+    put (Right b) = putWord8 1 <> put b
     get = do
         w <- getWord8
         case w of
@@ -592,8 +592,8 @@ instance (Binary a, Binary b) => Binary (Either a b) where
 -- ByteStrings (have specially efficient instances)
 
 instance Binary B.ByteString where
-    put bs = do put (B.length bs)
-                putByteString bs
+    put bs = put (B.length bs)
+             <> putByteString bs
     get    = get >>= getByteString
 
 --
@@ -602,15 +602,15 @@ instance Binary B.ByteString where
 -- Requires 'flexible instances'
 --
 instance Binary ByteString where
-    put bs = do put (fromIntegral (L.length bs) :: Int)
-                putLazyByteString bs
+    put bs = put (fromIntegral (L.length bs) :: Int)
+             <> putLazyByteString bs
     get    = get >>= getLazyByteString
 
 
 #if MIN_VERSION_bytestring(0,10,4)
 instance Binary BS.ShortByteString where
-   put bs = do put (BS.length bs)
-               putShortByteString bs
+   put bs = put (BS.length bs)
+            <> putShortByteString bs
    get = get >>= fmap BS.toShort . getByteString
 #endif
 
@@ -618,19 +618,19 @@ instance Binary BS.ShortByteString where
 -- Maps and Sets
 
 instance (Binary a) => Binary (Set.Set a) where
-    put s = put (Set.size s) >> mapM_ put (Set.toAscList s)
+    put s = put (Set.size s) <> mapM_ put (Set.toAscList s)
     get   = liftM Set.fromDistinctAscList get
 
 instance (Binary k, Binary e) => Binary (Map.Map k e) where
-    put m = put (Map.size m) >> mapM_ put (Map.toAscList m)
+    put m = put (Map.size m) <> mapM_ put (Map.toAscList m)
     get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
-    put s = put (IntSet.size s) >> mapM_ put (IntSet.toAscList s)
+    put s = put (IntSet.size s) <> mapM_ put (IntSet.toAscList s)
     get   = liftM IntSet.fromDistinctAscList get
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
-    put m = put (IntMap.size m) >> mapM_ put (IntMap.toAscList m)
+    put m = put (IntMap.size m) <> mapM_ put (IntMap.toAscList m)
     get   = liftM IntMap.fromDistinctAscList get
 
 ------------------------------------------------------------------------
@@ -642,7 +642,7 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 --
 
 instance (Binary e) => Binary (Seq.Seq e) where
-    put s = put (Seq.length s) >> Fold.mapM_ put s
+    put s = put (Seq.length s) <> Fold.mapM_ put s
     get = do n <- get :: Get Int
              rep Seq.empty n get
       where rep xs 0 _ = return $! xs
@@ -673,17 +673,17 @@ instance Binary Float where
 -- Trees
 
 instance (Binary e) => Binary (T.Tree e) where
-    put (T.Node r s) = put r >> put s
+    put (T.Node r s) = put r <> put s
     get = liftM2 T.Node get get
 
 ------------------------------------------------------------------------
 -- Arrays
 
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
-    put a = do
+    put a =
         put (bounds a)
-        put (rangeSize $ bounds a) -- write the length
-        mapM_ put (elems a)        -- now the elems.
+        <> put (rangeSize $ bounds a) -- write the length
+        <> mapM_ put (elems a)        -- now the elems.
     get = do
         bs <- get
         n  <- get                  -- read the length
@@ -694,10 +694,10 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
 -- The IArray UArray e constraint is non portable. Requires flexible instances
 --
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
-    put a = do
+    put a =
         put (bounds a)
-        put (rangeSize $ bounds a) -- now write the length
-        mapM_ put (elems a)
+        <> put (rangeSize $ bounds a) -- now write the length
+        <> mapM_ put (elems a)
     get = do
         bs <- get
         n  <- get
@@ -710,9 +710,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 #ifdef HAS_GHC_FINGERPRINT
 -- | /Since: 0.7.6.0/
 instance Binary Fingerprint where
-    put (Fingerprint x1 x2) = do
-        put x1
-        put x2
+    put (Fingerprint x1 x2) = put x1 <> put x2
     get = do
         x1 <- get
         x2 <- get
@@ -724,5 +722,5 @@ instance Binary Fingerprint where
 
 -- | /Since: 0.8.0.0/
 instance Binary Version where
+    put (Version br tags) = put br <> put tags
     get = Version <$> get <*> get
-    put (Version br tags) = put br >> put tags
