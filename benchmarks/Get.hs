@@ -370,12 +370,12 @@ bigInteger = roll_foldl' manyBytes
 encodedBigInteger :: L.ByteString
 encodedBigInteger = encode bigInteger
 
-roll_foldr :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll_foldr :: (Integral a, Bits a) => [Word8] -> a
 roll_foldr   = foldr unstep 0
   where
     unstep b a = a `shiftL` 8 .|. fromIntegral b
 
-roll_foldl' :: (Integral a, Num a, Bits a) => [Word8] -> a
+roll_foldl' :: (Integral a, Bits a) => [Word8] -> a
 roll_foldl'   = foldl' unstep 0 . reverse
   where
     unstep a b = a `shiftL` 8 .|. fromIntegral b
