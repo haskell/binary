@@ -1,7 +1,7 @@
 binary
 ======
 
-binary-0.9.0.0
+binary-0.8.3.0
 --------------
 
 - Replace binary's home grown `Builder` with `Data.ByteString.Builder`.
@@ -13,7 +13,7 @@ binary-0.9.0.0
 - Fail gracefully within `Get` when decoding `Bool` and `Ordering`. Previously
   when decoding invalid data these instances would fail with `error`.
 - Add Binary instance for `Complex a`.
-- Add Monoid instance for `Put`.
+- Add Monoid and Semigroup instance for `Put`.
 
 binary-0.8.2.1
 --------------
