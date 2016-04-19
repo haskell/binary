@@ -4,6 +4,10 @@
 {-# LANGUAGE Safe #-}
 #endif
 
+#if MIN_VERSION_base(4,9,0)
+#define HAS_SEMIGROUP
+#endif
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Put
@@ -72,7 +76,7 @@ module Data.Binary.Put (
 
   ) where
 
-import Data.Monoid
+import qualified Data.Monoid as Monoid
 import Data.Binary.Builder (Builder, toLazyByteString)
 import qualified Data.Binary.Builder as B
 
@@ -82,6 +86,10 @@ import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 #if MIN_VERSION_bytestring(0,10,4)
 import Data.ByteString.Short
+#endif
+
+#ifdef HAS_SEMIGROUP
+import Data.Semigroup
 #endif
 
 import Control.Applicative
@@ -135,15 +143,29 @@ instance Monad PutM where
     (>>) = (*>)
     {-# INLINE (>>) #-}
 
-instance Monoid (PutM ()) where
+instance Monoid.Monoid (PutM ()) where
     mempty = pure ()
     {-# INLINE mempty #-}
 
-    mappend m k = Put $
-        let PairS _ w  = unPut m
-            PairS _ w' = unPut k
-        in PairS () (w `mappend` w')
+#ifdef HAS_SEMIGROUP
+    mappend = (<>)
+#else
+    mappend = mappend'
+#endif
     {-# INLINE mappend #-}
+
+mappend' :: Put -> Put -> Put
+mappend' m k = Put $
+    let PairS _ w  = unPut m
+        PairS _ w' = unPut k
+    in PairS () (w `mappend` w')
+{-# INLINE mappend' #-}
+
+#ifdef HAS_SEMIGROUP
+instance Semigroup (PutM ()) where
+    (<>) = mappend'
+    {-# INLINE (<>) #-}
+#endif
 
 tell :: Builder -> Put
 tell b = Put $ PairS () b
