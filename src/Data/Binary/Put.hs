@@ -158,7 +158,7 @@ mappend' :: Put -> Put -> Put
 mappend' m k = Put $
     let PairS _ w  = unPut m
         PairS _ w' = unPut k
-    in PairS () (w `Monodid.mappend` w')
+    in PairS () (w `Monoid.mappend` w')
 {-# INLINE mappend' #-}
 
 #ifdef HAS_SEMIGROUP
