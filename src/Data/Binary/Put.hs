@@ -115,18 +115,18 @@ instance Functor PutM where
         {-# INLINE fmap #-}
 
 instance Applicative PutM where
-        pure a  = Put $ PairS a mempty
+        pure a  = Put $ PairS a Monoid.mempty
         {-# INLINE pure #-}
 
         m <*> k = Put $
             let PairS f w  = unPut m
                 PairS x w' = unPut k
-            in PairS (f x) (w `mappend` w')
+            in PairS (f x) (w `Monoid.mappend` w')
 
         m *> k  = Put $
             let PairS _ w  = unPut m
                 PairS b w' = unPut k
-            in PairS b (w `mappend` w')
+            in PairS b (w `Monoid.mappend` w')
         {-# INLINE (*>) #-}
 
 -- Standard Writer monad, with aggressive inlining
@@ -134,7 +134,7 @@ instance Monad PutM where
     m >>= k  = Put $
         let PairS a w  = unPut m
             PairS b w' = unPut (k a)
-        in PairS b (w `mappend` w')
+        in PairS b (w `Monoid.mappend` w')
     {-# INLINE (>>=) #-}
 
     return = pure
@@ -158,7 +158,7 @@ mappend' :: Put -> Put -> Put
 mappend' m k = Put $
     let PairS _ w  = unPut m
         PairS _ w' = unPut k
-    in PairS () (w `mappend` w')
+    in PairS () (w `Monodid.mappend` w')
 {-# INLINE mappend' #-}
 
 #ifdef HAS_SEMIGROUP
