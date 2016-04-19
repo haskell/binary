@@ -494,7 +494,7 @@ p = property
 test    :: (Eq a, Binary a) => a -> Property
 test a  = forAll positiveList (roundTrip a . refragment)
 
-test' :: (Show a, Arbitrary a, Eq a) => String -> (a -> Property) -> ([a] -> Property) -> Test
+test' :: (Show a, Arbitrary a) => String -> (a -> Property) -> ([a] -> Property) -> Test
 test' desc prop propList =
   testGroup desc [
     testProperty desc prop,
