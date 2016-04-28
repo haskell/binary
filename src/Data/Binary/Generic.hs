@@ -25,10 +25,10 @@ module Data.Binary.Generic
 import Control.Applicative
 import Data.Binary.Class
 import Data.Binary.Get
+import Data.Binary.Internal ((<>))
 import Data.Binary.Put
 import Data.Bits
 import Data.Word
-import Data.Monoid ((<>))
 import GHC.Generics
 import Prelude -- Silence AMP warning.
 

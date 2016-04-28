@@ -60,12 +60,12 @@ import Data.Void
 
 import Data.Binary.Put
 import Data.Binary.Get
+import Data.Binary.Internal ((<>))
 
 #if ! MIN_VERSION_base(4,8,0)
 import Control.Applicative
 import Data.Monoid (mempty)
 #endif
-import Data.Monoid ((<>))
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -462,7 +462,11 @@ instance (Binary a,Integral a) => Binary (R.Ratio a) where
     put r = put (R.numerator r) <> put (R.denominator r)
     get = liftM2 (R.%) get get
 
-instance Binary a => Binary (Complex a) where
+instance ( Binary a
+#if !(MIN_VERSION_base(4,4,0))
+         , RealFloat a
+#endif
+         ) => Binary (Complex a) where
     {-# INLINE put #-}
     put (r :+ i) = put (r, i)
     {-# INLINE get #-}
