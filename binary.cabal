@@ -31,7 +31,7 @@ source-repository head
   location: git://github.com/kolmodin/binary.git
 
 library
-  build-depends:   base >= 3.0 && < 5, bytestring >= 0.10.2, containers, array
+  build-depends:   base >= 4.5.0.0 && < 5, bytestring >= 0.10.2, containers, array
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
@@ -67,7 +67,7 @@ test-suite qc
     Action
     Arbitrary
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.2,
     random>=1.0.1.0,
     test-framework,
@@ -83,7 +83,7 @@ test-suite read-write-file
   hs-source-dirs: src tests
   main-is: File.hs
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.2,
     Cabal,
     directory,
@@ -100,7 +100,7 @@ benchmark bench
   main-is: Benchmark.hs
   other-modules: MemBench
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
@@ -114,7 +114,7 @@ benchmark get
   main-is: Get.hs
   build-depends:
     attoparsec,
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring,
     cereal,
     criterion == 1.*,
@@ -129,7 +129,7 @@ benchmark put
   hs-source-dirs: src benchmarks
   main-is: Put.hs
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring,
     criterion == 1.*,
     deepseq
@@ -148,7 +148,7 @@ benchmark generics-bench
   hs-source-dirs: src benchmarks
   main-is: GenericsBench.hs
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring,
     Cabal == 1.22.*,
     directory,
@@ -175,7 +175,7 @@ benchmark builder
   hs-source-dirs: src benchmarks
   main-is: Builder.hs
   build-depends:
-    base >= 3.0 && < 5,
+    base >= 4.5.0.0 && < 5,
     bytestring,
     criterion == 1.*,
     deepseq,
