@@ -74,6 +74,10 @@ test-suite qc
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -Wall -O2 -threaded
+  if impl(ghc <= 7.6)
+    -- prior to ghc-7.4 generics lived in ghc-prim
+    build-depends: ghc-prim
+
 
 test-suite read-write-file
   type:  exitcode-stdio-1.0
@@ -90,6 +94,10 @@ test-suite read-write-file
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -Wall
+  if impl(ghc <= 7.6)
+    -- prior to ghc-7.4 generics lived in ghc-prim
+    build-depends: ghc-prim
+
 
 benchmark bench
   type: exitcode-stdio-1.0
@@ -104,6 +112,10 @@ benchmark bench
   c-sources: benchmarks/CBenchmark.c
   include-dirs: benchmarks
   ghc-options: -O2
+  if impl(ghc <= 7.6)
+    -- prior to ghc-7.4 generics lived in ghc-prim
+    build-depends: ghc-prim
+
 
 benchmark get
   type: exitcode-stdio-1.0
@@ -120,6 +132,10 @@ benchmark get
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
+  if impl(ghc <= 7.6)
+    -- prior to ghc-7.4 generics lived in ghc-prim
+    build-depends: ghc-prim
+
 
 benchmark put
   type: exitcode-stdio-1.0
@@ -176,3 +192,6 @@ benchmark builder
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2
+  if impl(ghc <= 7.6)
+    -- prior to ghc-7.4 generics lived in ghc-prim
+    build-depends: ghc-prim
