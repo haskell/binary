@@ -54,12 +54,6 @@ import qualified Control.Monad.Fail as Fail
 
 import Data.Binary.Internal ( accursedUnutterablePerformIO )
 
-#if __GLASGOW_HASKELL__ < 704 && !defined(__HADDOCK__)
--- needed for (# unboxing #) with magic hash
--- Do we still need these? Works without on modern GHCs.
-import GHC.Base
-#endif
-
 -- Kolmodin 20100427: at zurihac we discussed of having partial take a
 -- "Maybe ByteString" and implemented it in this way.
 -- The reasoning was that you could accidently provide an empty bytestring,
@@ -271,14 +265,12 @@ instance Alternative Get where
       Done inp x -> C $ \_ ks -> ks inp x
       Fail _ _ -> pushBack bs >> g
       _ -> error "Binary: impossible"
-#if MIN_VERSION_base(4,2,0)
   some p = (:) <$> p <*> many p
   many p = do
     v <- (Just <$> p) <|> pure Nothing
     case v of
       Nothing -> pure []
       Just x -> (:) x <$> many p
-#endif
 
 -- | Run a decoder and keep track of all the input it consumes.
 -- Once it's finished, return the final decoder (always 'Done' or 'Fail'),

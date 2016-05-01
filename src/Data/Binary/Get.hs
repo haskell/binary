@@ -1,7 +1,5 @@
 {-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns #-}
-#if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
-#endif
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 #include "MachDeps.h"
@@ -623,12 +621,6 @@ shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
 
 #if WORD_SIZE_IN_BITS < 64
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
-
-#if __GLASGOW_HASKELL__ <= 606
--- Exported by GHC.Word in GHC 6.8 and higher
-foreign import ccall unsafe "stg_uncheckedShiftL64"
-    uncheckedShiftL64#     :: Word64# -> Int# -> Word64#
-#endif
 
 #else
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL#` i)

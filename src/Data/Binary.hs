@@ -1,7 +1,5 @@
 {-# LANGUAGE CPP #-}
-#if __GLASGOW_HASKELL__ >= 701
 {-# LANGUAGE Trustworthy #-}
-#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary
@@ -46,12 +44,10 @@ module Data.Binary (
     -- ** Example
     -- $example
 
-#ifdef GENERICS
     -- * Generic support
     -- $generics
     , GBinaryGet(..)
     , GBinaryPut(..)
-#endif
 
     -- * The Get and Put monads
     , Get
@@ -80,9 +76,7 @@ import Data.Word
 import Data.Binary.Class
 import Data.Binary.Put
 import Data.Binary.Get
-#ifdef GENERICS
 import Data.Binary.Generic ()
-#endif
 
 import qualified Data.ByteString as B ( hGet, length )
 import Data.ByteString.Lazy (ByteString)

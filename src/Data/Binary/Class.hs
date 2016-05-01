@@ -1,10 +1,6 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
-#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
-{-# LANGUAGE Safe #-}
-#endif
-#ifdef GENERICS
 {-# LANGUAGE DefaultSignatures #-}
-#endif
+{-# LANGUAGE Safe #-}
 
 #if MIN_VERSION_base(4,8,0)
 #define HAS_NATURAL
@@ -13,10 +9,6 @@
 
 #if MIN_VERSION_base(4,7,0)
 #define HAS_FIXED_CONSTRUCTOR
-#endif
-
-#if __GLASGOW_HASKELL__ >= 704
-#define HAS_GHC_FINGERPRINT
 #endif
 
 #ifndef HAS_FIXED_CONSTRUCTOR
@@ -42,11 +34,9 @@ module Data.Binary.Class (
     -- * The Binary class
       Binary(..)
 
-#ifdef GENERICS
     -- * Support for generics
     , GBinaryGet(..)
     , GBinaryPut(..)
-#endif
 
     ) where
 
@@ -89,9 +79,7 @@ import qualified Data.Tree as T
 
 import Data.Array.Unboxed
 
-#ifdef GENERICS
 import GHC.Generics
-#endif
 
 #ifdef HAS_NATURAL
 import Numeric.Natural
@@ -102,20 +90,15 @@ import qualified Data.Fixed as Fixed
 --
 -- This isn't available in older Hugs or older GHC
 --
-#if __GLASGOW_HASKELL__ >= 606
 import qualified Data.Sequence as Seq
 import qualified Data.Foldable as Fold
-#endif
 
-#ifdef HAS_GHC_FINGERPRINT
 import GHC.Fingerprint
-#endif
 
 import Data.Version (Version(..))
 
 ------------------------------------------------------------------------
 
-#ifdef GENERICS
 -- Factored into two classes because this makes GHC optimize the
 -- instances faster.  This doesn't matter for builds of binary,
 -- but it matters a lot for end-users who write 'instance Binary T'.
@@ -125,7 +108,6 @@ class GBinaryPut f where
 
 class GBinaryGet f where
     gget :: Get (f t)
-#endif
 
 -- | The 'Binary' class provides 'put' and 'get', methods to encode and
 -- decode a Haskell value to a lazy 'ByteString'. It mirrors the 'Read' and
@@ -156,13 +138,11 @@ class Binary t where
     putList :: [t] -> Put
     putList = defaultPutList
 
-#ifdef GENERICS
     default put :: (Generic t, GBinaryPut (Rep t)) => t -> Put
     put = gput . from
 
     default get :: (Generic t, GBinaryGet (Rep t)) => Get t
     get = to `fmap` gget
-#endif
 
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
@@ -636,7 +616,6 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 ------------------------------------------------------------------------
 -- Queues and Sequences
 
-#if __GLASGOW_HASKELL__ >= 606
 --
 -- This is valid Hugs, but you need the most recent Hugs
 --
@@ -649,8 +628,6 @@ instance (Binary e) => Binary (Seq.Seq e) where
             rep xs n g = xs `seq` n `seq` do
                            x <- g
                            rep (xs Seq.|> x) (n-1) g
-
-#endif
 
 ------------------------------------------------------------------------
 -- Floating point
@@ -707,7 +684,6 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 ------------------------------------------------------------------------
 -- Fingerprints
 
-#ifdef HAS_GHC_FINGERPRINT
 -- | /Since: 0.7.6.0/
 instance Binary Fingerprint where
     put (Fingerprint x1 x2) = put x1 <> put x2
@@ -715,7 +691,6 @@ instance Binary Fingerprint where
         x1 <- get
         x2 <- get
         return $! Fingerprint x1 x2
-#endif
 
 ------------------------------------------------------------------------
 -- Version

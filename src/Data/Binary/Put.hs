@@ -1,8 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
-#if __GLASGOW_HASKELL__ >= 701 && __GLASGOW_HASKELL__ != 702
 {-# LANGUAGE Safe #-}
-#endif
 
 #if MIN_VERSION_base(4,9,0)
 #define HAS_SEMIGROUP

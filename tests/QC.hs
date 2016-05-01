@@ -9,10 +9,6 @@ module Main ( main ) where
 #define HAS_FIXED_CONSTRUCTOR
 #endif
 
-#if __GLASGOW_HASKELL__ >= 704
-#define HAS_GHC_FINGERPRINT
-#endif
-
 import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
                                                             catch, evaluate)
@@ -31,9 +27,7 @@ import           System.IO.Unsafe
 import           Numeric.Natural
 #endif
 
-#ifdef HAS_GHC_FINGERPRINT
 import           GHC.Fingerprint
-#endif
 
 import qualified Data.Fixed as Fixed
 
@@ -450,13 +444,11 @@ genNaturalBig = do
 
 ------------------------------------------------------------------------
 
-#ifdef HAS_GHC_FINGERPRINT
 genFingerprint :: Gen Fingerprint
 genFingerprint = liftM2 Fingerprint arbitrary arbitrary
 #if !MIN_VERSION_base(4,7,0)
 instance Show Fingerprint where
   show (Fingerprint x1 x2) = show (x1,x2)
-#endif
 #endif
 
 ------------------------------------------------------------------------
@@ -598,9 +590,7 @@ tests =
             , testWithGen "Natural small" genNaturalSmall
             , testWithGen "Natural big"   genNaturalBig
 #endif
-#ifdef HAS_GHC_FINGERPRINT
             , testWithGen "GHC.Fingerprint" genFingerprint
-#endif
 
             , test' "Float"       (test :: T Float ) test
             , test' "Double"      (test :: T Double) test
