@@ -161,7 +161,7 @@ benchmark generics-bench
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring,
-    Cabal == 1.22.*,
+    Cabal >= 1.22,
     directory,
     filepath,
     tar,
