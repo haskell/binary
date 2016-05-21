@@ -131,6 +131,26 @@ prop_Int64host = roundTripWith putInt64host getInt64host
 prop_Inthost :: Int -> Property
 prop_Inthost = roundTripWith putInthost getInthost
 
+-- Floats and Doubles
+
+prop_Floatbe :: Float -> Property
+prop_Floatbe = roundTripWith putFloatbe getFloatbe
+
+prop_Floatle :: Float -> Property
+prop_Floatle = roundTripWith putFloatle getFloatle
+
+prop_Floathost :: Float -> Property
+prop_Floathost = roundTripWith putFloathost getFloathost
+
+prop_Doublebe :: Double -> Property
+prop_Doublebe = roundTripWith putDoublebe getDoublebe
+
+prop_Doublele :: Double -> Property
+prop_Doublele = roundTripWith putDoublele getDoublele
+
+prop_Doublehost :: Double -> Property
+prop_Doublehost = roundTripWith putDoublehost getDoublehost
+
 
 -- done, partial and fail
 
@@ -552,6 +572,13 @@ tests =
             , testProperty "Int64le"    (p prop_Int64le)
             , testProperty "Int64host"  (p prop_Int64host)
             , testProperty "Inthost"    (p prop_Inthost)
+              -- Float/Double
+            , testProperty "Floatbe"    (p prop_Floatbe)
+            , testProperty "Floatle"    (p prop_Floatle)
+            , testProperty "Floathost"  (p prop_Floathost)
+            , testProperty "Doublebe"   (p prop_Doublebe)
+            , testProperty "Doublele"   (p prop_Doublele)
+            , testProperty "Doublehost" (p prop_Doublehost)
             ]
 
         , testGroup "String utils"

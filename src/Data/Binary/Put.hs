@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE Safe #-}
+-- {-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 
 #if MIN_VERSION_base(4,9,0)
 #define HAS_SEMIGROUP
@@ -49,6 +50,8 @@ module Data.Binary.Put (
     , putInt16be
     , putInt32be
     , putInt64be
+    , putFloatbe
+    , putDoublebe
 
     -- * Little-endian primitives
     , putWord16le
@@ -57,6 +60,8 @@ module Data.Binary.Put (
     , putInt16le
     , putInt32le
     , putInt64le
+    , putFloatle
+    , putDoublele
 
     -- * Host-endian, unaligned writes
     , putWordhost           -- :: Word   -> Put
@@ -67,6 +72,8 @@ module Data.Binary.Put (
     , putInt16host          -- :: Int16  -> Put
     , putInt32host          -- :: Int32  -> Put
     , putInt64host          -- :: Int64  -> Put
+    , putFloathost
+    , putDoublehost
 
     -- * Unicode
     , putCharUtf8
@@ -93,6 +100,8 @@ import Data.Semigroup
 import Control.Applicative
 import Prelude -- Silence AMP warning.
 
+-- needed for casting Floats/Doubles to words.
+import Data.ReinterpretCast (floatToWord, doubleToWord)
 
 ------------------------------------------------------------------------
 
@@ -346,6 +355,38 @@ putInt64host       :: Int64 -> Put
 putInt64host       = tell . B.putInt64host
 {-# INLINE putInt64host #-}
 
+------------------------------------------------------------------------
+-- Floats/Doubles
+
+-- | Write a 'Float' in big endian format.
+putFloatbe :: Float -> Put
+putFloatbe = putWord32be . floatToWord
+{-# INLINE putFloatbe #-}
+
+-- | Write a 'Float' in little endian format.
+putFloatle :: Float -> Put
+putFloatle = putWord32le . floatToWord
+{-# INLINE putFloatle #-}
+
+-- | Write a 'Float' in native host order and host endianness.
+putFloathost :: Float -> Put
+putFloathost = putWord32host . floatToWord
+{-# INLINE putFloathost #-}
+
+-- | Write a 'Double' in big endian format.
+putDoublebe :: Double -> Put
+putDoublebe = putWord64be . doubleToWord
+{-# INLINE putDoublebe #-}
+
+-- | Write a 'Double' in little endian format.
+putDoublele :: Double -> Put
+putDoublele = putWord64le . doubleToWord
+{-# INLINE putDoublele #-}
+
+-- | Write a 'Double' in native host order and host endianness.
+putDoublehost :: Double -> Put
+putDoublehost = putWord64host . doubleToWord
+{-# INLINE putDoublehost #-}
 
 ------------------------------------------------------------------------
 -- Unicode

@@ -205,6 +205,14 @@ module Data.Binary.Get (
     , getInt32host
     , getInt64host
 
+    -- ** Decoding Floats/Doubles
+    , getFloatbe
+    , getFloatle
+    , getFloathost
+    , getDoublebe
+    , getDoublele
+    , getDoublehost
+
     -- * Deprecated functions
     , runGetState -- DEPRECATED
     , remaining -- DEPRECATED
@@ -228,6 +236,9 @@ import qualified Data.Binary.Get.Internal as I
 import GHC.Base
 import GHC.Word
 #endif
+
+-- needed for casting words to float/double
+import Data.ReinterpretCast (wordToFloat, wordToDouble)
 
 -- $lazyinterface
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
@@ -607,6 +618,39 @@ getInt64host   :: Get Int64
 getInt64host = getPtr  (sizeOf (undefined :: Int64))
 {-# INLINE getInt64host #-}
 
+
+------------------------------------------------------------------------
+-- Double/Float reads
+
+-- | Read a 'Float' in big endian format.
+getFloatbe :: Get Float
+getFloatbe = wordToFloat <$> getWord32be
+{-# INLINE getFloatbe #-}
+
+-- | Read a 'Float' in little endian format.
+getFloatle :: Get Float
+getFloatle = wordToFloat <$> getWord32le
+{-# INLINE getFloatle #-}
+
+-- | Read a 'Float' in native host order and host endianess.
+getFloathost :: Get Float
+getFloathost = wordToFloat <$> getWord32host
+{-# INLINE getFloathost #-}
+
+-- | Read a 'Double' in big endian format.
+getDoublebe :: Get Double
+getDoublebe = wordToDouble <$> getWord64be
+{-# INLINE getDoublebe #-}
+
+-- | Read a 'Double' in little endian format.
+getDoublele :: Get Double
+getDoublele = wordToDouble <$> getWord64le
+{-# INLINE getDoublele #-}
+
+-- | Read a 'Double' in native host order and host endianess.
+getDoublehost :: Get Double
+getDoublehost = wordToDouble <$> getWord64host
+{-# INLINE getDoublehost #-}
 
 ------------------------------------------------------------------------
 -- Unchecked shifts

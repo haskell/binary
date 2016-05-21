@@ -31,7 +31,7 @@ source-repository head
   location: git://github.com/kolmodin/binary.git
 
 library
-  build-depends:   base >= 4.5.0.0 && < 5, bytestring >= 0.10.2, containers, array
+  build-depends:   base >= 4.5.0.0 && < 5, bytestring >= 0.10.2, containers, array, reinterpret-cast
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
@@ -69,7 +69,8 @@ test-suite qc
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.8
+    QuickCheck>=2.8,
+    reinterpret-cast
 
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
@@ -89,7 +90,8 @@ test-suite read-write-file
     Cabal,
     directory,
     filepath,
-    HUnit
+    HUnit,
+    reinterpret-cast
 
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
