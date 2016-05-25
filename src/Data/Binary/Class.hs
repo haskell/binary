@@ -484,19 +484,27 @@ instance Binary Char where
 -- Instances for the first few tuples
 
 instance (Binary a, Binary b) => Binary (a,b) where
+    {-# INLINE put #-}
     put (a,b)           = put a <> put b
+    {-# INLINE get #-}
     get                 = liftM2 (,) get get
 
 instance (Binary a, Binary b, Binary c) => Binary (a,b,c) where
+    {-# INLINE put #-}
     put (a,b,c)         = put a <> put b <> put c
+    {-# INLINE get #-}
     get                 = liftM3 (,,) get get get
 
 instance (Binary a, Binary b, Binary c, Binary d) => Binary (a,b,c,d) where
+    {-# INLINE put #-}
     put (a,b,c,d)       = put a <> put b <> put c <> put d
+    {-# INLINE get #-}
     get                 = liftM4 (,,,) get get get get
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e) where
+    {-# INLINE put #-}
     put (a,b,c,d,e)     = put a <> put b <> put c <> put d <> put e
+    {-# INLINE get #-}
     get                 = liftM5 (,,,,) get get get get get
 
 --
@@ -505,30 +513,40 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e) => Binary (a,b,c,d,e
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f)
         => Binary (a,b,c,d,e,f) where
+    {-# INLINE put #-}
     put (a,b,c,d,e,f)   = put (a,(b,c,d,e,f))
+    {-# INLINE get #-}
     get                 = do (a,(b,c,d,e,f)) <- get ; return (a,b,c,d,e,f)
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e, Binary f, Binary g)
         => Binary (a,b,c,d,e,f,g) where
+    {-# INLINE put #-}
     put (a,b,c,d,e,f,g) = put (a,(b,c,d,e,f,g))
+    {-# INLINE get #-}
     get                 = do (a,(b,c,d,e,f,g)) <- get ; return (a,b,c,d,e,f,g)
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e,
           Binary f, Binary g, Binary h)
         => Binary (a,b,c,d,e,f,g,h) where
+    {-# INLINE put #-}
     put (a,b,c,d,e,f,g,h) = put (a,(b,c,d,e,f,g,h))
+    {-# INLINE get #-}
     get                   = do (a,(b,c,d,e,f,g,h)) <- get ; return (a,b,c,d,e,f,g,h)
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e,
           Binary f, Binary g, Binary h, Binary i)
         => Binary (a,b,c,d,e,f,g,h,i) where
+    {-# INLINE put #-}
     put (a,b,c,d,e,f,g,h,i) = put (a,(b,c,d,e,f,g,h,i))
+    {-# INLINE get #-}
     get                     = do (a,(b,c,d,e,f,g,h,i)) <- get ; return (a,b,c,d,e,f,g,h,i)
 
 instance (Binary a, Binary b, Binary c, Binary d, Binary e,
           Binary f, Binary g, Binary h, Binary i, Binary j)
         => Binary (a,b,c,d,e,f,g,h,i,j) where
+    {-# INLINE put #-}
     put (a,b,c,d,e,f,g,h,i,j) = put (a,(b,c,d,e,f,g,h,i,j))
+    {-# INLINE get #-}
     get                       = do (a,(b,c,d,e,f,g,h,i,j)) <- get ; return (a,b,c,d,e,f,g,h,i,j)
 
 ------------------------------------------------------------------------
