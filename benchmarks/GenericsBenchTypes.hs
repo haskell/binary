@@ -39,6 +39,7 @@ instance Binary PackageIdentifier
 instance Binary PackageName
 instance Binary RepoKind
 instance Binary RepoType
+instance Binary SetupBuildInfo
 instance Binary SourceRepo
 instance Binary TestSuite
 instance Binary TestSuiteInterface
