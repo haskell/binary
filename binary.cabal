@@ -108,7 +108,8 @@ benchmark bench
   other-modules: MemBench
   build-depends:
     base >= 4.5.0.0 && < 5,
-    bytestring
+    bytestring,
+    reinterpret-cast
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   c-sources: benchmarks/CBenchmark.c
@@ -130,7 +131,8 @@ benchmark get
     cereal,
     criterion == 1.*,
     deepseq,
-    mtl
+    mtl,
+    reinterpret-cast
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -147,7 +149,8 @@ benchmark put
     base >= 4.5.0.0 && < 5,
     bytestring,
     criterion == 1.*,
-    deepseq
+    deepseq,
+    reinterpret-cast
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -169,7 +172,9 @@ benchmark generics-bench
     tar,
     unordered-containers,
     zlib,
-    criterion
+    criterion,
+    reinterpret-cast
+    
   other-modules:
     GenericsBenchCache
     GenericsBenchTypes
