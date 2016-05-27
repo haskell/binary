@@ -31,7 +31,7 @@ source-repository head
   location: git://github.com/kolmodin/binary.git
 
 library
-  build-depends:   base >= 4.5.0.0 && < 5, bytestring >= 0.10.2, containers, array, reinterpret-cast
+  build-depends:   base >= 4.5.0.0 && < 5, bytestring >= 0.10.2, containers, array
   hs-source-dirs:  src
   exposed-modules: Data.Binary,
                    Data.Binary.Put,
@@ -41,7 +41,8 @@ library
 
   other-modules:   Data.Binary.Class,
                    Data.Binary.Internal,
-                   Data.Binary.Generic
+                   Data.Binary.Generic,
+                   Data.Binary.FloatCast
   if impl(ghc <= 7.6)
     -- prior to ghc-7.4 generics lived in ghc-prim
     build-depends: ghc-prim
@@ -69,8 +70,7 @@ test-suite qc
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.8,
-    reinterpret-cast
+    QuickCheck>=2.8
 
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
@@ -90,8 +90,7 @@ test-suite read-write-file
     Cabal,
     directory,
     filepath,
-    HUnit,
-    reinterpret-cast
+    HUnit
 
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
@@ -108,8 +107,7 @@ benchmark bench
   other-modules: MemBench
   build-depends:
     base >= 4.5.0.0 && < 5,
-    bytestring,
-    reinterpret-cast
+    bytestring
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   c-sources: benchmarks/CBenchmark.c
@@ -131,8 +129,7 @@ benchmark get
     cereal,
     criterion == 1.*,
     deepseq,
-    mtl,
-    reinterpret-cast
+    mtl
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -149,8 +146,7 @@ benchmark put
     base >= 4.5.0.0 && < 5,
     bytestring,
     criterion == 1.*,
-    deepseq,
-    reinterpret-cast
+    deepseq
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -172,8 +168,7 @@ benchmark generics-bench
     tar,
     unordered-containers,
     zlib,
-    criterion,
-    reinterpret-cast
+    criterion
     
   other-modules:
     GenericsBenchCache

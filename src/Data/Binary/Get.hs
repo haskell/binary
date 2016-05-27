@@ -238,7 +238,7 @@ import GHC.Word
 #endif
 
 -- needed for casting words to float/double
-import Data.ReinterpretCast (wordToFloat, wordToDouble)
+import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 
 -- $lazyinterface
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest

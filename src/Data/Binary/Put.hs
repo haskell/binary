@@ -101,7 +101,7 @@ import Control.Applicative
 import Prelude -- Silence AMP warning.
 
 -- needed for casting Floats/Doubles to words.
-import Data.ReinterpretCast (floatToWord, doubleToWord)
+import Data.Binary.FloatCast (floatToWord, doubleToWord)
 
 ------------------------------------------------------------------------
 
