@@ -404,7 +404,11 @@ ensureN !n0 = C $ \inp ks -> do
     enoughChunks n str
       | B.length str >= n = Right (str,B.empty)
       | otherwise = Left (n - B.length str)
-    onSucc = B.concat
+    -- Sometimes we will produce leftovers lists of the form [B.empty, nonempty]
+    -- where `nonempty` is a non-empty ByteString. In this case we can avoid a copy
+    -- by simply dropping the empty prefix. In principle ByteString might want
+    -- to gain this optimization as well
+    onSucc = B.concat . dropWhile B.null
     onFail bss = C $ \_ _ -> Fail (B.concat bss) "not enough bytes"
 {-# INLINE ensureN #-}
 
