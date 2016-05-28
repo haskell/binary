@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, StandaloneDeriving #-}
+{-# LANGUAGE CPP, DeriveGeneric, StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module GenericsBenchTypes where
 
@@ -14,8 +14,9 @@ import           GHC.Generics                    (Generic)
 
 import           Data.Binary
 
-
+#if ! MIN_VERSION_base(4,9,0)
 deriving instance Generic Version
+#endif
 
 instance Binary Benchmark
 instance Binary BenchmarkInterface
