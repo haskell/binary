@@ -259,18 +259,22 @@ getBytes = getByteString
 -- | /Since: 0.7.0.0/
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
+  {-# INLINE empty #-}
   (<|>) f g = do
     (decoder, bs) <- runAndKeepTrack f
     case decoder of
       Done inp x -> C $ \_ ks -> ks inp x
       Fail _ _ -> pushBack bs >> g
       _ -> error "Binary: impossible"
+  {-# INLINE (<|>) #-}
   some p = (:) <$> p <*> many p
+  {-# INLINE some #-}
   many p = do
     v <- (Just <$> p) <|> pure Nothing
     case v of
       Nothing -> pure []
       Just x -> (:) x <$> many p
+  {-# INLINE many #-}
 
 -- | Run a decoder and keep track of all the input it consumes.
 -- Once it's finished, return the final decoder (always 'Done' or 'Fail'),
