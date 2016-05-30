@@ -2,6 +2,10 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE Safe #-}
 
+#if __GLASGOW_HASKELL__ >= 706
+{-# LANGUAGE PolyKinds #-}
+#endif
+
 #if MIN_VERSION_base(4,8,0)
 #define HAS_NATURAL
 #define HAS_VOID
@@ -55,7 +59,12 @@ import Data.Binary.Get
 import Control.Applicative
 import Data.Monoid (mempty)
 #endif
+import qualified Data.Monoid as Monoid
 import Data.Monoid ((<>))
+#if MIN_VERSION_base(4,9,0)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Semigroup     as Semigroup
+#endif
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -717,3 +726,96 @@ instance Binary Fingerprint where
 instance Binary Version where
     put (Version br tags) = put br <> put tags
     get = Version <$> get <*> get
+
+------------------------------------------------------------------------
+-- Data.Monoid datatypes
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Monoid.Dual a) where
+  get = fmap Monoid.Dual get
+  put = put . Monoid.getDual
+
+-- | /Since: 0.8.4.0/
+instance Binary Monoid.All where
+  get = fmap Monoid.All get
+  put = put . Monoid.getAll
+
+-- | /Since: 0.8.4.0/
+instance Binary Monoid.Any where
+  get = fmap Monoid.Any get
+  put = put . Monoid.getAny
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Monoid.Sum a) where
+  get = fmap Monoid.Sum get
+  put = put . Monoid.getSum
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Monoid.Product a) where
+  get = fmap Monoid.Product get
+  put = put . Monoid.getProduct
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Monoid.First a) where
+  get = fmap Monoid.First get
+  put = put . Monoid.getFirst
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Monoid.Last a) where
+  get = fmap Monoid.Last get
+  put = put . Monoid.getLast
+
+#if MIN_VERSION_base(4,8,0)
+-- | /Since: 0.8.4.0/
+instance Binary (f a) => Binary (Monoid.Alt f a) where
+  get = fmap Monoid.Alt get
+  put = put . Monoid.getAlt
+#endif
+
+#if MIN_VERSION_base(4,9,0)
+------------------------------------------------------------------------
+-- Data.Semigroup datatypes
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Semigroup.Min a) where
+  get = fmap Semigroup.Min get
+  put = put . Semigroup.getMin
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Semigroup.Max a) where
+  get = fmap Semigroup.Max get
+  put = put . Semigroup.getMax
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Semigroup.First a) where
+  get = fmap Semigroup.First get
+  put = put . Semigroup.getFirst
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Semigroup.Last a) where
+  get = fmap Semigroup.Last get
+  put = put . Semigroup.getLast
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (Semigroup.Option a) where
+  get = fmap Semigroup.Option get
+  put = put . Semigroup.getOption
+
+-- | /Since: 0.8.4.0/
+instance Binary m => Binary (Semigroup.WrappedMonoid m) where
+  get = fmap Semigroup.WrapMonoid get
+  put = put . Semigroup.unwrapMonoid
+
+-- | /Since: 0.8.4.0/
+instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
+  get                     = liftM2 Semigroup.Arg get get
+  put (Semigroup.Arg a b) = put a <> put b
+
+------------------------------------------------------------------------
+-- Non-empty lists
+
+-- | /Since: 0.8.4.0/
+instance Binary a => Binary (NE.NonEmpty a) where
+  get = fmap NE.fromList get
+  put = put . NE.toList
+#endif
