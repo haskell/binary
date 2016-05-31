@@ -24,28 +24,28 @@ import GHC.ST (runST, ST)
 floatToWord :: Float -> Word32
 floatToWord x = runST (cast x)
 
-{-# INLINEABLE floatToWord #-}
+{-# INLINE floatToWord #-}
 
 
 -- | Reinterpret-casts a `Word32` to a `Float`.
 wordToFloat :: Word32 -> Float
 wordToFloat x = runST (cast x)
 
-{-# INLINEABLE wordToFloat #-}
+{-# INLINE wordToFloat #-}
 
 
 -- | Reinterpret-casts a `Double` to a `Word64`.
 doubleToWord :: Double -> Word64
 doubleToWord x = runST (cast x)
 
-{-# INLINEABLE doubleToWord #-}
+{-# INLINE doubleToWord #-}
 
 
 -- | Reinterpret-casts a `Word64` to a `Double`.
 wordToDouble :: Word64 -> Double
 wordToDouble x = runST (cast x)
 
-{-# INLINEABLE wordToDouble #-}
+{-# INLINE wordToDouble #-}
 
 
 {-# INLINE cast #-}
