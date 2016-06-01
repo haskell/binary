@@ -357,32 +357,32 @@ putInt64host       = tell . B.putInt64host
 ------------------------------------------------------------------------
 -- Floats/Doubles
 
--- | Write a 'Float' in big endian format.
+-- | Write a 'Float' in big endian IEEE-754 format.
 putFloatbe :: Float -> Put
 putFloatbe = putWord32be . floatToWord
 {-# INLINE putFloatbe #-}
 
--- | Write a 'Float' in little endian format.
+-- | Write a 'Float' in little endian IEEE-754 format.
 putFloatle :: Float -> Put
 putFloatle = putWord32le . floatToWord
 {-# INLINE putFloatle #-}
 
--- | Write a 'Float' in native host order and host endianness.
+-- | Write a 'Float' in native in IEEE-754 format and host endian.
 putFloathost :: Float -> Put
 putFloathost = putWord32host . floatToWord
 {-# INLINE putFloathost #-}
 
--- | Write a 'Double' in big endian format.
+-- | Write a 'Double' in big endian IEEE-754 format.
 putDoublebe :: Double -> Put
 putDoublebe = putWord64be . doubleToWord
 {-# INLINE putDoublebe #-}
 
--- | Write a 'Double' in little endian format.
+-- | Write a 'Double' in little endian IEEE-754 format.
 putDoublele :: Double -> Put
 putDoublele = putWord64le . doubleToWord
 {-# INLINE putDoublele #-}
 
--- | Write a 'Double' in native host order and host endianness.
+-- | Write a 'Double' in native in IEEE-754 format and host endian.
 putDoublehost :: Double -> Put
 putDoublehost = putWord64host . doubleToWord
 {-# INLINE putDoublehost #-}

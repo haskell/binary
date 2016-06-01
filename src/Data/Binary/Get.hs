@@ -622,32 +622,32 @@ getInt64host = getPtr  (sizeOf (undefined :: Int64))
 ------------------------------------------------------------------------
 -- Double/Float reads
 
--- | Read a 'Float' in big endian format.
+-- | Read a 'Float' in big endian IEEE-754 format.
 getFloatbe :: Get Float
 getFloatbe = wordToFloat <$> getWord32be
 {-# INLINE getFloatbe #-}
 
--- | Read a 'Float' in little endian format.
+-- | Read a 'Float' in little endian IEEE-754 format.
 getFloatle :: Get Float
 getFloatle = wordToFloat <$> getWord32le
 {-# INLINE getFloatle #-}
 
--- | Read a 'Float' in native host order and host endianess.
+-- | Read a 'Float' in IEEE-754 format and host endian.
 getFloathost :: Get Float
 getFloathost = wordToFloat <$> getWord32host
 {-# INLINE getFloathost #-}
 
--- | Read a 'Double' in big endian format.
+-- | Read a 'Double' in big endian IEEE-754 format.
 getDoublebe :: Get Double
 getDoublebe = wordToDouble <$> getWord64be
 {-# INLINE getDoublebe #-}
 
--- | Read a 'Double' in little endian format.
+-- | Read a 'Double' in little endian IEEE-754 format.
 getDoublele :: Get Double
 getDoublele = wordToDouble <$> getWord64le
 {-# INLINE getDoublele #-}
 
--- | Read a 'Double' in native host order and host endianess.
+-- | Read a 'Double' in IEEE-754 format and host endian.
 getDoublehost :: Get Double
 getDoublehost = wordToDouble <$> getWord64host
 {-# INLINE getDoublehost #-}
