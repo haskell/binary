@@ -205,6 +205,14 @@ module Data.Binary.Get (
     , getInt32host
     , getInt64host
 
+    -- ** Decoding Floats/Doubles
+    , getFloatbe
+    , getFloatle
+    , getFloathost
+    , getDoublebe
+    , getDoublele
+    , getDoublehost
+
     -- * Deprecated functions
     , runGetState -- DEPRECATED
     , remaining -- DEPRECATED
@@ -228,6 +236,9 @@ import qualified Data.Binary.Get.Internal as I
 import GHC.Base
 import GHC.Word
 #endif
+
+-- needed for casting words to float/double
+import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 
 -- $lazyinterface
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
@@ -529,33 +540,33 @@ word64le = \s ->
 {-# INLINE word64le #-}
 
 
--- | Read an Int16 in big endian format
+-- | Read an Int16 in big endian format.
 getInt16be :: Get Int16
 getInt16be = fromIntegral <$> getWord16be
 {-# INLINE getInt16be #-}
 
--- | Read an Int32 in big endian format
+-- | Read an Int32 in big endian format.
 getInt32be :: Get Int32
 getInt32be =  fromIntegral <$> getWord32be
 {-# INLINE getInt32be #-}
 
--- | Read an Int64 in big endian format
+-- | Read an Int64 in big endian format.
 getInt64be :: Get Int64
 getInt64be = fromIntegral <$> getWord64be
 {-# INLINE getInt64be #-}
 
 
--- | Read an Int16 in little endian format
+-- | Read an Int16 in little endian format.
 getInt16le :: Get Int16
 getInt16le = fromIntegral <$> getWord16le
 {-# INLINE getInt16le #-}
 
--- | Read an Int32 in little endian format
+-- | Read an Int32 in little endian format.
 getInt32le :: Get Int32
 getInt32le =  fromIntegral <$> getWord32le
 {-# INLINE getInt32le #-}
 
--- | Read an Int64 in little endian format
+-- | Read an Int64 in little endian format.
 getInt64le :: Get Int64
 getInt64le = fromIntegral <$> getWord64le
 {-# INLINE getInt64le #-}
@@ -607,6 +618,39 @@ getInt64host   :: Get Int64
 getInt64host = getPtr  (sizeOf (undefined :: Int64))
 {-# INLINE getInt64host #-}
 
+
+------------------------------------------------------------------------
+-- Double/Float reads
+
+-- | Read a 'Float' in big endian IEEE-754 format.
+getFloatbe :: Get Float
+getFloatbe = wordToFloat <$> getWord32be
+{-# INLINE getFloatbe #-}
+
+-- | Read a 'Float' in little endian IEEE-754 format.
+getFloatle :: Get Float
+getFloatle = wordToFloat <$> getWord32le
+{-# INLINE getFloatle #-}
+
+-- | Read a 'Float' in IEEE-754 format and host endian.
+getFloathost :: Get Float
+getFloathost = wordToFloat <$> getWord32host
+{-# INLINE getFloathost #-}
+
+-- | Read a 'Double' in big endian IEEE-754 format.
+getDoublebe :: Get Double
+getDoublebe = wordToDouble <$> getWord64be
+{-# INLINE getDoublebe #-}
+
+-- | Read a 'Double' in little endian IEEE-754 format.
+getDoublele :: Get Double
+getDoublele = wordToDouble <$> getWord64le
+{-# INLINE getDoublele #-}
+
+-- | Read a 'Double' in IEEE-754 format and host endian.
+getDoublehost :: Get Double
+getDoublehost = wordToDouble <$> getWord64host
+{-# INLINE getDoublehost #-}
 
 ------------------------------------------------------------------------
 -- Unchecked shifts
