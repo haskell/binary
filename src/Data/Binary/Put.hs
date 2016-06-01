@@ -1,7 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE Safe #-}
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE Safe #-}
 
 #if MIN_VERSION_base(4,9,0)
 #define HAS_SEMIGROUP
