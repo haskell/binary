@@ -540,33 +540,33 @@ word64le = \s ->
 {-# INLINE word64le #-}
 
 
--- | Read an Int16 in big endian format
+-- | Read an Int16 in big endian format.
 getInt16be :: Get Int16
 getInt16be = fromIntegral <$> getWord16be
 {-# INLINE getInt16be #-}
 
--- | Read an Int32 in big endian format
+-- | Read an Int32 in big endian format.
 getInt32be :: Get Int32
 getInt32be =  fromIntegral <$> getWord32be
 {-# INLINE getInt32be #-}
 
--- | Read an Int64 in big endian format
+-- | Read an Int64 in big endian format.
 getInt64be :: Get Int64
 getInt64be = fromIntegral <$> getWord64be
 {-# INLINE getInt64be #-}
 
 
--- | Read an Int16 in little endian format
+-- | Read an Int16 in little endian format.
 getInt16le :: Get Int16
 getInt16le = fromIntegral <$> getWord16le
 {-# INLINE getInt16le #-}
 
--- | Read an Int32 in little endian format
+-- | Read an Int32 in little endian format.
 getInt32le :: Get Int32
 getInt32le =  fromIntegral <$> getWord32le
 {-# INLINE getInt32le #-}
 
--- | Read an Int64 in little endian format
+-- | Read an Int64 in little endian format.
 getInt64le :: Get Int64
 getInt64le = fromIntegral <$> getWord64le
 {-# INLINE getInt64le #-}
