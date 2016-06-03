@@ -1,6 +1,15 @@
 binary
 ======
 
+binary-0.8.4.0
+--------------
+
+- `binary` supports GHC >= 7.4.2
+- Performance improvements for `Alternative` functions.
+- put/get functions for IEEE-754 floats and doubles, #119.
+- Fix performance bugs, #115.
+- Binary instances for datatypes in `Data.Monoid` and `Data.Semigroup`, #114.
+
 binary-0.8.3.0
 --------------
 
