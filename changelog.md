@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.4.1
+--------------
+
+- Fix compilation with bytestring < 0.10.4.
+
 binary-0.8.4.0
 --------------
 
