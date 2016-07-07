@@ -68,7 +68,11 @@ module Data.Binary.Builder (
 
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
+
+#if MIN_VERSION_bytestring(0,10,4)
 import qualified Data.ByteString.Short as T
+#endif
+
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Builder.Prim as Prim
 import Data.ByteString.Builder ( Builder, toLazyByteString )
