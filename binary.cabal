@@ -70,7 +70,7 @@ test-suite qc
     random>=1.0.1.0,
     test-framework,
     test-framework-quickcheck2 >= 0.3,
-    QuickCheck>=2.8
+    QuickCheck == 2.9.*
 
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
