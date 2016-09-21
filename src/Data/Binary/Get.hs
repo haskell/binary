@@ -285,6 +285,8 @@ data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental = calculateOffset . I.runGetIncremental
 
+-- | Similar to 'runGetIncremental', but accept an initial chunk, it's faster
+-- than feeding initial chunk after 'runGetIncremental'.
 runGetIncremental' :: Get a -> B.ByteString -> Decoder a
 runGetIncremental' g = calculateOffset . I.runGetIncremental' g
 

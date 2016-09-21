@@ -148,8 +148,8 @@ instance (Show a) => Show (Decoder a) where
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental g = noMeansNo $ runCont g B.empty Done
 
--- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
--- input, handling decoding errors and to get the output value.
+-- | Similar to 'runGetIncremental', but accept an initial chunk, it's faster
+-- than feeding initial chunk after 'runGetIncremental'.
 runGetIncremental' :: Get a -> B.ByteString -> Decoder a
 runGetIncremental' g bs = noMeansNo $ runCont g bs Done
 
