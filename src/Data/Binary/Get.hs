@@ -41,7 +41,7 @@
 -- The fields in @Trade@ are marked as strict (using @!@) since we don't need
 -- laziness here. In practise, you would probably consider using the UNPACK
 -- pragma as well.
--- <http://www.haskell.org/ghc/docs/latest/html/users_guide/pragmas.html#unpack-pragma>
+-- <https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#unpack-pragma>
 --
 -- Now, let's have a look at a decoder for this format.
 --
