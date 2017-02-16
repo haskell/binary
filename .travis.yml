@@ -33,7 +33,7 @@ install:
  - cabal sandbox init
 # can't use "cabal install --only-dependencies --enable-tests --enable-benchmarks" due to dep-cycle.
 # must split in two separate 'cabal install's since cabal doesn't update the cabal library before it's needed in 'cabal-version' constraints.
- - cabal install "bytestring >= 0.10.4" 'Cabal == 1.24.*' -j -v
+ - cabal install "bytestring >= 0.10.4" 'Cabal == 1.24.*' -j -v2
  - cabal install criterion deepseq mtl "QuickCheck >= 2.8" HUnit "test-framework-quickcheck2 >= 0.3" "random >= 1.0.1.0" attoparsec cereal tar zlib -j
 
 script:
