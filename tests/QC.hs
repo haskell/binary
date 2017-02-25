@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, ScopedTypeVariables, DataKinds, TypeSynonymInstances #-}
 module Main ( main ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -21,6 +21,7 @@ import           Data.ByteString.Short                (ShortByteString)
 #endif
 import           Data.Int
 import           Data.Ratio
+import           Data.Typeable
 import           System.IO.Unsafe
 
 #ifdef HAS_NATURAL
@@ -40,6 +41,7 @@ import           Arbitrary                            ()
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
+import qualified Data.Binary.Class as Class
 
 ------------------------------------------------------------------------
 
@@ -151,6 +153,36 @@ prop_Doublele = roundTripWith putDoublele getDoublele
 prop_Doublehost :: Double -> Property
 prop_Doublehost = roundTripWith putDoublehost getDoublehost
 
+#if MIN_VERSION_base(4,10,0)
+testTypeable :: Test
+testTypeable = testProperty "TypeRep" prop_TypeRep
+
+prop_TypeRep :: TypeRep -> Property
+prop_TypeRep = roundTripWith Class.put Class.get
+
+atomicTypeReps :: [TypeRep]
+atomicTypeReps =
+    [ typeRep (Proxy :: Proxy ())
+    , typeRep (Proxy :: Proxy String)
+    , typeRep (Proxy :: Proxy Int)
+    , typeRep (Proxy :: Proxy (,))
+    , typeRep (Proxy :: Proxy ((,) (Maybe Int)))
+    , typeRep (Proxy :: Proxy Maybe)
+    , typeRep (Proxy :: Proxy 'Nothing)
+    , typeRep (Proxy :: Proxy 'Left)
+    , typeRep (Proxy :: Proxy "Hello")
+    , typeRep (Proxy :: Proxy 42)
+    , typeRep (Proxy :: Proxy '[1,2,3,4])
+    , typeRep (Proxy :: Proxy ('Left Int))
+    , typeRep (Proxy :: Proxy (Either Int String))
+    ]
+
+instance Arbitrary TypeRep where
+    arbitrary = oneof (map pure atomicTypeReps)
+#else
+testTypeable :: Test
+testTypeable = testGroup "Skipping Typeable tests" []
+#endif
 
 -- done, partial and fail
 
@@ -676,4 +708,5 @@ tests =
             , testProperty "HasResolution -> MkFixed" $ p prop_fixed_resolution_constr
             ]
 #endif
+        , testTypeable
         ]
