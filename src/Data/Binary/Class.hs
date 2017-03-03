@@ -911,7 +911,6 @@ instance Binary KindRep where
     put (KindRepFun a b) = putWord8 3 >> put a >> put b
     put (KindRepTYPE r) = putWord8 4 >> put r
     put (KindRepTypeLit sort r) = putWord8 5 >> put sort >> put r
-    put _ = fail "GHCi.TH.Binary.putKindRep: Impossible"
 
     get = do
         tag <- getWord8
