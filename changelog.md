@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.9.0.0
+--------------
+
+- Add Binary instances for Typeable TypeReps, #131.
+
 binary-0.8.4.1
 --------------
 
