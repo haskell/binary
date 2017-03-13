@@ -175,6 +175,7 @@ atomicTypeReps =
     , typeRep (Proxy :: Proxy '[1,2,3,4])
     , typeRep (Proxy :: Proxy ('Left Int))
     , typeRep (Proxy :: Proxy (Either Int String))
+    , typeRep (Proxy :: Proxy (() -> ()))
     ]
 
 instance Arbitrary TypeRep where
