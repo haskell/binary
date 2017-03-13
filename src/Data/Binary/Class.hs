@@ -78,8 +78,6 @@ import Type.Reflection
 import Type.Reflection.Unsafe
 import Data.Kind (Type)
 import GHC.Exts (RuntimeRep(..), VecCount, VecElem)
-#else
-import Data.Typeable
 #endif
 import qualified Data.ByteString as B
 #if MIN_VERSION_bytestring(0,10,4)
