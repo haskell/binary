@@ -849,17 +849,17 @@ instance Binary a => Binary (NE.NonEmpty a) where
 -- * 'SomeTypeRep' (also known as 'Data.Typeable.TypeRep')
 --
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary VecCount where
     put = putWord8 . fromIntegral . fromEnum
     get = toEnum . fromIntegral <$> getWord8
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary VecElem where
     put = putWord8 . fromIntegral . fromEnum
     get = toEnum . fromIntegral <$> getWord8
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary RuntimeRep where
     put (VecRep a b)    = putWord8 0 >> put a >> put b
     put (TupleRep reps) = putWord8 1 >> put reps
@@ -891,7 +891,7 @@ instance Binary RuntimeRep where
           11 -> pure DoubleRep
           _  -> fail "GHCi.TH.Binary.putRuntimeRep: invalid tag"
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary TyCon where
     put tc = do
         put (tyConPackage tc)
@@ -901,7 +901,7 @@ instance Binary TyCon where
         put (tyConKindRep tc)
     get = mkTyCon <$> get <*> get <*> get <*> get <*> get
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary KindRep where
     put (KindRepTyConApp tc k) = putWord8 0 >> put tc >> put k
     put (KindRepVar bndr) = putWord8 1 >> put bndr
@@ -921,7 +921,7 @@ instance Binary KindRep where
           5 -> KindRepTypeLit <$> get <*> get
           _ -> fail "GHCi.TH.Binary.putKindRep: invalid tag"
 
--- | @since 0.9.0.0. See #typeable-instances#
+-- | @since 0.8.5.0. See #typeable-instances#
 instance Binary TypeLitSort where
     put TypeLitSymbol = putWord8 0
     put TypeLitNat = putWord8 1
