@@ -1,5 +1,5 @@
 name:            binary
-version:         0.8.5.0
+version:         0.8.5.1
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
@@ -18,7 +18,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
-tested-with:     GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3
+tested-with:     GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2
 extra-source-files:
   README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
 
