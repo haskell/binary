@@ -41,6 +41,8 @@ module Data.Binary.Class (
     , GBinaryGet(..)
     , GBinaryPut(..)
 
+    , getMany
+
     ) where
 
 import Data.Word
