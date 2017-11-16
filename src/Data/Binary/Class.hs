@@ -9,6 +9,10 @@
 {-# LANGUAGE PolyKinds #-}
 #endif
 
+#if MIN_VERSION_base(4,10,0)
+{-# LANGUAGE MultiWayIf #-}
+#endif
+
 #if MIN_VERSION_base(4,8,0)
 #define HAS_NATURAL
 #define HAS_VOID
@@ -77,7 +81,7 @@ import Data.List    (unfoldr, foldl')
 import Type.Reflection
 import Type.Reflection.Unsafe
 import Data.Kind (Type)
-import GHC.Exts (RuntimeRep(..), VecCount, VecElem)
+import GHC.Exts (TYPE, RuntimeRep(..), VecCount, VecElem)
 #endif
 import qualified Data.ByteString as B
 #if MIN_VERSION_bytestring(0,10,4)
@@ -981,14 +985,18 @@ getSomeTypeRep = do
                        ]
         3 -> do SomeTypeRep arg <- getSomeTypeRep
                 SomeTypeRep res <- getSomeTypeRep
-                case typeRepKind arg `eqTypeRep` (typeRep :: TypeRep Type) of
-                  Just HRefl ->
-                      case typeRepKind res `eqTypeRep` (typeRep :: TypeRep Type) of
-                        Just HRefl -> return $ SomeTypeRep $ Fun arg res
-                        Nothing -> failure "Kind mismatch" []
-                  Nothing -> failure "Kind mismatch" []
+                if
+                  | App argkcon _ <- typeRepKind arg
+                  , App reskcon _ <- typeRepKind res
+                  , Just HRefl <- argkcon `eqTypeRep` tYPErep
+                  , Just HRefl <- reskcon `eqTypeRep` tYPErep
+                  -> return $ SomeTypeRep $ Fun arg res
+                  | otherwise -> failure "Kind mismatch" []
         _ -> failure "Invalid SomeTypeRep" []
   where
+    tYPErep :: TypeRep TYPE
+    tYPErep = typeRep
+
     failure description info =
         fail $ unlines $ [ "GHCi.TH.Binary.getSomeTypeRep: "++description ]
                       ++ map ("    "++) info
