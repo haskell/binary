@@ -2,7 +2,7 @@
 module Main where
 
 import qualified Data.ByteString.Lazy            as L
-import           Distribution.PackageDescription
+import           Cabal24 (PackageDescription)
 
 import           Criterion.Main
 
