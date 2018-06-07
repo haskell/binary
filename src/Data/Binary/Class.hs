@@ -60,6 +60,9 @@ import Data.Monoid (mempty)
 #endif
 import qualified Data.Monoid as Monoid
 import Data.Monoid ((<>))
+#if MIN_VERSION_base(4,8,0)
+import Data.Functor.Identity (Identity (..))
+#endif
 #if MIN_VERSION_base(4,9,0)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Semigroup     as Semigroup
@@ -565,6 +568,12 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 
 ------------------------------------------------------------------------
 -- Container types
+
+#if MIN_VERSION_base(4,8,0)
+instance Binary a => Binary (Identity a) where
+  put (Identity x) = put x
+  get = Identity <$> get
+#endif
 
 instance Binary a => Binary [a] where
     put = putList
