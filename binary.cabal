@@ -162,15 +162,18 @@ benchmark generics-bench
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
-    Cabal == 1.24.*,
+    -- The benchmark already depended on 'generic-deriving' transitively. That's
+    -- what caused one of the problems, as both 'generic-deriving' and
+    -- 'GenericsBenchTypes' used to define 'instance Generic Version'.
+    generic-deriving >= 0.10,
     directory,
     filepath,
-    tar,
     unordered-containers,
     zlib,
     criterion
     
   other-modules:
+    Cabal24
     GenericsBenchCache
     GenericsBenchTypes
     Data.Binary.Generic

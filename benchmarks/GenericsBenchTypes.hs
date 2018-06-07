@@ -1,22 +1,9 @@
-{-# LANGUAGE CPP, DeriveGeneric, StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module GenericsBenchTypes where
 
-import           Distribution.Compiler
-import           Distribution.License
-import           Distribution.ModuleName         hiding (main)
-import           Distribution.Package
-import           Distribution.PackageDescription
-import           Distribution.Version
-import           Language.Haskell.Extension
-
-import           GHC.Generics                    (Generic)
-
-import           Data.Binary
-
-#if ! MIN_VERSION_base(4,9,0)
-deriving instance Generic Version
-#endif
+import Cabal24
+import Generics.Deriving.Instances ()
+import Data.Binary
 
 instance Binary Benchmark
 instance Binary BenchmarkInterface
