@@ -189,7 +189,9 @@ putWord64N16Host = loop 0
 ------------------------------------------------------------------------
 -- Utilities
 
+#if !MIN_VERSION_base(4,11,0)
 infixr 6 <>
 
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
+#endif
