@@ -64,6 +64,16 @@ test-suite qc
   other-modules:
     Action
     Arbitrary
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
@@ -84,6 +94,16 @@ test-suite read-write-file
   type:  exitcode-stdio-1.0
   hs-source-dirs: src tests
   main-is: File.hs
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
@@ -104,7 +124,17 @@ benchmark bench
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
   main-is: Benchmark.hs
-  other-modules: MemBench
+  other-modules:
+    MemBench
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4
@@ -122,6 +152,16 @@ benchmark get
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
   main-is: Get.hs
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     attoparsec,
     base >= 4.5.0.0 && < 5,
@@ -142,6 +182,16 @@ benchmark put
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
   main-is: Put.hs
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
@@ -159,6 +209,16 @@ benchmark generics-bench
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
   main-is: GenericsBench.hs
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
@@ -188,6 +248,16 @@ benchmark builder
   type: exitcode-stdio-1.0
   hs-source-dirs: src benchmarks
   main-is: Builder.hs
+  other-modules:
+    Data.Binary
+    Data.Binary.Builder
+    Data.Binary.Class
+    Data.Binary.FloatCast
+    Data.Binary.Generic
+    Data.Binary.Get
+    Data.Binary.Get.Internal
+    Data.Binary.Internal
+    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     bytestring >= 0.10.4,
