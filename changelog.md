@@ -1,6 +1,12 @@
 binary
 ======
 
+binary-0.10.0.0
+---------------
+
+- Add binary instance for Data.Functor.Identity from base, #146.
+- Don't use * when we have TypeOperators, #148.
+
 binary-0.9.0.0
 --------------
 
