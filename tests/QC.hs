@@ -34,7 +34,7 @@ import qualified Data.Fixed as Fixed
 
 import           Test.Framework
 import           Test.Framework.Providers.QuickCheck2
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (total)
 
 import qualified Action                               (tests)
 import           Arbitrary                            ()
