@@ -1,3 +1,25 @@
+# Run tests on multiple ghc versions.
+#
+# Dependencies are cached between runs in the cabal-store-cache volume.
+#
+# To launch tests:
+#
+#  $ docker-compose up -d
+#
+# To check on their status:
+#
+#  $ docker-compose ps
+#
+# To read logs from a build:
+#
+#  $ docker-compose logs binary_binary_ghc842
+#
+# To cancel or clean up when finished:
+#  
+#  $ docker-compose down
+#  $ docker volume rm cabal-store-cache
+#
+
 version: '3'
 services:
   binary_ghc843:
