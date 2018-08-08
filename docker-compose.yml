@@ -1,0 +1,68 @@
+version: '3'
+services:
+  binary_ghc843:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ghc843
+      args:
+       - ghcver=8.4.3
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc822:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=8.2.2
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc802:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=8.0.2
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc7103:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=7.10.3
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc784:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=7.8.4
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc763:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=7.6.3
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+  binary_ghc742:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=7.4.2
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
+volumes:
+  cabal-store-cache:
+    driver: local
