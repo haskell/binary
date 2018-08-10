@@ -830,7 +830,11 @@ instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
 
 -- | /Since: 0.8.4.0/
 instance Binary a => Binary (NE.NonEmpty a) where
-  get = fmap NE.fromList get
+  get = do
+      list <- get
+      case list of
+        [] -> fail "NonEmpty is actually empty!"
+        x:xs -> pure (x NE.:| xs)
   put = put . NE.toList
 #endif
 
