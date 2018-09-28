@@ -216,16 +216,7 @@ decodeFile f = do
 -- the byte offset will be returned.
 decodeFileOrFail :: Binary a => FilePath -> IO (Either (ByteOffset, String) a)
 decodeFileOrFail f =
-  withBinaryFile f ReadMode $ \h -> do
-    feed (runGetIncremental get) h
-  where -- TODO: put in Data.Binary.Get and name pushFromHandle?
-    feed (Done _ _ x) _ = return (Right x)
-    feed (Fail _ pos str) _ = return (Left (pos, str))
-    feed (Partial k) h = do
-      chunk <- B.hGet h L.defaultChunkSize
-      case B.length chunk of
-        0 -> feed (k Nothing) h
-        _ -> feed (k (Just chunk)) h
+  withBinaryFile f ReadMode (pushFromHandle (runGetIncremental get))
 
 ------------------------------------------------------------------------
 -- $generics
