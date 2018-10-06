@@ -34,7 +34,7 @@ services:
   binary_ghc843:
     build:
       context: .
-      dockerfile: docker/Dockerfile.ghc843
+      dockerfile: docker/Dockerfile.anyghc
       args:
        - ghcver=8.4.3
     volumes:

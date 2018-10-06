@@ -74,24 +74,25 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com  --recv-keys BA3CBA3FFE22B574
 RUN echo "deb http://downloads.haskell.org/debian stretch main" > /etc/apt/sources.list.d/haskell.list
 
 ARG ghcver=8.4.3
+ARG cabalinstallver=2.4
 
-RUN apt update && apt install -y cabal-install-2.2
+RUN apt update && apt install -y cabal-install-$cabalinstallver
 RUN apt update && apt install -y ghc-$ghcver
 RUN apt update && apt-get install -y zlib1g-dev
 
 ENV PATH=/opt/ghc/bin:$PATH
 
-RUN cabal update
+RUN cabal new-update
 
 COPY . /workdir/copy
 
 WORKDIR /workdir/copy
 RUN sed -i.bak -e 's/name:\s*binary/name: binary-next/' binary.cabal
 RUN mv binary.cabal binary-next.cabal
-RUN cabal sdist
+RUN cabal new-sdist
 
 WORKDIR /workdir/builddir
-RUN tar xf /workdir/copy/dist/*.tar.gz -C /workdir/builddir
+RUN tar xf /workdir/copy/dist-newstyle/sdist/*.tar.gz -C /workdir/builddir
 RUN mv /workdir/builddir/binary-* /workdir/builddir/binary-next
 # generics-bench.cache.gz is not part of the binary distribution,
 # it's too large. It only lives in the git repo. Copy it manually.
