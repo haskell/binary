@@ -22,6 +22,15 @@
 
 version: '3'
 services:
+  binary_ghc861:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anyghc
+      args:
+       - ghcver=8.6.1
+    volumes:
+     - cabal-store-cache:/root/.cabal/store
+
   binary_ghc843:
     build:
       context: .
