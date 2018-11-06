@@ -59,7 +59,9 @@ import Control.Applicative
 import Data.Monoid (mempty)
 #endif
 import qualified Data.Monoid as Monoid
+#if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
+#endif
 #if MIN_VERSION_base(4,8,0)
 import Data.Functor.Identity (Identity (..))
 #endif
