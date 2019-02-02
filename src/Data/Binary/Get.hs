@@ -125,8 +125,6 @@
 -- not suitable in all applications, and certainly not if you need to read
 -- from a socket which has higher likelihood to fail. To address these needs,
 -- use the incremental input method like in @incrementalExample@.
--- For an example of how to read incrementally from a Handle,
--- see the implementation of 'decodeFileOrFail' in "Data.Binary".
 -----------------------------------------------------------------------------
 
 
@@ -150,6 +148,7 @@ module Data.Binary.Get (
     , pushChunk
     , pushChunks
     , pushEndOfInput
+    , pushFromHandle
 
     -- * Decoding
     , skip
@@ -223,6 +222,7 @@ import Control.Applicative
 #endif
 
 import Foreign
+import System.IO (Handle)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
@@ -387,6 +387,16 @@ pushEndOfInput r =
     Done _ _ _ -> r
     Partial k -> k Nothing
     Fail _ _ _ -> r
+
+-- | Feeds a 'Decoder' with input from the provided handle until 'Done', 'Fail', or end of input.
+pushFromHandle :: Decoder a -> Handle -> IO (Either (ByteOffset, String) a)
+pushFromHandle (Done _ _ x) _ = return (Right x)
+pushFromHandle (Fail _ pos str) _ = return (Left (pos, str))
+pushFromHandle (Partial k) h = do
+  chunk <- B.hGet h L.defaultChunkSize
+  case B.length chunk of
+    0 -> pushFromHandle (k Nothing) h
+    _ -> pushFromHandle (k (Just chunk)) h
 
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
