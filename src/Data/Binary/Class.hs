@@ -833,7 +833,7 @@ instance Binary a => Binary (NE.NonEmpty a) where
   get = do
       list <- get
       case list of
-        [] -> fail "NonEmpty is actually empty!"
+        [] -> fail "NonEmpty is empty!"
         x:xs -> pure (x NE.:| xs)
   put = put . NE.toList
 #endif
