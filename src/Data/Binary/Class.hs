@@ -174,7 +174,7 @@ defaultPutList xs = put (length xs) <> mapM_ put xs
 -- Void never gets written nor reconstructed since it's impossible to have a
 -- value of that type
 
--- | /Since: 0.8.0.0/
+-- | @since 0.8.0.0
 instance Binary Void where
     put     = absurd
     get     = mzero
@@ -339,7 +339,7 @@ instance Binary Integer where
                     let v = roll bytes
                     return $! if sign == (1 :: Word8) then v else - v
 
--- | /Since: 0.8.0.0/
+-- | @since 0.8.0.0
 #ifdef HAS_FIXED_CONSTRUCTOR
 instance Binary (Fixed.Fixed a) where
   put (Fixed.MkFixed a) = put a
@@ -369,7 +369,7 @@ roll   = foldl' unstep 0 . reverse
 -- Fixed-size type for a subset of Natural
 type NaturalWord = Word64
 
--- | /Since: 0.7.3.0/
+-- | @since 0.7.3.0
 instance Binary Natural where
     {-# INLINE put #-}
     put n | n <= hi =
@@ -582,7 +582,7 @@ instance Binary a => Binary [a] where
     get = do n <- get :: Get Int
              getMany n
 
--- | 'getMany n' get 'n' elements in order, without blowing the stack.
+-- | @'getMany' n@ get @n@ elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]
 getMany n = go [] n
  where
@@ -727,7 +727,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 ------------------------------------------------------------------------
 -- Fingerprints
 
--- | /Since: 0.7.6.0/
+-- | @since 0.7.6.0
 instance Binary Fingerprint where
     put (Fingerprint x1 x2) = put x1 <> put x2
     get = do
@@ -738,7 +738,7 @@ instance Binary Fingerprint where
 ------------------------------------------------------------------------
 -- Version
 
--- | /Since: 0.8.0.0/
+-- | @since 0.8.0.0
 instance Binary Version where
     put (Version br tags) = put br <> put tags
     get = Version <$> get <*> get
@@ -746,43 +746,43 @@ instance Binary Version where
 ------------------------------------------------------------------------
 -- Data.Monoid datatypes
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Monoid.Dual a) where
   get = fmap Monoid.Dual get
   put = put . Monoid.getDual
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary Monoid.All where
   get = fmap Monoid.All get
   put = put . Monoid.getAll
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary Monoid.Any where
   get = fmap Monoid.Any get
   put = put . Monoid.getAny
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Monoid.Sum a) where
   get = fmap Monoid.Sum get
   put = put . Monoid.getSum
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Monoid.Product a) where
   get = fmap Monoid.Product get
   put = put . Monoid.getProduct
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Monoid.First a) where
   get = fmap Monoid.First get
   put = put . Monoid.getFirst
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Monoid.Last a) where
   get = fmap Monoid.Last get
   put = put . Monoid.getLast
 
 #if MIN_VERSION_base(4,8,0)
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary (f a) => Binary (Monoid.Alt f a) where
   get = fmap Monoid.Alt get
   put = put . Monoid.getAlt
@@ -792,37 +792,37 @@ instance Binary (f a) => Binary (Monoid.Alt f a) where
 ------------------------------------------------------------------------
 -- Data.Semigroup datatypes
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Min a) where
   get = fmap Semigroup.Min get
   put = put . Semigroup.getMin
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Max a) where
   get = fmap Semigroup.Max get
   put = put . Semigroup.getMax
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.First a) where
   get = fmap Semigroup.First get
   put = put . Semigroup.getFirst
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Last a) where
   get = fmap Semigroup.Last get
   put = put . Semigroup.getLast
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Option a) where
   get = fmap Semigroup.Option get
   put = put . Semigroup.getOption
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary m => Binary (Semigroup.WrappedMonoid m) where
   get = fmap Semigroup.WrapMonoid get
   put = put . Semigroup.unwrapMonoid
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
   get                     = liftM2 Semigroup.Arg get get
   put (Semigroup.Arg a b) = put a <> put b
@@ -830,7 +830,7 @@ instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
 ------------------------------------------------------------------------
 -- Non-empty lists
 
--- | /Since: 0.8.4.0/
+-- | @since 0.8.4.0
 instance Binary a => Binary (NE.NonEmpty a) where
   get = do
       list <- get
@@ -864,17 +864,17 @@ instance Binary a => Binary (NE.NonEmpty a) where
 -- * 'SomeTypeRep' (also known as 'Data.Typeable.TypeRep')
 --
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary VecCount where
     put = putWord8 . fromIntegral . fromEnum
     get = toEnum . fromIntegral <$> getWord8
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary VecElem where
     put = putWord8 . fromIntegral . fromEnum
     get = toEnum . fromIntegral <$> getWord8
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary RuntimeRep where
     put (VecRep a b)    = putWord8 0 >> put a >> put b
     put (TupleRep reps) = putWord8 1 >> put reps
@@ -918,7 +918,7 @@ instance Binary RuntimeRep where
 #endif
           _  -> fail "GHCi.TH.Binary.putRuntimeRep: invalid tag"
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary TyCon where
     put tc = do
         put (tyConPackage tc)
@@ -928,7 +928,7 @@ instance Binary TyCon where
         put (tyConKindRep tc)
     get = mkTyCon <$> get <*> get <*> get <*> get <*> get
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary KindRep where
     put (KindRepTyConApp tc k) = putWord8 0 >> put tc >> put k
     put (KindRepVar bndr) = putWord8 1 >> put bndr
@@ -948,7 +948,7 @@ instance Binary KindRep where
           5 -> KindRepTypeLit <$> get <*> get
           _ -> fail "GHCi.TH.Binary.putKindRep: invalid tag"
 
--- | @since 0.8.5.0. See #typeable-instances#
+-- | @since 0.8.5.0
 instance Binary TypeLitSort where
     put TypeLitSymbol = putWord8 0
     put TypeLitNat = putWord8 1

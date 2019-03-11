@@ -132,7 +132,7 @@ import System.IO ( withBinaryFile, IOMode(ReadMode) )
 -- > > let e = OpE "*" (IntE 7) (OpE "/" (IntE 4) (IntE 2))
 -- > > let v = encode e
 --
--- Where 'v' is a binary encoded data structure. To reconstruct the
+-- Where @v@ is a binary encoded data structure. To reconstruct the
 -- original data, we use 'decode'
 --
 -- > > decode v :: Exp
@@ -177,7 +177,7 @@ decode = runGet get
 -- consumed bytes is returned. In case of failure, a human-readable error
 -- message will be returned as well.
 --
--- /Since: 0.7.0.0/
+-- @since 0.7.0.0
 decodeOrFail :: Binary a => L.ByteString
              -> Either (L.ByteString, ByteOffset, String)
                        (L.ByteString, ByteOffset, a)
@@ -203,7 +203,7 @@ encodeFile f v = L.writeFile f (encode v)
 -- | Decode a value from a file. In case of errors, 'error' will
 -- be called with the error message.
 --
--- /Since: 0.7.0.0/
+-- @since 0.7.0.0
 decodeFile :: Binary a => FilePath -> IO a
 decodeFile f = do
   result <- decodeFileOrFail f
