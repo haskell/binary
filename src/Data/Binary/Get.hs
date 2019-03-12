@@ -126,7 +126,7 @@
 -- from a socket which has higher likelihood to fail. To address these needs,
 -- use the incremental input method like in @incrementalExample@.
 -- For an example of how to read incrementally from a Handle,
--- see the implementation of 'decodeFileOrFail' in "Data.Binary".
+-- see the implementation of 'Data.Binary.decodeFileOrFail'.
 -----------------------------------------------------------------------------
 
 
@@ -328,7 +328,7 @@ dropHeadChunk lbs =
 -- consumed is returned. In the case of failure, a human-readable
 -- error message is included as well.
 --
--- /Since: 0.6.4.0/
+-- @since 0.6.4.0
 runGetOrFail :: Get a -> L.ByteString
              -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
 runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
@@ -366,7 +366,7 @@ pushChunk r inp =
 
 
 -- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
--- will add the input to 'ByteString' of unconsumed input.
+-- will add the input to 'L.ByteString' of unconsumed input.
 --
 -- @
 --    'runGetIncremental' myParser \`pushChunks\` myLazyByteString

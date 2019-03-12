@@ -130,7 +130,7 @@ instance Applicative Get where
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
--- | /Since: 0.7.1.0/
+-- | @since 0.7.1.0
 instance MonadPlus Get where
   mzero = empty
   mplus = (<|>)
@@ -201,7 +201,7 @@ bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
 -- Offset from 'bytesRead' will be relative to the start of 'isolate', not the
 -- absolute of the input.
 --
--- /Since: 0.7.2.0/
+-- @since 0.7.2.0
 isolate :: Int   -- ^ The number of bytes that must be consumed
         -> Get a -- ^ The decoder to isolate
         -> Get a
@@ -264,7 +264,7 @@ getBytes :: Int -> Get B.ByteString
 getBytes = getByteString
 {-# INLINE getBytes #-}
 
--- | /Since: 0.7.0.0/
+-- | @since 0.7.0.0
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
   {-# INLINE empty #-}
@@ -312,7 +312,7 @@ pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
 -- | Run the given decoder, but without consuming its input. If the given
 -- decoder fails, then so will this function.
 --
--- /Since: 0.7.0.0/
+-- @since 0.7.0.0
 lookAhead :: Get a -> Get a
 lookAhead g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -325,7 +325,7 @@ lookAhead g = do
 -- If 'Nothing' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
 --
--- /Since: 0.7.0.0/
+-- @since 0.7.0.0
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
 lookAheadM g = do
   let g' = maybe (Left ()) Right <$> g
@@ -335,7 +335,7 @@ lookAheadM g = do
 -- If 'Left' is returned, the input will be unconsumed.
 -- If the given decoder fails, then so will this function.
 --
--- /Since: 0.7.1.0/
+-- @since 0.7.1.0
 lookAheadE :: Get (Either a b) -> Get (Either a b)
 lookAheadE g = do
   (decoder, bs) <- runAndKeepTrack g
@@ -348,7 +348,7 @@ lookAheadE g = do
 -- | Label a decoder. If the decoder fails, the label will be appended on
 -- a new line to the error message string.
 --
--- /Since: 0.7.2.0/
+-- @since 0.7.2.0
 label :: String -> Get a -> Get a
 label msg decoder = C $ \inp ks ->
   let r0 = runCont decoder inp (\inp' a -> Done inp' a)
