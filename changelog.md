@@ -1,19 +1,26 @@
 binary
 ======
 
-binary-0.10.0.0
+binary-0.8.7.0
+--------------
+
+- MonadFail compatibility in base-4.13 (`fail` is not method of `Monad).
+- `Binary NonEmpty` `fail`s non empty lists, not `error`s
+
+binary-0.9.0.0 & binary-0.10.0.0
+--------------------------------
+
+- `0.8.5.0` was first released as version `0.9.0.0`. It didn't have any
+  breaking changes though, so it was again released as version `0.8.5.0`
+  according to PVP.
+- `0.8.6.0` was first released as version `0.10.0.0`.
+
+binary-0.8.6.0
 ---------------
 
 - Add binary instance for Data.Functor.Identity from base, #146.
 - Don't use * when we have TypeOperators, #148.
 
-binary-0.9.0.0
---------------
-
-- `0.8.5.0` was first released as version `0.9.0.0`. It didn't have any
-  breaking changes though, so it was again released as version `0.8.5.0`
-  according to PVP. Next breaking release of `binary` will be version
-  `0.10.0.0`.
 
 binary-0.8.5.0
 --------------
