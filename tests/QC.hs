@@ -24,6 +24,8 @@ import           Data.Ratio
 import           Data.Typeable
 import           System.IO.Unsafe
 
+import           Data.Orphans ()
+
 #ifdef HAS_NATURAL
 import           Numeric.Natural
 #endif
@@ -42,6 +44,7 @@ import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
 import qualified Data.Binary.Class as Class
+
 
 ------------------------------------------------------------------------
 
@@ -499,10 +502,6 @@ genNaturalBig = do
 
 genFingerprint :: Gen Fingerprint
 genFingerprint = liftM2 Fingerprint arbitrary arbitrary
-#if !MIN_VERSION_base(4,7,0)
-instance Show Fingerprint where
-  show (Fingerprint x1 x2) = show (x1,x2)
-#endif
 
 ------------------------------------------------------------------------
 
