@@ -986,7 +986,6 @@ putTypeRep (Fun arg res) = do
     put (3 :: Word8)
     putTypeRep arg
     putTypeRep res
-putTypeRep _ = error "GHCi.TH.Binary.putTypeRep: Impossible"
 
 getSomeTypeRep :: Get SomeTypeRep
 getSomeTypeRep = do
