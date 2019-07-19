@@ -26,7 +26,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
-tested-with:     GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5
+tested-with:     GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5
 extra-source-files:
   README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
 
