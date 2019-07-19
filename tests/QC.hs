@@ -43,7 +43,6 @@ import           Arbitrary                            ()
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
-import qualified Data.Binary.Class as Class
 
 
 ------------------------------------------------------------------------
@@ -161,7 +160,7 @@ testTypeable :: Test
 testTypeable = testProperty "TypeRep" prop_TypeRep
 
 prop_TypeRep :: TypeRep -> Property
-prop_TypeRep = roundTripWith Class.put Class.get
+prop_TypeRep = roundTripWith put get
 
 atomicTypeReps :: [TypeRep]
 atomicTypeReps =
