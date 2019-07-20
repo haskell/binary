@@ -1,3 +1,11 @@
+-- To run tests and binaries you'll need to rename the name of the library
+-- and all the local dependencies on it. If not, cabal is unable to come up
+-- with a build plan.
+--
+-- Try this;
+--   sed -i 's/\(name:\s*binary\)/\1-cabal-is-broken/' binary.cabal
+--   sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
+
 name:            binary
 version:         0.8.7.0
 license:         BSD3
@@ -18,7 +26,7 @@ category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
 cabal-version:   >= 1.8
-tested-with:     GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5
+tested-with:     GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5
 extra-source-files:
   README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
 
@@ -52,31 +60,17 @@ library
   if impl(ghc >= 8.0)
     ghc-options: -Wcompat -Wnoncanonical-monad-instances -Wnoncanonical-monadfail-instances
 
--- Due to circular dependency, we cannot make any of the test-suites or
--- benchmark depend on the binary library. Instead, for each test-suite and
--- benchmark, we include the source directory of binary and build-depend on all
--- the dependencies binary has.
-
 test-suite qc
   type:  exitcode-stdio-1.0
-  hs-source-dirs: src tests
+  hs-source-dirs: tests
   main-is: QC.hs
   other-modules:
     Action
     Arbitrary
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
     base-orphans >=0.8.1 && <0.9,
+    binary,
     bytestring >= 0.10.4,
     random>=1.0.1.0,
     test-framework,
@@ -93,20 +87,11 @@ test-suite qc
 
 test-suite read-write-file
   type:  exitcode-stdio-1.0
-  hs-source-dirs: src tests
+  hs-source-dirs: tests
   main-is: File.hs
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4,
     Cabal,
     directory,
@@ -123,21 +108,13 @@ test-suite read-write-file
 
 benchmark bench
   type: exitcode-stdio-1.0
-  hs-source-dirs: src benchmarks
+  hs-source-dirs: benchmarks
   main-is: Benchmark.hs
   other-modules:
     MemBench
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
@@ -151,21 +128,12 @@ benchmark bench
 
 benchmark get
   type: exitcode-stdio-1.0
-  hs-source-dirs: src benchmarks
+  hs-source-dirs: benchmarks
   main-is: Get.hs
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     attoparsec,
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4,
     cereal,
     criterion == 1.*,
@@ -181,20 +149,11 @@ benchmark get
 
 benchmark put
   type: exitcode-stdio-1.0
-  hs-source-dirs: src benchmarks
+  hs-source-dirs: benchmarks
   main-is: Put.hs
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4,
     criterion == 1.*,
     deepseq
@@ -207,20 +166,11 @@ benchmark put
 
 benchmark generics-bench
   type: exitcode-stdio-1.0
-  hs-source-dirs: src benchmarks
+  hs-source-dirs: benchmarks
   main-is: GenericsBench.hs
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4,
     -- The benchmark already depended on 'generic-deriving' transitively. That's
     -- what caused one of the problems, as both 'generic-deriving' and
@@ -245,20 +195,11 @@ benchmark generics-bench
 
 benchmark builder
   type: exitcode-stdio-1.0
-  hs-source-dirs: src benchmarks
+  hs-source-dirs: benchmarks
   main-is: Builder.hs
-  other-modules:
-    Data.Binary
-    Data.Binary.Builder
-    Data.Binary.Class
-    Data.Binary.FloatCast
-    Data.Binary.Generic
-    Data.Binary.Get
-    Data.Binary.Get.Internal
-    Data.Binary.Internal
-    Data.Binary.Put
   build-depends:
     base >= 4.5.0.0 && < 5,
+    binary,
     bytestring >= 0.10.4,
     criterion == 1.*,
     deepseq,
