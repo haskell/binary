@@ -37,4 +37,4 @@ readPackageDescriptionCache amount = do
   return pds
 
 cacheFilePath :: String
-cacheFilePath = "generics-bench.cache.gz"
+cacheFilePath = "generics-bench.cache-100.gz"
