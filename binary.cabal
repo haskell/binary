@@ -7,7 +7,7 @@
 --   sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
 
 name:            binary
-version:         0.8.7.0
+version:         0.8.8.0
 license:         BSD3
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
