@@ -49,6 +49,8 @@ module Data.Binary (
     , GBinaryGet(..)
     , GBinaryPut(..)
 
+    , GenericBinary(..)
+
     -- * The Get and Put monads
     , Get
     , Put

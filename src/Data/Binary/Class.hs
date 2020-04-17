@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 #if __GLASGOW_HASKELL__ >= 706
 {-# LANGUAGE PolyKinds #-}
@@ -40,6 +41,8 @@ module Data.Binary.Class (
     -- * Support for generics
     , GBinaryGet(..)
     , GBinaryPut(..)
+
+    , GenericBinary(..)
 
     ) where
 
@@ -1045,3 +1048,33 @@ instance Binary SomeTypeRep where
     get = getSomeTypeRep
 #endif
 
+
+------------------------------------------------------------------------
+-- Wrapper for DerivingVia
+
+-- | 'GenericBinary' can be used in conjunction with DerivingVia. It is most useful when chaining
+-- types that augment derived instances.
+--
+-- Simple usage with DerivingVia:
+--
+-- @
+-- data Foo = Foo Int String
+--     deriving Generic
+--     deriving Binary via GenericBinary Foo
+-- @
+--
+-- When chaining multiple augmentations:
+--
+-- @
+-- data Foo = Foo Int String
+--     deriving Generic
+--     deriving Binary via Augmentation1 (Augmentation2 (GenericBinary Foo))
+-- @
+--
+newtype GenericBinary a = GenericBinary
+    { unGenericBinary :: a }
+
+instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (GenericBinary a) where
+    put = gput . from . unGenericBinary
+
+    get = fmap (GenericBinary . to) gget
