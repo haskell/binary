@@ -106,7 +106,7 @@ import Numeric.Natural
 
 import qualified Data.Fixed as Fixed
 
-#if MIN_VERSION_base(4,14,0)
+#if __GLASGOW_HASKELL__ >= 811
 import GHC.Exts (Levity(Lifted,Unlifted))
 #endif
 
