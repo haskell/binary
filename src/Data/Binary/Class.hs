@@ -106,7 +106,7 @@ import Numeric.Natural
 
 import qualified Data.Fixed as Fixed
 
-#if __GLASGOW_HASKELL__ >= 811
+#if __GLASGOW_HASKELL__ >= 901
 import GHC.Exts (Levity(Lifted,Unlifted))
 #endif
 
@@ -883,7 +883,7 @@ instance Binary RuntimeRep where
     put (VecRep a b)    = putWord8 0 >> put a >> put b
     put (TupleRep reps) = putWord8 1 >> put reps
     put (SumRep reps)   = putWord8 2 >> put reps
-#if __GLASGOW_HASKELL__ >= 811
+#if __GLASGOW_HASKELL__ >= 901
     put (BoxedRep Lifted)   = putWord8 3
     put (BoxedRep Unlifted) = putWord8 4
 #else
@@ -914,7 +914,7 @@ instance Binary RuntimeRep where
           0  -> VecRep <$> get <*> get
           1  -> TupleRep <$> get
           2  -> SumRep <$> get
-#if __GLASGOW_HASKELL__ >= 811
+#if __GLASGOW_HASKELL__ >= 901
           3  -> pure (BoxedRep Lifted)
           4  -> pure (BoxedRep Unlifted)
 #else
