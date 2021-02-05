@@ -812,10 +812,12 @@ instance Binary a => Binary (Semigroup.Last a) where
   get = fmap Semigroup.Last get
   put = put . Semigroup.getLast
 
+#if __GLASGOW_HASKELL__ < 901
 -- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Option a) where
   get = fmap Semigroup.Option get
   put = put . Semigroup.getOption
+#endif
 
 -- | @since 0.8.4.0
 instance Binary m => Binary (Semigroup.WrappedMonoid m) where
