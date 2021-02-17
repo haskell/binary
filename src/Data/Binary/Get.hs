@@ -233,27 +233,12 @@ import qualified Data.Binary.Get.Internal as I
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 -- needed for (# unboxing #) with magic hash
-import GHC.Base hiding ( narrowWord16#, extendWord16# )
+import GHC.Base
 import GHC.Word
 #endif
 
 -- needed for casting words to float/double
 import Data.Binary.FloatCast (wordToFloat, wordToDouble)
-
-#if MIN_VERSION_base(4,16,0)
-import GHC.Exts ( extendWord16#, narrowWord16# )
-#else
-extendWord16#, extendWord32# :: Word# -> Word#
-narrowWord16#, narrowWord32# :: Word# -> Word#
-extendWord16# w = w
-extendWord32# w = w
-narrowWord16# w = w
-narrowWord32# w = w
-{-# INLINE narrowWord16# #-}
-{-# INLINE extendWord16# #-}
-{-# INLINE narrowWord32# #-}
-{-# INLINE extendWord32# #-}
-#endif
 
 -- $lazyinterface
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
@@ -675,8 +660,8 @@ shiftl_w32 :: Word32 -> Int -> Word32
 shiftl_w64 :: Word64 -> Int -> Word64
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
-shiftl_w16 (W16# w) (I# i) = W16# (narrowWord16# ((extendWord16# w) `uncheckedShiftL#`   i))
-shiftl_w32 (W32# w) (I# i) = W32# (narrowWord32# ((extendWord32# w) `uncheckedShiftL#`   i))
+shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
+shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
 
 #if WORD_SIZE_IN_BITS < 64
 shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
