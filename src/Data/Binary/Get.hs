@@ -231,12 +231,6 @@ import qualified Data.ByteString.Lazy.Internal as L
 import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
 
-#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
--- needed for (# unboxing #) with magic hash
-import GHC.Base
-import GHC.Word
-#endif
-
 -- needed for casting words to float/double
 import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 
@@ -463,7 +457,7 @@ getWord16be = readN 2 word16be
 
 word16be :: B.ByteString -> Word16
 word16be = \s ->
-        (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w16` 8) .|.
+        (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
 {-# INLINE[2] getWord16be #-}
 {-# INLINE word16be #-}
@@ -474,7 +468,7 @@ getWord16le = readN 2 word16le
 
 word16le :: B.ByteString -> Word16
 word16le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w16` 8) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE[2] getWord16le #-}
 {-# INLINE word16le #-}
@@ -485,9 +479,9 @@ getWord32be = readN 4 word32be
 
 word32be :: B.ByteString -> Word32
 word32be = \s ->
-              (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w32` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
 {-# INLINE[2] getWord32be #-}
 {-# INLINE word32be #-}
@@ -498,9 +492,9 @@ getWord32le = readN 4 word32le
 
 word32le :: B.ByteString -> Word32
 word32le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w32` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w32` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w32`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE[2] getWord32le #-}
 {-# INLINE word32le #-}
@@ -511,13 +505,13 @@ getWord64be = readN 8 word64be
 
 word64be :: B.ByteString -> Word64
 word64be = \s ->
-              (fromIntegral (s `B.unsafeIndex` 0) `shiftl_w64` 56) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64` 48) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 40) .|.
-              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w64` 32) .|.
-              (fromIntegral (s `B.unsafeIndex` 4) `shiftl_w64` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 56) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 48) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 40) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 32) .|.
+              (fromIntegral (s `B.unsafeIndex` 4) `unsafeShiftL` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 5) `unsafeShiftL` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
 {-# INLINE[2] getWord64be #-}
 {-# INLINE word64be #-}
@@ -528,13 +522,13 @@ getWord64le = readN 8 word64le
 
 word64le :: B.ByteString -> Word64
 word64le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 7) `shiftl_w64` 56) .|.
-              (fromIntegral (s `B.unsafeIndex` 6) `shiftl_w64` 48) .|.
-              (fromIntegral (s `B.unsafeIndex` 5) `shiftl_w64` 40) .|.
-              (fromIntegral (s `B.unsafeIndex` 4) `shiftl_w64` 32) .|.
-              (fromIntegral (s `B.unsafeIndex` 3) `shiftl_w64` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `shiftl_w64` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `shiftl_w64`  8) .|.
+              (fromIntegral (s `B.unsafeIndex` 7) `unsafeShiftL` 56) .|.
+              (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL` 48) .|.
+              (fromIntegral (s `B.unsafeIndex` 5) `unsafeShiftL` 40) .|.
+              (fromIntegral (s `B.unsafeIndex` 4) `unsafeShiftL` 32) .|.
+              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 24) .|.
+              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
+              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE[2] getWord64le #-}
 {-# INLINE word64le #-}
@@ -651,27 +645,3 @@ getDoublele = wordToDouble <$> getWord64le
 getDoublehost :: Get Double
 getDoublehost = wordToDouble <$> getWord64host
 {-# INLINE getDoublehost #-}
-
-------------------------------------------------------------------------
--- Unchecked shifts
-
-shiftl_w16 :: Word16 -> Int -> Word16
-shiftl_w32 :: Word32 -> Int -> Word32
-shiftl_w64 :: Word64 -> Int -> Word64
-
-#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
-shiftl_w16 (W16# w) (I# i) = W16# (w `uncheckedShiftL#`   i)
-shiftl_w32 (W32# w) (I# i) = W32# (w `uncheckedShiftL#`   i)
-
-#if WORD_SIZE_IN_BITS < 64
-shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL64#` i)
-
-#else
-shiftl_w64 (W64# w) (I# i) = W64# (w `uncheckedShiftL#` i)
-#endif
-
-#else
-shiftl_w16 = shiftL
-shiftl_w32 = shiftL
-shiftl_w64 = shiftL
-#endif
