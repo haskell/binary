@@ -9,6 +9,10 @@
 {-# LANGUAGE PolyKinds #-}
 #endif
 
+#if MIN_VERSION_base(4,16,0)
+#define HAS_TYPELITS_CHAR
+#endif
+
 #if MIN_VERSION_base(4,8,0)
 #define HAS_NATURAL
 #define HAS_VOID
@@ -962,11 +966,17 @@ instance Binary KindRep where
 instance Binary TypeLitSort where
     put TypeLitSymbol = putWord8 0
     put TypeLitNat = putWord8 1
+#ifdef HAS_TYPELITS_CHAR
+    put TypeLitChar = putWord8 2
+#endif
     get = do
         tag <- getWord8
         case tag of
           0 -> pure TypeLitSymbol
           1 -> pure TypeLitNat
+#ifdef HAS_TYPELITS_CHAR
+          2 -> pure TypeLitChar
+#endif
           _ -> fail "GHCi.TH.Binary.putTypeLitSort: invalid tag"
 
 putTypeRep :: TypeRep a -> Put
@@ -1046,4 +1056,3 @@ instance Binary SomeTypeRep where
     put (SomeTypeRep rep) = putTypeRep rep
     get = getSomeTypeRep
 #endif
-
