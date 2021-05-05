@@ -110,6 +110,10 @@ import Numeric.Natural
 
 import qualified Data.Fixed as Fixed
 
+#if __GLASGOW_HASKELL__ >= 901
+import GHC.Exts (Levity(Lifted,Unlifted))
+#endif
+
 --
 -- This isn't available in older Hugs or older GHC
 --
@@ -885,8 +889,13 @@ instance Binary RuntimeRep where
     put (VecRep a b)    = putWord8 0 >> put a >> put b
     put (TupleRep reps) = putWord8 1 >> put reps
     put (SumRep reps)   = putWord8 2 >> put reps
+#if __GLASGOW_HASKELL__ >= 901
+    put (BoxedRep Lifted)   = putWord8 3
+    put (BoxedRep Unlifted) = putWord8 4
+#else
     put LiftedRep       = putWord8 3
     put UnliftedRep     = putWord8 4
+#endif
     put IntRep          = putWord8 5
     put WordRep         = putWord8 6
     put Int64Rep        = putWord8 7
@@ -911,8 +920,13 @@ instance Binary RuntimeRep where
           0  -> VecRep <$> get <*> get
           1  -> TupleRep <$> get
           2  -> SumRep <$> get
+#if __GLASGOW_HASKELL__ >= 901
+          3  -> pure (BoxedRep Lifted)
+          4  -> pure (BoxedRep Unlifted)
+#else
           3  -> pure LiftedRep
           4  -> pure UnliftedRep
+#endif
           5  -> pure IntRep
           6  -> pure WordRep
           7  -> pure Int64Rep
