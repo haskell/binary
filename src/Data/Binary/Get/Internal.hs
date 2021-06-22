@@ -282,7 +282,6 @@ instance Alternative Get where
     case v of
       Nothing -> pure []
       Just x -> (:) x <$> many p
-  {-# INLINE many #-}
 
 -- | Run a decoder and keep track of all the input it consumes.
 -- Once it's finished, return the final decoder (always 'Done' or 'Fail'),
