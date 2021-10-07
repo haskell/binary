@@ -4,8 +4,7 @@ binary
 binary-0.8.9.0
 --------------
 
-- Compatibility with GHC 9.2
-- Drop instances for deprecated `Data.Semigroup.Option`
+- Compatibility with GHC 9.2 and base-4.16
 
 binary-0.8.8.0
 --------------
