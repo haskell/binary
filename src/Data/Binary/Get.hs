@@ -257,7 +257,7 @@ import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | A decoder procuced by running a 'Get' monad.
+-- | A decoder produced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
               -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input. Contains any

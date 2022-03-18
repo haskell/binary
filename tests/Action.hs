@@ -212,7 +212,7 @@ data FailReason
   deriving (Show,Eq)
 
 -- | Given the number of input bytes and a list of actions, evaluate the
--- actions and return whether the actions succeeed or fail.
+-- actions and return whether the actions succeed or fail.
 eval :: Int -> [Action] -> Eval
 eval inp0 = go inp0 []
   where
