@@ -4,6 +4,12 @@ binary
 binary-0.8.9.0
 --------------
 
+- Add binary instance for 'GHC.Generics.Generically'. `Binary T` can
+  be derived via `Generically T` for a suitable generic type `T`.
+
+binary-0.8.9.0
+--------------
+
 - Compatibility with GHC 9.2
 - Drop instances for deprecated `Data.Semigroup.Option`
 

@@ -230,19 +230,32 @@ decodeFileOrFail f =
 ------------------------------------------------------------------------
 -- $generics
 --
--- Beginning with GHC 7.2, it is possible to use binary serialization
--- without writing any instance boilerplate code.
+-- Beginning with GHC 9.4 it is possible to derive binary
+-- serialization using the 'GHC.Generics.Generically' newtype.
 --
--- > {-# LANGUAGE DeriveGeneric #-}
+-- This is achieved by deriving an instance of 'GHC.Generics.Generic'
+-- and then deriving the appropriate @'Binary' T@ instance via
+-- @Generically T@.
+--
+-- > {-# LANGUAGE DeriveAnyClass     #-}
+-- > {-# LANGUAGE DeriveGeneric      #-}
+-- > {-# LANGUAGE DerivingStrategies #-}
+-- > {-# LANGUAGE DerivingVia        #-}
 -- >
 -- > import Data.Binary
--- > import GHC.Generics (Generic)
+-- > import GHC.Generics (Generic, Generically(..))
 -- >
 -- > data Foo = Foo
--- >          deriving (Generic)
--- >
--- > -- GHC will automatically fill out the instance
--- > instance Binary Foo
+-- >   deriving stock Generic
+-- >   deriving Binary via Generically Foo
 --
--- This mechanism makes use of GHC's efficient built-in generics
--- support.
+-- Beginning with GHC 7.2 this generic definition has been a part of
+-- the 'Binary' typeclass. This could also be derived using the
+-- @anyclass@ strategy:
+--
+-- > data Foo = Foo
+-- >   deriving stock    Generic
+-- >   deriving anyclass Binary
+-- 
+-- Which means the same as an empty class declaration: @instance
+-- Binary Foo@.
