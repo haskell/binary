@@ -197,7 +197,7 @@ failReason _ = "NoFail"
 
 -- | The result of an evaluation.
 data Eval = ESuccess Int
-          -- ^ The evalutation completed successfully. Contains the number of
+          -- ^ The evaluation completed successfully. Contains the number of
           -- remaining bytes of the input.
           | EFail FailReason [String] Int
           -- ^ The evaluation completed with a failure. Contains the labels up

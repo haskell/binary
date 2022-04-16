@@ -42,7 +42,7 @@
 #      Thus .travis.yml gets out of sync when we forget.
 #      This method also doesn't work with the nix-style commands which
 #      themselves take care of installing dependencies.
-#      The simples workaround I've found, and the only thing that works
+#      The simplest workaround I've found, and the only thing that works
 #      with nix-style commands, is to simply rename the package
 #
 #   3) Do 'cabal sdist' to get only the files for source distribution.

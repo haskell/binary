@@ -76,7 +76,7 @@ data Decoder a = Fail !B.ByteString String
               -- output value you also get the unused input.
               | BytesRead {-# UNPACK #-} !Int64 (Int64 -> Decoder a)
               -- ^ The decoder needs to know the current position in the input.
-              -- Given the number of bytes remaning in the decoder, the outer
+              -- Given the number of bytes remaining in the decoder, the outer
               -- decoder runner needs to calculate the position and
               -- resume the decoding.
 
