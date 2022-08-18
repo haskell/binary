@@ -27,7 +27,7 @@ synopsis:        Binary serialisation for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
-tested-with:     GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5
+tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.3, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.3, GHC == 9.4.1
 extra-source-files:
   README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
 
