@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.9.1
+--------------
+
+- Fix redundant pattern match warning in GHC 9.4
+
 binary-0.8.9.0
 --------------
 

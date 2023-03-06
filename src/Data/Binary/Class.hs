@@ -696,6 +696,7 @@ instance (Binary e) => Binary (Seq.Seq e) where
 ------------------------------------------------------------------------
 -- Floating point
 
+-- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Double where
     put d = put (decodeFloat d)
     get   = do
@@ -703,6 +704,7 @@ instance Binary Double where
         y <- get
         return $! encodeFloat x y
 
+-- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Float where
     put f = put (decodeFloat f)
     get   =  do
@@ -1007,9 +1009,6 @@ instance Binary TypeLitSort where
           _ -> fail "GHCi.TH.Binary.putTypeLitSort: invalid tag"
 
 putTypeRep :: TypeRep a -> Put
--- Special handling for TYPE, (->), and RuntimeRep due to recursive kind
--- relations.
--- See Note [Mutually recursive representations of primitive types]
 putTypeRep rep  -- Handle Type specially since it's so common
   | Just HRefl <- rep `eqTypeRep` (typeRep :: TypeRep Type)
   = put (0 :: Word8)
@@ -1021,10 +1020,17 @@ putTypeRep (App f x) = do
     put (2 :: Word8)
     putTypeRep f
     putTypeRep x
+#if __GLASGOW_HASKELL__ < 903
+-- N.B. This pattern never matches,
+-- even on versions of GHC older than 9.3:
+-- a `Fun` typerep will match with the `App` pattern.
+-- This match is kept solely for pattern-match warnings,
+-- which are incorrect on GHC prior to 9.3.
 putTypeRep (Fun arg res) = do
     put (3 :: Word8)
     putTypeRep arg
     putTypeRep res
+#endif
 
 getSomeTypeRep :: Get SomeTypeRep
 getSomeTypeRep = do
@@ -1052,14 +1058,6 @@ getSomeTypeRep = do
                        [ "Applied type: " ++ show f
                        , "To argument:  " ++ show x
                        ]
-        3 -> do SomeTypeRep arg <- getSomeTypeRep
-                SomeTypeRep res <- getSomeTypeRep
-                case typeRepKind arg `eqTypeRep` (typeRep :: TypeRep Type) of
-                  Just HRefl ->
-                      case typeRepKind res `eqTypeRep` (typeRep :: TypeRep Type) of
-                        Just HRefl -> return $ SomeTypeRep $ Fun arg res
-                        Nothing -> failure "Kind mismatch" []
-                  Nothing -> failure "Kind mismatch" []
         _ -> failure "Invalid SomeTypeRep" []
   where
     failure description info =

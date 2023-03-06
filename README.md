@@ -1,13 +1,14 @@
-# binary package #
+# binary package
 
 [![Hackage version](https://img.shields.io/hackage/v/binary.svg?label=Hackage)](https://hackage.haskell.org/package/binary) [![Stackage version](https://www.stackage.org/package/binary/badge/lts?label=Stackage)](https://www.stackage.org/package/binary) [![Build Status](https://api.travis-ci.org/kolmodin/binary.png?branch=master)](http://travis-ci.org/kolmodin/binary)
 
-*Efficient, pure binary serialisation using lazy ByteStrings.*
+*Pure binary serialisation using lazy ByteStrings.*
 
 The ``binary`` package provides Data.Binary, containing the Binary class,
 and associated methods, for serialising values to and from lazy
-ByteStrings.
-A key feature of ``binary`` is that the interface is both pure, and efficient.
+ByteStrings. 
+A key feature of ``binary`` is that the interface is both pure, and 
+moderately efficient.
 The ``binary`` package is portable to GHC and Hugs.
 
 ## Installing binary from Hackage ##
