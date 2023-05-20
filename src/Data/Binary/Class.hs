@@ -47,6 +47,9 @@ module Data.Binary.Class (
 
     ) where
 
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
+
 import Data.Word
 import Data.Bits
 import Data.Int
@@ -79,7 +82,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder.Prim as Prim
 
-import Data.List    (unfoldr, foldl')
+import Data.List    (unfoldr)
 
 -- And needed for the instances:
 #if MIN_VERSION_base(4,10,0)
