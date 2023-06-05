@@ -55,22 +55,40 @@ the ``Get`` and ``Put`` monads.
 
 More information in the haddock documentation.
 
-## Deriving binary instances using GHC's Generic ##
+## Deriving binary instances, ``Generically`` ##
 
-Beginning with GHC 7.2, it is possible to use binary serialization without
-writing any instance boilerplate code.
+Beginning with GHC 9.4 it is possible to derive binary serialization
+using the ``Generically`` newtype.
+
+This is achieved by deriving an instance of ``Generic`` and then
+deriving the appropriate ``Binary T`` instance via ``Generically T``.
 
 ```haskell
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia        #-}
 
 import Data.Binary
-import GHC.Generics (Generic)
+import GHC.Generics (Generic, Generically(..))
 
-data Foo = Foo deriving (Generic)
-
--- GHC will automatically fill out the instance
-instance Binary Foo
+data Foo = Foo
+  deriving stock Generic
+  deriving Binary via Generically Foo
 ```
+
+Beginning with GHC 7.2 this generic definition has been a part of the
+``Binary`` typeclass. This could also be derived using the
+``anyclass`` strategy:
+
+```haskell
+data Foo = Foo
+  deriving stock    Generic
+  deriving anyclass Binary
+```
+
+Which means the same as an empty class declaration: ``instance
+Binary Foo``.
 
 ## Contributors ##
 
