@@ -144,6 +144,7 @@ module Data.Binary.Get (
     -- * The incremental input interface
     -- $incrementalinterface
     , Decoder(..)
+    , Resupply(..)
     , runGetIncremental
 
     -- ** Providing input
@@ -226,10 +227,9 @@ import Foreign
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Internal as L
+import qualified Data.ByteString.Lazy.Internal as L (ByteString (..))
 
-import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
-import qualified Data.Binary.Get.Internal as I
+import Data.Binary.Get.Internal
 
 -- needed for casting words to float/double
 import Data.Binary.FloatCast (wordToFloat, wordToDouble)
@@ -257,92 +257,6 @@ import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | A decoder procuced by running a 'Get' monad.
-data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
-              -- ^ The decoder ran into an error. The decoder either used
-              -- 'fail' or was not provided enough input. Contains any
-              -- unconsumed input and the number of bytes consumed.
-              | Partial (Maybe B.ByteString -> Decoder a)
-              -- ^ The decoder has consumed the available input and needs
-              -- more to continue. Provide 'Just' if more input is available
-              -- and 'Nothing' otherwise, and you will get a new 'Decoder'.
-              | Done !B.ByteString {-# UNPACK #-} !ByteOffset a
-              -- ^ The decoder has successfully finished. Except for the
-              -- output value you also get any unused input as well as the
-              -- number of bytes consumed.
-
--- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
--- input, handling decoder errors and to get the output value.
--- Hint: Use the helper functions 'pushChunk', 'pushChunks' and
--- 'pushEndOfInput'.
-runGetIncremental :: Get a -> Decoder a
-runGetIncremental = calculateOffset . I.runGetIncremental
-
-calculateOffset :: I.Decoder a -> Decoder a
-calculateOffset r0 = go r0 0
-  where
-  go r !acc = case r of
-                I.Done inp a -> Done inp (acc - fromIntegral (B.length inp)) a
-                I.Fail inp s -> Fail inp (acc - fromIntegral (B.length inp)) s
-                I.Partial k ->
-                    Partial $ \ms ->
-                      case ms of
-                        Nothing -> go (k Nothing) acc
-                        Just i -> go (k ms) (acc + fromIntegral (B.length i))
-                I.BytesRead unused k ->
-                    go (k $! (acc - unused)) acc
-
--- | DEPRECATED. Provides compatibility with previous versions of this library.
--- Run a 'Get' monad and return a tuple with three values.
--- The first value is the result of the decoder. The second and third are the
--- unused input, and the number of consumed bytes.
-{-# DEPRECATED runGetState "Use runGetIncremental instead. This function will be removed." #-}
-runGetState :: Get a -> L.ByteString -> ByteOffset -> (a, L.ByteString, ByteOffset)
-runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
-  where
-  go (Done s pos a) lbs = (a, L.chunk s lbs, pos+pos')
-  go (Partial k) lbs = go (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
-  go (Fail _ pos msg) _ =
-    error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
-
-takeHeadChunk :: L.ByteString -> Maybe B.ByteString
-takeHeadChunk lbs =
-  case lbs of
-    (L.Chunk bs _) -> Just bs
-    _ -> Nothing
-
-dropHeadChunk :: L.ByteString -> L.ByteString
-dropHeadChunk lbs =
-  case lbs of
-    (L.Chunk _ lbs') -> lbs'
-    _ -> L.Empty
-
--- | Run a 'Get' monad and return 'Left' on failure and 'Right' on
--- success. In both cases any unconsumed input and the number of bytes
--- consumed is returned. In the case of failure, a human-readable
--- error message is included as well.
---
--- @since 0.6.4.0
-runGetOrFail :: Get a -> L.ByteString
-             -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
-runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
-  where
-  feedAll (Done bs pos x) lbs = Right (L.chunk bs lbs, pos, x)
-  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
-  feedAll (Fail x pos msg) xs = Left (L.chunk x xs, pos, msg)
-
--- | An offset, counted in bytes.
-type ByteOffset = Int64
-
--- | The simplest interface to run a 'Get' decoder. If the decoder runs into
--- an error, calls 'fail', or runs out of input, it will call 'error'.
-runGet :: Get a -> L.ByteString -> a
-runGet g lbs0 = feedAll (runGetIncremental g) lbs0
-  where
-  feedAll (Done _ _ x) _ = x
-  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
-  feedAll (Fail _ pos msg) _ =
-    error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
 
 
 -- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
@@ -354,9 +268,13 @@ runGet g lbs0 = feedAll (runGetIncremental g) lbs0
 pushChunk :: Decoder a -> B.ByteString -> Decoder a
 pushChunk r inp =
   case r of
-    Done inp0 p a -> Done (inp0 `B.append` inp) p a
-    Partial k -> k (Just inp)
-    Fail inp0 p s -> Fail (inp0 `B.append` inp) p s
+    Done inp0 p a -> Done (inp0 `L.append` L.fromStrict inp) p a
+    Fail inp0 p s -> Fail (inp0 `L.append` L.fromStrict inp) p s
+
+    Partial k
+      | B.null inp -> r
+      | otherwise  -> k (Supply inp L.Empty)
+
 
 
 -- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
@@ -366,12 +284,14 @@ pushChunk r inp =
 --    'runGetIncremental' myParser \`pushChunks\` myLazyByteString
 -- @
 pushChunks :: Decoder a -> L.ByteString -> Decoder a
-pushChunks r0 = go r0 . L.toChunks
-  where
-  go r [] = r
-  go (Done inp pos a) xs = Done (B.concat (inp:xs)) pos a
-  go (Fail inp pos s) xs = Fail (B.concat (inp:xs)) pos s
-  go (Partial k) (x:xs) = go (k (Just x)) xs
+pushChunks r ins =
+  case r of
+    Done inp0 p a -> Done (inp0 `L.append` ins) p a
+    Fail inp0 p s -> Fail (inp0 `L.append` ins) p s
+    Partial k     ->
+      k $ case ins of
+            L.Chunk bs lbs -> Supply bs lbs
+            L.Empty        -> EndOfInput
 
 -- | Tell a 'Decoder' that there is no more input. This passes 'Nothing' to a
 -- 'Partial' decoder, otherwise returns the decoder unchanged.
@@ -379,46 +299,10 @@ pushEndOfInput :: Decoder a -> Decoder a
 pushEndOfInput r =
   case r of
     Done _ _ _ -> r
-    Partial k -> k Nothing
+    Partial k  -> k EndOfInput
     Fail _ _ _ -> r
 
--- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
-skip :: Int -> Get ()
-skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
 
--- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
--- bytes are left in the input.
-getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
-
-consumeBytes :: Consume Int64
-consumeBytes n str
-  | fromIntegral (B.length str) >= n = Right (B.splitAt (fromIntegral n) str)
-  | otherwise = Left (n - fromIntegral (B.length str))
-
-consumeUntilNul :: Consume ()
-consumeUntilNul _ str =
-  case B.break (==0) str of
-    (want, rest) | B.null rest -> Left ()
-                 | otherwise -> Right (want, B.drop 1 rest)
-
-consumeAll :: Consume ()
-consumeAll _ _ = Left ()
-
-resumeOnEOF :: [B.ByteString] -> Get L.ByteString
-resumeOnEOF = return . L.fromChunks
-
--- | Get a lazy ByteString that is terminated with a NUL byte.
--- The returned string does not contain the NUL byte. Fails
--- if it reaches the end of input without finding a NUL.
-getLazyByteStringNul :: Get L.ByteString
-getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
-
--- | Get the remaining bytes as a lazy ByteString.
--- Note that this can be an expensive function to use as it forces reading
--- all input and keeping the string in-memory.
-getRemainingLazyByteString :: Get L.ByteString
-getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
 ------------------------------------------------------------------------
 -- Primtives
@@ -427,55 +311,46 @@ getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOn
 -- underlying lazy byteString.
 
 getPtr :: Storable a => Int -> Get a
-getPtr n = readNWith n peek
+getPtr = accursedRead peek
 {-# INLINE getPtr #-}
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = readN 1 B.unsafeHead
-{-# INLINE[2] getWord8 #-}
+getWord8 = unsafeRead B.unsafeHead 1
+{-# INLINE getWord8 #-}
 
 -- | Read an Int8 from the monad state
 getInt8 :: Get Int8
-getInt8 = fromIntegral <$> getWord8
+getInt8 = unsafeRead (fromIntegral . B.unsafeHead) 1
 {-# INLINE getInt8 #-}
 
 
--- force GHC to inline getWordXX
-{-# RULES
-"getWord8/readN" getWord8 = readN 1 B.unsafeHead
-"getWord16be/readN" getWord16be = readN 2 word16be
-"getWord16le/readN" getWord16le = readN 2 word16le
-"getWord32be/readN" getWord32be = readN 4 word32be
-"getWord32le/readN" getWord32le = readN 4 word32le
-"getWord64be/readN" getWord64be = readN 8 word64be
-"getWord64le/readN" getWord64le = readN 8 word64le #-}
-
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
-getWord16be = readN 2 word16be
+getWord16be = unsafeRead word16be 2
 
 word16be :: B.ByteString -> Word16
 word16be = \s ->
         (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
-{-# INLINE[2] getWord16be #-}
+{-# INLINE getWord16be #-}
 {-# INLINE word16be #-}
+
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
-getWord16le = readN 2 word16le
+getWord16le = unsafeRead word16le 2
 
 word16le :: B.ByteString -> Word16
 word16le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord16le #-}
+{-# INLINE getWord16le #-}
 {-# INLINE word16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
-getWord32be = readN 4 word32be
+getWord32be = unsafeRead word32be 4
 
 word32be :: B.ByteString -> Word32
 word32be = \s ->
@@ -483,12 +358,12 @@ word32be = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
-{-# INLINE[2] getWord32be #-}
+{-# INLINE getWord32be #-}
 {-# INLINE word32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
-getWord32le = readN 4 word32le
+getWord32le = unsafeRead word32le 4
 
 word32le :: B.ByteString -> Word32
 word32le = \s ->
@@ -496,12 +371,12 @@ word32le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord32le #-}
+{-# INLINE getWord32le #-}
 {-# INLINE word32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
-getWord64be = readN 8 word64be
+getWord64be = unsafeRead word64be 8
 
 word64be :: B.ByteString -> Word64
 word64be = \s ->
@@ -513,12 +388,12 @@ word64be = \s ->
               (fromIntegral (s `B.unsafeIndex` 5) `unsafeShiftL` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
-{-# INLINE[2] getWord64be #-}
+{-# INLINE getWord64be #-}
 {-# INLINE word64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
-getWord64le = readN 8 word64le
+getWord64le = unsafeRead word64le 8
 
 word64le :: B.ByteString -> Word64
 word64le = \s ->
@@ -530,39 +405,39 @@ word64le = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord64le #-}
+{-# INLINE getWord64le #-}
 {-# INLINE word64le #-}
 
 
--- | Read an Int16 in big endian format.
+-- | Read an Int32 in big endian format.
 getInt16be :: Get Int16
-getInt16be = fromIntegral <$> getWord16be
+getInt16be = unsafeRead (fromIntegral . word16be) 2
 {-# INLINE getInt16be #-}
 
 -- | Read an Int32 in big endian format.
 getInt32be :: Get Int32
-getInt32be =  fromIntegral <$> getWord32be
+getInt32be = unsafeRead (fromIntegral . word32be) 4
 {-# INLINE getInt32be #-}
 
 -- | Read an Int64 in big endian format.
 getInt64be :: Get Int64
-getInt64be = fromIntegral <$> getWord64be
+getInt64be = unsafeRead (fromIntegral . word64be) 8
 {-# INLINE getInt64be #-}
 
 
 -- | Read an Int16 in little endian format.
 getInt16le :: Get Int16
-getInt16le = fromIntegral <$> getWord16le
+getInt16le = unsafeRead (fromIntegral . word16le) 2
 {-# INLINE getInt16le #-}
 
 -- | Read an Int32 in little endian format.
 getInt32le :: Get Int32
-getInt32le =  fromIntegral <$> getWord32le
+getInt32le = unsafeRead (fromIntegral . word32le) 4
 {-# INLINE getInt32le #-}
 
 -- | Read an Int64 in little endian format.
 getInt64le :: Get Int64
-getInt64le = fromIntegral <$> getWord64le
+getInt64le = unsafeRead (fromIntegral . word64le) 8
 {-# INLINE getInt64le #-}
 
 
@@ -618,30 +493,31 @@ getInt64host = getPtr  (sizeOf (undefined :: Int64))
 
 -- | Read a 'Float' in big endian IEEE-754 format.
 getFloatbe :: Get Float
-getFloatbe = wordToFloat <$> getWord32be
+getFloatbe = unsafeRead (wordToFloat . word32be) (sizeOf (undefined :: Word32))
 {-# INLINE getFloatbe #-}
 
 -- | Read a 'Float' in little endian IEEE-754 format.
 getFloatle :: Get Float
-getFloatle = wordToFloat <$> getWord32le
+getFloatle = unsafeRead (wordToFloat . word32le) (sizeOf (undefined :: Word32))
 {-# INLINE getFloatle #-}
 
 -- | Read a 'Float' in IEEE-754 format and host endian.
 getFloathost :: Get Float
-getFloathost = wordToFloat <$> getWord32host
+getFloathost = accursedRead (\ptr -> wordToFloat <$> peek ptr) (sizeOf (undefined :: Word32))
 {-# INLINE getFloathost #-}
 
 -- | Read a 'Double' in big endian IEEE-754 format.
 getDoublebe :: Get Double
-getDoublebe = wordToDouble <$> getWord64be
+getDoublebe = unsafeRead (wordToDouble . word64be) (sizeOf (undefined :: Word64))
 {-# INLINE getDoublebe #-}
 
 -- | Read a 'Double' in little endian IEEE-754 format.
 getDoublele :: Get Double
-getDoublele = wordToDouble <$> getWord64le
+getDoublele = unsafeRead (wordToDouble . word64le) (sizeOf (undefined :: Word64))
 {-# INLINE getDoublele #-}
 
 -- | Read a 'Double' in IEEE-754 format and host endian.
 getDoublehost :: Get Double
-getDoublehost = wordToDouble <$> getWord64host
+getDoublehost =
+  accursedRead (\ptr -> wordToDouble <$> peek ptr) (sizeOf (undefined :: Word64))
 {-# INLINE getDoublehost #-}

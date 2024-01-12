@@ -202,7 +202,7 @@ prop_partial lbs = forAll (choose (0, L.length lbs * 2)) $ \skipN ->
        Partial _ -> L.length lbs < skipN
        Done unused _pos value ->
          and [ L.length value == skipN
-             , L.append value (L.fromChunks [unused]) == lbs
+             , L.append value unused == lbs
              ]
        Fail _ _ _ -> False
 
@@ -219,8 +219,8 @@ prop_fail lbs msg = forAll (choose (0, L.length lbs)) $ \pos ->
      Fail unused pos' msg' ->
        and [ pos == pos'
            , msg == msg'
-           , L.length lbs - pos == fromIntegral (B.length unused)
-           , L.fromChunks [unused] `L.isSuffixOf` lbs
+           , L.length lbs - pos == fromIntegral (L.length unused)
+           , unused `L.isSuffixOf` lbs
            ]
      _ -> False -- wuut?
 
@@ -247,7 +247,7 @@ prop_bytesRead lbs =
        Done unused pos value ->
          and [ value == totalLength
              , pos == value
-             , B.null unused
+             , L.null unused
              ]
        Partial _ -> False
        Fail _ _ _ -> False
@@ -279,7 +279,7 @@ prop_partialOnlyOnce = property $
         return "shouldn't get here"
   in case result of
        -- we expect Partial followed by Fail
-       Partial k -> case k Nothing of -- push down a Nothing
+       Partial k -> case k EndOfInput of -- push down a Nothing
                       Fail _ _ _ -> True
                       Partial _ -> error $ "partial twice! oh noes!"
                       Done _ _ _ -> error $ "we're not supposed to be done."
@@ -390,7 +390,7 @@ prop_getLazyByteString lbs = forAll (choose (0, 2 * L.length lbs)) $ \len ->
   in case result of
        Done unused _pos value ->
          and [ value == L.take len lbs
-             , L.fromChunks [unused] == L.drop len lbs
+             , unused == L.drop len lbs
              ]
        Partial _ -> len > L.length lbs
        _ -> False
@@ -405,7 +405,7 @@ prop_getLazyByteStringNul count0 fragments = count >= 0 ==>
        Done unused pos' value ->
          and [ value == L.take pos lbs
              , pos + 1 == pos' -- 1 for the NUL
-             , L.fromChunks [unused] == L.drop (pos + 1) lbs
+             , unused == L.drop (pos + 1) lbs
              ]
        _ -> False
   where
@@ -428,7 +428,7 @@ prop_getRemainingLazyByteString lbs = property $
   in case result of
     Done unused pos value ->
       and [ value == lbs
-          , B.null unused
+          , L.null unused
           , fromIntegral pos == L.length lbs
           ]
     _ -> False

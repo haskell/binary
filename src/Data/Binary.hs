@@ -76,12 +76,11 @@ import Data.Word
 import Data.Binary.Class
 import Data.Binary.Put
 import Data.Binary.Get
+import Data.Binary.Get.Internal (Result (..), parse)
 import Data.Binary.Generic ()
 
-import qualified Data.ByteString as B ( hGet, length )
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Internal as L ( defaultChunkSize )
 import System.IO ( withBinaryFile, IOMode(ReadMode) )
 
 ------------------------------------------------------------------------
@@ -217,15 +216,10 @@ decodeFile f = do
 decodeFileOrFail :: Binary a => FilePath -> IO (Either (ByteOffset, String) a)
 decodeFileOrFail f =
   withBinaryFile f ReadMode $ \h -> do
-    feed (runGetIncremental get) h
-  where -- TODO: put in Data.Binary.Get and name pushFromHandle?
-    feed (Done _ _ x) _ = return (Right x)
-    feed (Fail _ pos str) _ = return (Left (pos, str))
-    feed (Partial k) h = do
-      chunk <- B.hGet h L.defaultChunkSize
-      case B.length chunk of
-        0 -> feed (k Nothing) h
-        _ -> feed (k (Just chunk)) h
+    out <- L.hGetContents h
+    pure $ case parse get out of
+             Success _ _   x   -> Right x
+             Failure _ pos str -> Left (pos, str)
 
 ------------------------------------------------------------------------
 -- $generics

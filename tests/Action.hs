@@ -220,7 +220,7 @@ eval inp0 = go inp0 []
     step inp n lbls xs
       | inp - n < 0 =
           let msg = "not enough bytes"
-          in EFail FRTooMuch (msg:lbls) inp
+          in EFail FRTooMuch (msg:lbls) 0
       | otherwise = go (inp-n) lbls xs
     go :: Int -> [String] -> [Action] -> Eval
     go inp _lbls [] = ESuccess inp
@@ -234,13 +234,8 @@ eval inp0 = go inp0 []
         Skip n -> step inp n lbls xs
         Isolate n xs'
           | n > inp ->
-              case go inp lbls xs' of
-                ESuccess inp' ->
-                  let msg = "isolate: the decoder consumed " ++ show (inp - inp') ++
-                            " bytes which is less than the expected " ++ (show n) ++
-                            " bytes"
-                   in EFail FRTooMuch (msg:lbls) inp'
-                efail -> efail
+              let msg = "not enough bytes"
+              in EFail FRTooMuch (msg:lbls) 0
           | otherwise ->
               case go n lbls xs' of
                 EFail fr lbls' inp' -> EFail fr lbls' (inp - n + inp')
