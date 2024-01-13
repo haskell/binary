@@ -453,7 +453,8 @@ advance i bs lbs more loc pol roll next no =
                     !roll' =
                       case loc of
                         Free   -> roll
-                        Choice -> roll . L.Chunk bs' . mappend lbs'
+                        Choice | L.Empty <- lbs' ->  roll . L.Chunk bs'
+                               | otherwise       -> (roll . L.Chunk bs') . mappend lbs'
 
                 in next i' bs' lbs' Drop roll'
 
@@ -561,7 +562,8 @@ unsafeIsolate n0 act =
                             let !i' = i0 + fromIntegral o0 + iR
                                 !roll' = case pol0 of
                                            Drop -> roll0
-                                           Keep -> roll0 . rollR
+                                           Keep | L.Empty <- rollR L.Empty -> roll0
+                                                | otherwise                -> roll0 . rollR
 
                             in no i' oR bsR (lbsR <> L.chunk bs lbs) more roll' $
                                  lessThan (fromIntegral iR + oR) n0
@@ -570,7 +572,8 @@ unsafeIsolate n0 act =
                        let !i' = i0 + fromIntegral o0 + iR
                            !roll' = case pol0 of
                                       Drop -> roll0
-                                      Keep -> roll0 . rollR
+                                      Keep | L.Empty <- rollR L.Empty -> roll0
+                                           | otherwise                -> roll0 . rollR
 
                        in no i' oR bsR (lbsR <> L.chunk bs lbs) more roll'
                    )
@@ -650,8 +653,9 @@ instance Alternative Get where
       runCont f i0 o0 bs0 lbs0 more0 Choice Keep id
         ( \i o bs lbs more _loc _pol roll a ->
             let !roll1 = case pol of
-                            Drop -> roll0
-                            Keep -> roll0 . roll
+                           Drop -> roll0
+                           Keep | L.Empty <- roll L.Empty -> roll0
+                                | otherwise               -> roll0 . roll
 
             in yes i o bs lbs more loc pol roll1 a
         )
@@ -671,7 +675,8 @@ instance Alternative Get where
               ( \i1 o1 bs1 lbs1 more1 _loc _pol roll1 a ->
                   let !roll2 = case pol of
                                  Drop -> roll
-                                 Keep -> roll . roll1
+                                 Keep | L.Empty <- roll1 L.Empty -> roll
+                                      | otherwise                -> roll . roll1
 
                   in go i1 o1 bs1 lbs1 more1 roll2 (acc . (:) a)
               )
@@ -730,14 +735,16 @@ lookAhead' undo g =
             Stay ->
               let !roll'' = case pol of
                               Drop -> roll
-                              Keep -> roll . roll'
+                              Keep | L.Empty <- roll' L.Empty -> roll
+                                   | otherwise                -> roll . roll'
 
               in yes i' o' bs' lbs' more' loc pol roll'' res
       )
       ( \i' o' bs' lbs' more' roll' msg ->
           let !roll'' = case pol of
                           Drop -> roll
-                          Keep -> roll . roll'
+                          Keep | L.Empty <- roll' L.Empty -> roll
+                               | otherwise                -> roll . roll'
 
           in no i' o' bs' lbs' more' roll'' msg
       )
