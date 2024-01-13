@@ -334,7 +334,6 @@ word16be = \s ->
         (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 8) .|.
         (fromIntegral (s `B.unsafeIndex` 1))
 {-# INLINE getWord16be #-}
-{-# INLINE word16be #-}
 
 
 -- | Read a Word16 in little endian format
@@ -346,7 +345,6 @@ word16le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord16le #-}
-{-# INLINE word16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
@@ -359,7 +357,6 @@ word32be = \s ->
               (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 3) )
 {-# INLINE getWord32be #-}
-{-# INLINE word32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
@@ -372,7 +369,6 @@ word32le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord32le #-}
-{-# INLINE word32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
@@ -389,7 +385,6 @@ word64be = \s ->
               (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 7) )
 {-# INLINE getWord64be #-}
-{-# INLINE word64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
@@ -406,7 +401,6 @@ word64le = \s ->
               (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
               (fromIntegral (s `B.unsafeIndex` 0) )
 {-# INLINE getWord64le #-}
-{-# INLINE word64le #-}
 
 
 -- | Read an Int32 in big endian format.

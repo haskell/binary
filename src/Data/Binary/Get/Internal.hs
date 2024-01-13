@@ -536,7 +536,7 @@ unsafeIsolate n0 act =
 
     in if n1 <= 0
          then
-           runCont act 0 0 (B.unsafeTake n0 $ B.unsafeDrop o0 bs0) L.Empty NoMore Free Drop roll0
+           runCont act 0 0 (B.unsafeTake n0 $ B.unsafeDrop o0 bs0) L.Empty NoMore Free Drop id
              ( \_iR oR _bs _lbsR _moreR _locR _polR _rollR a ->
                  if oR == n0
                    then yes i0 o1 bs0 lbs0 more loc pol0 roll0 a
@@ -665,25 +665,22 @@ instance Alternative Get where
   {-# INLINE some #-}
 
   many p =
-    C $ \i0 o0 bs0 lbs0 more0 loc pol roll0 yes0 _no ->
-      let go i o bs lbs more roll yes =
+    C $ \i0 o0 bs0 lbs0 more0 loc pol roll0 yes _no ->
+      let go i o bs lbs more roll acc =
             runCont p i o bs lbs more Choice Keep id
               ( \i1 o1 bs1 lbs1 more1 _loc _pol roll1 a ->
                   let !roll2 = case pol of
                                  Drop -> roll
                                  Keep -> roll . roll1
 
-                  in go i1 o1 bs1 lbs1 more1 roll2
-                       ( \iY oY bsY lbsY moreY locY polY rollY as ->
-                           yes iY oY bsY lbsY moreY locY polY rollY (a:as)
-                       )
+                  in go i1 o1 bs1 lbs1 more1 roll2 (acc . (:) a)
               )
               ( \_i1 _o1 _bs1 lbs1 more1 roll1 _msg1 ->
                   let !lbs2 = roll1 lbs1
-                  in yes i o bs lbs2 more1 loc pol roll1 []
+                  in yes i o bs lbs2 more1 loc pol roll (acc [])
               )
 
-      in go i0 o0 bs0 lbs0 more0 roll0 yes0
+      in go i0 o0 bs0 lbs0 more0 roll0 id
   {-# INLINE many #-}
 
 
@@ -726,7 +723,9 @@ lookAhead' undo g =
     runCont g i o bs lbs more Choice Keep id
       ( \i' o' bs' lbs' more' _loc' _pol' roll' res ->
           case undo res of
-            Undo -> yes i o bs (roll' lbs') more' loc pol roll res
+            Undo ->
+              let !roll'' = roll' lbs'
+              in yes i o bs roll'' more' loc pol roll res
 
             Stay ->
               let !roll'' = case pol of
@@ -804,30 +803,18 @@ unsafeGetByteString n =
     in if n' <= 0
          then yes i o' bs lbs more loc pol roll (B.unsafeTake n $ B.unsafeDrop o bs)
 
-         else getMoreByteString more loc
-                ( \i' o'' bs' lbs' pol' roll' r ->
-                    yes i' o'' bs' lbs' more loc pol' roll' r
-                )
-                no
+         else getMoreByteString id more loc yes no
                 (byteString (B.unsafeDrop o bs)) n' i bs lbs pol roll
 {-# INLINE unsafeGetByteString #-}
-
-type ReadSuccess a r = TotalOffset
-                    -> ChunkOffset
-                    -> B.ByteString
-                    -> L.ByteString
-                    -> Policy
-                    -> Rollback
-                    -> a
-                    -> Decoder r
 
 -- This can run faster with (!Int, MutableByteArray s -> Int -> ST s ())
 -- instead of a Builder, but it requires both a @primitive@ library dependency
 -- and a custom ByteString allocation routine.
 getMoreByteString
-  :: More
+  :: (B.ByteString -> a)
+  -> More
   -> Location
-  -> ReadSuccess B.ByteString r
+  -> Success a r
   -> Failure r
 
   -> Builder
@@ -838,7 +825,7 @@ getMoreByteString
   -> Policy
   -> Rollback
   -> Decoder r
-getMoreByteString more loc yes no = go
+getMoreByteString f more loc yes no = go
   where
     go acc n i0 bs0 lbs0 pol0 roll0 =
       advance i0 bs0 lbs0 more loc pol0 roll0
@@ -846,14 +833,13 @@ getMoreByteString more loc yes no = go
             let n' = n - B.length bs
             in if n' <= 0
                  then
-                   yes i n bs lbs pol roll $
-                     L.toStrict
-                       (toLazyByteString $ acc <> byteString (B.unsafeTake n bs))
+                   yes i n bs lbs more loc pol roll $
+                     f $ L.toStrict
+                           (toLazyByteString $ acc <> byteString (B.unsafeTake n bs))
 
                  else go (acc <> byteString bs) n' i bs lbs pol roll
         )
         no
-{-# NOINLINE getMoreByteString #-}
 
 
 -- | Return at least @n@ bytes, usually more. @n@ __must__ be non-negative.
@@ -866,11 +852,7 @@ unsafeRead f n =
     in if n' <= 0
          then yes i o' bs lbs more loc pol roll (f (B.unsafeDrop o bs))
 
-         else getMoreByteString more loc
-                ( \i' o'' bs' lbs' pol' roll' a ->
-                    yes i' o'' bs' lbs' more loc pol' roll' (f a)
-                )
-                no
+         else getMoreByteString f more loc yes no
                 (byteString (B.unsafeDrop o bs)) n' i bs lbs pol roll
 {-# INLINE unsafeRead #-}
 
