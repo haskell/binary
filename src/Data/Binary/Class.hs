@@ -205,6 +205,7 @@ instance Binary Bool where
         toBool 0 = return False
         toBool 1 = return True
         toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
+    {-# INLINE get #-}
 
 -- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
@@ -509,6 +510,7 @@ instance Binary Char where
         getChr w
           | w <= 0x10ffff = return $! toEnum $ fromEnum w
           | otherwise = fail "Not a valid Unicode code point!"
+    {-# INLINE get #-}
 
 ------------------------------------------------------------------------
 -- Instances for the first few tuples
@@ -592,6 +594,7 @@ instance Binary a => Binary [a] where
     put = putList
     get = do n <- get :: Get Int
              getMany n
+    {-# INLINE get #-}
 
 -- | @'getMany' n@ get @n@ elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]

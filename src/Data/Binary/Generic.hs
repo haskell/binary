@@ -45,6 +45,7 @@ instance GBinaryPut V1 where
 
 instance GBinaryGet V1 where
     gget   = return undefined
+    {-# INLINE gget #-}
 
 -- Constructor without arguments
 instance GBinaryPut U1 where
@@ -52,6 +53,7 @@ instance GBinaryPut U1 where
 
 instance GBinaryGet U1 where
     gget    = return U1
+    {-# INLINE gget #-}
 
 -- Product: constructor with parameters
 instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
@@ -59,6 +61,7 @@ instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
 
 instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
     gget = (:*:) <$> gget <*> gget
+    {-# INLINE gget #-}
 
 -- Metadata (constructor name, etc)
 instance GBinaryPut a => GBinaryPut (M1 i c a) where
@@ -66,6 +69,7 @@ instance GBinaryPut a => GBinaryPut (M1 i c a) where
 
 instance GBinaryGet a => GBinaryGet (M1 i c a) where
     gget = M1 <$> gget
+    {-# INLINE gget #-}
 
 -- Constants, additional parameters, and rank-1 recursion
 instance Binary a => GBinaryPut (K1 i a) where
@@ -73,6 +77,7 @@ instance Binary a => GBinaryPut (K1 i a) where
 
 instance Binary a => GBinaryGet (K1 i a) where
     gget = K1 <$> get
+    {-# INLINE gget #-}
 
 -- Borrowed from the cereal package.
 
@@ -100,6 +105,7 @@ instance ( GSumGet  a, GSumGet  b
          | otherwise = sizeError "decode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
+    {-# INLINE gget #-}
 
 sizeError :: Show size => String -> size -> error
 sizeError s size =
@@ -125,6 +131,7 @@ instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
+    {-# INLINE getSum #-}
 
 instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
     putSum !code !size s = case s of
@@ -136,6 +143,7 @@ instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
 
 instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
+    {-# INLINE getSum #-}
 
 instance GBinaryPut a => GSumPut (C1 c a) where
     putSum !code _ x = put code <> gput x
