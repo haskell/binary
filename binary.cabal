@@ -29,11 +29,12 @@ stability:       provisional
 build-type:      Simple
 tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.6, GHC == 9.4.4
 extra-source-files:
-  README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
-
+  tools/derive/*.hs
 -- from the benchmark 'bench'
 extra-source-files:
   benchmarks/CBenchmark.h
+extra-doc-files:
+  README.md changelog.md docs/hcar/binary-Lb.tex
 
 source-repository head
   type: git
