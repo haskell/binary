@@ -9,7 +9,7 @@ cabal-version:  3.0
 --   sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
 
 name:            binary
-version:         0.8.9.1
+version:         0.8.9.2
 license:         BSD-3-Clause
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>

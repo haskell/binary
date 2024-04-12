@@ -1,6 +1,13 @@
 binary
 ======
 
+binary-0.8.9.2
+--------------
+
+- Documentation improvements
+- Ensure that `many` has an unfolding
+- Import `Data.List` as qualified
+
 binary-0.8.9.1
 --------------
 
