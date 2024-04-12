@@ -9,7 +9,7 @@ cabal-version:  3.0
 --   sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
 
 name:            binary
-version:         0.8.9.1
+version:         0.8.9.2
 license:         BSD-3-Clause
 license-file:    LICENSE
 author:          Lennart Kolmodin <kolmodin@gmail.com>
@@ -27,13 +27,14 @@ synopsis:        Binary serialisation for Haskell values using lazy ByteStrings
 category:        Data, Parsing
 stability:       provisional
 build-type:      Simple
-tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.6, GHC == 9.4.4
+tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.6, GHC == 9.4.4, GHC == 9.6.3, GHC == 9.8.1
 extra-source-files:
-  README.md changelog.md docs/hcar/binary-Lb.tex tools/derive/*.hs
-
+  tools/derive/*.hs
 -- from the benchmark 'bench'
 extra-source-files:
   benchmarks/CBenchmark.h
+extra-doc-files:
+  README.md changelog.md docs/hcar/binary-Lb.tex
 
 source-repository head
   type: git
