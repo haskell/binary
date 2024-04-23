@@ -12,7 +12,8 @@ module Data.Binary.Get.Internal (
     , Decoder(..)
     , Location (..)
     , Policy (..)
-    , Rollback
+    , Rollback (..)
+    , More (..)
     , Success
     , Failure
     , Get (..)
@@ -128,8 +129,8 @@ type TotalOffset = Int64
 type ChunkOffset = Int
 
 -- | Whether the parser is inside an alternative or not.
-data Location = Free   -- ^ Default state.
-              | Choice -- ^ Inside the left argument of an alternative.
+data Location = Outside -- ^ Default state.
+              | Inside  -- ^ Inside the left argument of an alternative.
                 deriving Show
 
 -- | Chunk retention policy.
@@ -137,12 +138,14 @@ data Policy = Drop -- ^ Do not keep the reference.
             | Keep -- ^ Keep the reference in the 'Rollback'.
               deriving Show
 
--- | A difference list of all the consumed chunks we may need in the future.
-type Rollback = L.ByteString -> L.ByteString
+-- | A snoc-list of all consumed chunks we may need in the future.
+data Rollback = Rollback !Rollback {-# UNPACK #-} !B.ByteString
+              | Bottom
+                deriving Show
 
 -- | Whether more input can be supplied.
 data More = More -- ^ Can prompt for more state.
-          | NoMore  -- ^ NoMore has been reached.
+          | End  -- ^ End has been reached.
             deriving Show
 
 type Success a r = TotalOffset
@@ -150,9 +153,9 @@ type Success a r = TotalOffset
                 -> B.ByteString
                 -> L.ByteString
                 -> More
+                -> Rollback
                 -> Location
                 -> Policy
-                -> Rollback
                 -> a
                 -> Decoder r
 
@@ -173,9 +176,9 @@ newtype Get a =
                 -> B.ByteString
                 -> L.ByteString
                 -> More
+                -> Rollback
                 -> Location
                 -> Policy
-                -> Rollback
                 -> Success a r
                 -> Failure r
                 -> Decoder r
@@ -204,15 +207,15 @@ instance Fail.MonadFail Get where
 
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f =
-  C $ \i o bs lbs more loc pol roll yes no ->
-    c i o bs lbs more loc pol roll
-      ( \i' o' bs' lbs' more' loc' pol' roll' a ->
-          runCont (f a) i' o' bs' lbs' more' loc' pol' roll' yes no
+  C $ \i o bs lbs more roll loc pol yes no ->
+    c i o bs lbs more roll loc pol
+      ( \i' o' bs' lbs' more' roll' loc' pol' a ->
+          runCont (f a) i' o' bs' lbs' more' roll' loc' pol' yes no
       ) no
 {-# INLINE bindG #-}
 
 failG :: String -> Get a
-failG str = C $ \i o bs lbs more _loc _pol roll _yes no -> no i o bs lbs more roll str
+failG str = C $ \i o bs lbs more roll _loc _pol _yes no -> no i o bs lbs more roll str
 {-# INLINE failG #-}
 
 apG :: Get (a -> b) -> Get a -> Get b
@@ -220,19 +223,19 @@ apG d e = do
   b <- d
   a <- e
   pure (b a)
-{-# INLINE apG #-}
+{-# INLINE [0] apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
 fmapG f m =
-  C $ \i o bs lbs more loc pol roll yes ->
-    runCont m i o bs lbs more loc pol roll $ \i' o' bs' lbs' more' loc' pol' roll' a ->
-      yes i' o' bs' lbs' more' loc' pol' roll' (f a)
+  C $ \i o bs lbs more roll loc pol yes ->
+    runCont m i o bs lbs more roll loc pol $ \i' o' bs' lbs' more' roll' loc' pol' a ->
+      yes i' o' bs' lbs' more' roll' loc' pol' (f a)
 {-# INLINE fmapG #-}
 
 instance Applicative Get where
-  pure = \x -> C $ \i o bs lbs more loc pol roll yes _no ->
-                 yes i o bs lbs more loc pol roll x
-  {-# INLINE pure #-}
+  pure = \x -> C $ \i o bs lbs more roll loc pol yes _no ->
+                 yes i o bs lbs more roll loc pol x
+  {-# INLINE [0] pure #-}
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
@@ -295,13 +298,15 @@ runGetOrFail g lbs0 =
     Success lbs pos a   -> Right (lbs, pos, a)
     Failure lbs pos msg -> Left (lbs, pos, msg)
 
+data Uncons = Uncons !B.ByteString !L.ByteString
+
 -- Backwards compatibility: previous versions had to be resupplied one chunk at a time,
 -- so the 'UnexpectedPartial' side case did not exist.
 parseLooping :: Get a -> L.ByteString -> Result a
 parseLooping g lbs0 =
-  let ~(bs, lbs) = case lbs0 of
-                     L.Chunk bs' lbs' -> (bs'    , lbs')
-                     L.Empty          -> (B.empty, L.Empty)
+  let !(Uncons bs lbs) = case lbs0 of
+                           L.Chunk bs' lbs' -> Uncons bs' lbs'
+                           L.Empty          -> Uncons B.empty L.Empty
 
       go d =
         case d of
@@ -309,7 +314,7 @@ parseLooping g lbs0 =
           Fail lbs' i a -> Failure lbs' i a
           Partial k     -> go $ k EndOfInput
 
-  in go $ create g 0 bs lbs NoMore
+  in go $ create g 0 bs lbs End
 
 
 
@@ -326,11 +331,11 @@ runGetIncremental g = create g 0 B.empty L.Empty More
 #-}
 runGetState :: Get a -> L.ByteString -> ByteOffset -> (a, L.ByteString, ByteOffset)
 runGetState g lbs0 i =
-  let ~(bs, lbs) = case lbs0 of
-                     L.Chunk bs' lbs' -> (bs'    , lbs')
-                     L.Empty          -> (B.empty, L.Empty)
+  let !(Uncons bs lbs) = case lbs0 of
+                           L.Chunk bs' lbs' -> Uncons bs' lbs'
+                           L.Empty          -> Uncons B.empty L.Empty
 
-  in case create g i bs lbs NoMore of
+  in case create g i bs lbs End of
        Done lbs' pos a  -> (a, lbs', pos)
        Partial _        -> error "Data.Binary.Get.runGet: partial result"
        Fail _ pos msg   ->
@@ -339,7 +344,7 @@ runGetState g lbs0 i =
 
 
 -- | Helper exception for excluding the /hopefully/ impossible 'Partial' result of
---   a parser explicitly 'create'd with 'NoMore'.
+--   a parser explicitly 'create'd with 'End'.
 --
 --   @since 0.9.1
 data UnexpectedPartial = UnexpectedPartial
@@ -355,11 +360,11 @@ instance Exception UnexpectedPartial
 --   @since 0.9.1
 parse :: Get a -> L.ByteString -> Result a
 parse g lbs0 =
-  let ~(bs, lbs) = case lbs0 of
-                     L.Chunk bs' lbs' -> (bs'    , lbs')
-                     L.Empty          -> (B.empty, L.Empty)
+  let !(Uncons bs lbs) = case lbs0 of
+                           L.Chunk bs' lbs' -> Uncons bs' lbs'
+                           L.Empty          -> Uncons B.empty L.Empty
 
-  in case create g 0 bs lbs NoMore of
+  in case create g 0 bs lbs End of
        Done lbs' i a -> Success lbs' i a
        Fail lbs' i a -> Failure lbs' i a
        Partial _     -> throw UnexpectedPartial
@@ -373,9 +378,9 @@ initiate
   -> L.ByteString -- ^ Can be empty.
   -> Decoder a
 initiate g lbs0 =
-  let ~(bs, lbs) = case lbs0 of
-                     L.Chunk bs' lbs' -> (bs'    , lbs')
-                     L.Empty          -> (B.empty, L.Empty)
+  let !(Uncons bs lbs) = case lbs0 of
+                           L.Chunk bs' lbs' -> Uncons bs' lbs'
+                           L.Empty          -> Uncons B.empty L.Empty
 
   in create g 0 bs lbs More
 
@@ -392,7 +397,7 @@ create
   -> More         -- ^ Whether more input exists
   -> Decoder a
 create g i0 bs0 lbs0 more =
-  runCont g i0 0 bs0 lbs0 more Free Drop id
+  runCont g i0 0 bs0 lbs0 more Bottom Outside Drop
     ( \i o bs lbs _ _ _ _ a   ->
         let !(# lbs' #) | o == B.length bs = (# lbs #)
                         | otherwise        = (# L.Chunk (B.unsafeDrop o bs) lbs #)
@@ -408,6 +413,27 @@ create g i0 bs0 lbs0 more =
 
 
 
+-- | Prepend all stored chunks to the 'L.ByteString'.
+rollback :: Rollback -> L.ByteString -> L.ByteString
+rollback Bottom         bs = bs
+rollback (Rollback r b) bs = rollback r $! L.Chunk b bs
+
+-- | Append right 'Rollback' to the left one if 'Policy' requires.
+retain :: Rollback -> Policy -> Rollback -> Rollback
+retain x0 Drop _  = x0
+retain x0 Keep r0 = go x0 r0
+  where
+    go x Bottom         = x
+    go x (Rollback r b) = Rollback (go x r) b
+
+-- | Append every chunk in the 'L.ByteString' to the 'Rollback'.
+keepN :: Rollback -> L.ByteString -> Rollback
+keepN r L.Empty        = r
+keepN r (L.Chunk b bs) = let !r' = Rollback r b
+                         in keepN r' bs
+
+
+
 notEnough
   :: TotalOffset
   -> ChunkOffset
@@ -416,7 +442,7 @@ notEnough
   -> Rollback
   -> Failure r
   -> Decoder r
-notEnough i o bs lbs roll no = no i o bs lbs NoMore roll "not enough bytes"
+notEnough i o bs lbs roll no = no i o bs lbs End roll "not enough bytes"
 {-# INLINE notEnough #-}
 
 
@@ -427,21 +453,21 @@ advance
   -> B.ByteString
   -> L.ByteString
   -> More
+  -> Rollback
   -> Location
   -> Policy
-  -> Rollback
-  -> (TotalOffset -> B.ByteString -> L.ByteString -> Policy -> Rollback -> Decoder r)
+  -> (TotalOffset -> B.ByteString -> L.ByteString -> Rollback -> Policy -> Decoder r)
   -> Failure r
   -> Decoder r
-advance i bs lbs more loc pol roll next no =
+advance i bs lbs more roll loc pol next no =
   case lbs of
     L.Chunk bs' lbs' ->
       let !i' = i + fromIntegral (B.length bs)
           !roll' = case pol of
                      Drop -> roll
-                     Keep -> roll . L.Chunk bs'
+                     Keep -> Rollback roll bs'
 
-      in next i' bs' lbs' pol roll'
+      in next i' bs' lbs' roll' pol
 
     L.Empty          ->
       case more of
@@ -452,48 +478,23 @@ advance i bs lbs more loc pol roll next no =
                 let !i' = i + fromIntegral (B.length bs)
                     !roll' =
                       case loc of
-                        Free   -> roll
-                        Choice | L.Empty <- lbs' ->  roll . L.Chunk bs'
-                               | otherwise       -> (roll . L.Chunk bs') . mappend lbs'
+                        Outside -> roll
+                        Inside  -> keepN (Rollback roll bs') lbs'
 
-                in next i' bs' lbs' Drop roll'
+                in next i' bs' lbs' roll' Drop
 
               EndOfInput -> notEnough i (B.length bs) bs L.Empty roll no
 
-        NoMore  -> notEnough i (B.length bs) bs L.Empty roll no
+        End  -> notEnough i (B.length bs) bs L.Empty roll no
 {-# INLINE advance #-}
-
--- | Prompts for more input until 'EndOfInput'.
-flush
-  :: TotalOffset
-  -> Location
-  -> Rollback
-  -> (TotalOffset -> L.ByteString -> Rollback -> Decoder r)
-  -> Decoder r
-flush i0 loc roll0 next = partial i0 id roll0
-  where
-    partial i acc roll =
-      Partial $ \resupply ->
-        case resupply of
-          Supply bs lbs ->
-            let !i' = i + fromIntegral (B.length bs)
-
-            in rummage (L.Chunk bs) i' lbs $ \i'' cur ->
-                 let !roll' = case loc of
-                                Free   -> roll
-                                Choice -> roll . cur
-
-                 in partial i'' (acc . cur) roll'
-
-          EndOfInput -> next i (acc L.empty) roll
 
 
 
 -- | Get the total number of bytes read to this point.
 bytesRead :: Get ByteOffset
 bytesRead =
-  C $ \i o bs lbs more loc pol roll yes _no ->
-    yes i o bs lbs more loc pol roll (i + fromIntegral o)
+  C $ \i o bs lbs more roll loc pol yes _no ->
+    yes i o bs lbs more roll loc pol (i + fromIntegral o)
 {-# INLINE bytesRead #-}
 
 
@@ -509,10 +510,10 @@ isolate :: Int   -- ^ The number of bytes that must be consumed
         -> Get a -- ^ The decoder to isolate
         -> Get a
 isolate n act =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     if n < 0
       then no i o bs lbs more roll "isolate: negative size"
-      else runCont (unsafeIsolate n act) i o bs lbs more loc pol roll yes no
+      else runCont (unsafeIsolate n act) i o bs lbs more roll loc pol yes no
 {-# INLINE isolate #-}
 
 -- | Isolate a decoder to operate with a fixed __non-negative__ number of bytes,
@@ -525,7 +526,7 @@ unsafeIsolate
   -> Get a -- ^ The decoder to isolate
   -> Get a
 unsafeIsolate n0 act =
-  C $ \i0 o0 bs0 lbs0 more loc pol0 roll0 yes no ->
+  C $ \i0 o0 bs0 lbs0 more roll0 loc pol0 yes no ->
     let o1 = o0 + n0
         n1 = o1 - B.length bs0
 
@@ -537,10 +538,10 @@ unsafeIsolate n0 act =
 
     in if n1 <= 0
          then
-           runCont act 0 0 (B.unsafeTake n0 $ B.unsafeDrop o0 bs0) L.Empty NoMore Free Drop id
-             ( \_iR oR _bs _lbsR _moreR _locR _polR _rollR a ->
+           runCont act 0 0 (B.unsafeTake n0 $ B.unsafeDrop o0 bs0) L.Empty End Bottom Outside Drop
+             ( \_iR oR _bs _lbsR _moreR _rollR _locR _polR a ->
                  if oR == n0
-                   then yes i0 o1 bs0 lbs0 more loc pol0 roll0 a
+                   then yes i0 o1 bs0 lbs0 more roll0 loc pol0 a
                    else
                      let !o' = o0 + oR
                      in no i0 o' bs0 lbs0 more roll0 $ lessThan oR n0
@@ -551,29 +552,23 @@ unsafeIsolate n0 act =
              )
 
          else
-           ensureChunks n1 i0 bs0 lbs0 more loc pol0 roll0
-             ( \i bs lbs pol roll lbsI ->
-                 runCont act 0 0 (B.unsafeDrop o0 bs0) lbsI NoMore Choice Keep id
-                   ( \iR oR bsR lbsR _moreR _locR _polR rollR a ->
+           ensureChunks n1 i0 bs0 lbs0 more roll0 loc pol0
+             ( \i bs lbs roll pol lbsI ->
+                 runCont act 0 0 (B.unsafeDrop o0 bs0) lbsI End Bottom Inside Keep
+                   ( \iR oR bsR lbsR _moreR rollR _locR _polR a ->
                         if iR + fromIntegral oR == fromIntegral n0
-                          then yes i 0 bs lbs more loc pol roll a
+                          then yes i 0 bs lbs more roll loc pol a
 
                           else
                             let !i' = i0 + fromIntegral o0 + iR
-                                !roll' = case pol0 of
-                                           Drop -> roll0
-                                           Keep | L.Empty <- rollR L.Empty -> roll0
-                                                | otherwise                -> roll0 . rollR
+                                !roll' = retain roll0 pol0 rollR
 
                             in no i' oR bsR (lbsR <> L.chunk bs lbs) more roll' $
                                  lessThan (fromIntegral iR + oR) n0
                    )
                    ( \iR oR bsR lbsR _moreR rollR ->
                        let !i' = i0 + fromIntegral o0 + iR
-                           !roll' = case pol0 of
-                                      Drop -> roll0
-                                      Keep | L.Empty <- rollR L.Empty -> roll0
-                                           | otherwise                -> roll0 . rollR
+                           !roll' = retain roll0 pol0 rollR
 
                        in no i' oR bsR (lbsR <> L.chunk bs lbs) more roll'
                    )
@@ -586,8 +581,8 @@ unsafeIsolate n0 act =
 type EnsureSuccess r = TotalOffset
                     -> B.ByteString
                     -> L.ByteString
-                    -> Policy
                     -> Rollback
+                    -> Policy
                     -> L.ByteString
                     -> Decoder r
 
@@ -597,26 +592,26 @@ ensureChunks
   -> B.ByteString
   -> L.ByteString
   -> More
+  -> Rollback
   -> Location
   -> Policy
-  -> Rollback
   -> EnsureSuccess r
   -> Failure r
   -> Decoder r
-ensureChunks n0 i0 bs0 lbs0 more loc pol0 roll0 yes no =
-  let go i bs lbs pol roll acc n =
-        advance i bs lbs more loc pol roll
-          ( \i' bs' lbs' pol' roll' ->
+ensureChunks n0 i0 bs0 lbs0 more roll0 loc pol0 yes no =
+  let go i bs lbs roll pol acc n =
+        advance i bs lbs more roll loc pol
+          ( \i' bs' lbs' roll' pol' ->
               let n' = n - fromIntegral (B.length bs')
               in if n' <= 0
-                   then yes (i' + fromIntegral n) (B.unsafeDrop n bs') lbs' pol' roll'
+                   then yes (i' + fromIntegral n) (B.unsafeDrop n bs') lbs' roll' pol'
                           (acc $ L.Chunk (B.unsafeTake n bs') L.Empty)
 
-                   else go i' bs' lbs' pol' roll' (acc . L.Chunk bs') n'
+                   else go i' bs' lbs' roll' pol' (acc . L.Chunk bs') n'
           )
           no
 
-  in go i0 bs0 lbs0 pol0 roll0 id n0
+  in go i0 bs0 lbs0 roll0 pol0 id n0
 {-# INLINE ensureChunks #-}
 
 
@@ -625,11 +620,11 @@ ensureChunks n0 i0 bs0 lbs0 more loc pol0 roll0 yes no =
 -- undecoded bytes.
 isEmpty :: Get Bool
 isEmpty =
-  C $ \i o bs lbs more loc pol roll yes _no ->
-    yes i o bs lbs more loc pol roll $
+  C $ \i o bs lbs more roll loc pol yes _no ->
+    yes i o bs lbs more roll loc pol $
       o == B.length bs && L.null lbs && case more of
-                                          NoMore -> True
-                                          _      -> False
+                                          End -> True
+                                          _   -> False
 {-# INLINE isEmpty #-}
 
 
@@ -644,24 +639,20 @@ getBytes = getByteString
 
 -- | @since 0.7.0.0
 instance Alternative Get where
-  empty = C $ \i o bs lbs more _loc _pol roll _yes no ->
+  empty = C $ \i o bs lbs more roll _loc _pol _yes no ->
             no i o bs lbs more roll "Data.Binary.Get(Alternative).empty"
   {-# INLINE empty #-}
 
   (<|>) f g =
-    C $ \i0 o0 bs0 lbs0 more0 loc pol roll0 yes no ->
-      runCont f i0 o0 bs0 lbs0 more0 Choice Keep id
-        ( \i o bs lbs more _loc _pol roll a ->
-            let !roll1 = case pol of
-                           Drop -> roll0
-                           Keep | L.Empty <- roll L.Empty -> roll0
-                                | otherwise               -> roll0 . roll
-
-            in yes i o bs lbs more loc pol roll1 a
+    C $ \i o bs lbs more roll loc pol yes no ->
+      runCont f i o bs lbs more Bottom Inside Keep
+        ( \i' o' bs' lbs' more' delta _loc _pol a ->
+            let !roll' = retain roll pol delta
+            in yes i' o' bs' lbs' more' roll' loc pol a
         )
-        ( \_i _o _bs lbs more roll _msg ->
-            let !lbs1 = roll lbs
-            in runCont g i0 o0 bs0 lbs1 more loc pol roll0 yes no
+        ( \_i _o _bs lbs_ more' delta _msg ->
+            let !lbs' = rollback delta lbs_
+            in runCont g i o bs lbs' more' roll loc pol yes no
         )
   {-# INLINE (<|>) #-}
 
@@ -669,23 +660,20 @@ instance Alternative Get where
   {-# INLINE some #-}
 
   many p =
-    C $ \i0 o0 bs0 lbs0 more0 loc pol roll0 yes _no ->
-      let go i o bs lbs more roll acc =
-            runCont p i o bs lbs more Choice Keep id
-              ( \i1 o1 bs1 lbs1 more1 _loc _pol roll1 a ->
-                  let !roll2 = case pol of
-                                 Drop -> roll
-                                 Keep | L.Empty <- roll1 L.Empty -> roll
-                                      | otherwise                -> roll . roll1
+    C $ \i0 o0 bs0 lbs0 more0 roll0 loc pol yes _no ->
 
-                  in go i1 o1 bs1 lbs1 more1 roll2 (acc . (:) a)
+      let go i o bs lbs more roll as =
+            runCont p i o bs lbs more Bottom Inside Keep
+              ( \i' o' bs' lbs' more' delta _loc _pol a ->
+                  let !roll' = retain roll0 pol delta
+                  in go i' o' bs' lbs' more' roll' (a:as)
               )
-              ( \_i1 _o1 _bs1 lbs1 more1 roll1 _msg1 ->
-                  let !lbs2 = roll1 lbs1
-                  in yes i o bs lbs2 more1 loc pol roll (acc [])
+              ( \_i _o _bs lbs_ more' delta _msg ->
+                  let !lbs' = rollback delta lbs_
+                  in yes i o bs lbs' more' roll loc pol (reverse as)
               )
 
-      in go i0 o0 bs0 lbs0 more0 roll0 id
+      in go i0 o0 bs0 lbs0 more0 roll0 []
   {-# INLINE many #-}
 
 
@@ -724,29 +712,21 @@ data Verdict = Undo | Stay
 
 lookAhead' :: (a -> Verdict) -> Get a -> Get a
 lookAhead' undo g =
-  C $ \i o bs lbs more loc pol roll yes no ->
-    runCont g i o bs lbs more Choice Keep id
-      ( \i' o' bs' lbs' more' _loc' _pol' roll' res ->
+  C $ \i o bs lbs more roll loc pol yes no ->
+    runCont g i o bs lbs more Bottom Inside Keep
+      ( \i' o' bs' lbs_ more' delta _loc _pol res ->
           case undo res of
             Undo ->
-              let !roll'' = roll' lbs'
-              in yes i o bs roll'' more' loc pol roll res
+              let !lbs' = rollback delta lbs_
+              in yes i o bs lbs' more' roll loc pol res
 
             Stay ->
-              let !roll'' = case pol of
-                              Drop -> roll
-                              Keep | L.Empty <- roll' L.Empty -> roll
-                                   | otherwise                -> roll . roll'
-
-              in yes i' o' bs' lbs' more' loc pol roll'' res
+              let !roll' = retain roll pol delta
+              in yes i' o' bs' lbs_ more' roll' loc pol res
       )
-      ( \i' o' bs' lbs' more' roll' msg ->
-          let !roll'' = case pol of
-                          Drop -> roll
-                          Keep | L.Empty <- roll' L.Empty -> roll
-                               | otherwise                -> roll . roll'
-
-          in no i' o' bs' lbs' more' roll'' msg
+      ( \i' o' bs' lbs' more' delta msg ->
+          let !roll' = retain roll pol delta
+          in no i' o' bs' lbs' more' roll' msg
       )
 {-# INLINE lookAhead' #-}
 
@@ -758,8 +738,8 @@ lookAhead' undo g =
 -- @since 0.7.2.0
 label :: String -> Get a -> Get a
 label msg decoder =
-  C $ \i o bs lbs more loc pol roll yes no ->
-    runCont decoder i o bs lbs more loc pol roll yes $ \i' o' bs' lbs' more' roll' s ->
+  C $ \i o bs lbs more roll loc pol yes no ->
+    runCont decoder i o bs lbs more roll loc pol yes $ \i' o' bs' lbs' more' roll' s ->
       no i' o' bs' lbs' more' roll' (s ++ ('\n' : msg))
 {-# INLINEABLE label #-}
 
@@ -773,17 +753,29 @@ label msg decoder =
 {-# DEPRECATED remaining "This will force all remaining input, don't use it." #-}
 remaining :: Get Int64
 remaining =
-  C $ \i o bs lbs more loc pol roll yes _no ->
+  C $ \i o bs lbs more roll loc pol yes _no ->
     case more of
-      NoMore  ->
+      End  ->
         let !n = fromIntegral (B.length bs - o) + L.length lbs
-        in yes i o bs lbs more loc pol roll n
+        in yes i o bs lbs more roll loc pol n
 
       More ->
         let !n = fromIntegral (B.length bs - o)
-        in rummage id n lbs $ \n' cur ->
-             flush n' loc roll $ \n'' lbs' roll' ->
-               yes i o bs (cur lbs') NoMore loc Drop roll' n''
+
+            !carry0 = carryN (Carry n id) lbs
+
+        in flush carry0
+             where
+               flush c@(Carry n acc) =
+                 Partial $ \resupply ->
+                   case resupply of
+                     Supply bsR lbsR ->
+                       let c' = carryN (carry1 c bsR) lbsR
+                       in flush c'
+
+                     EndOfInput ->
+                       let !lbs' = acc L.Empty
+                       in yes i o bs lbs' End roll loc pol n
 {-# INLINEABLE remaining #-}
 
 ------------------------------------------------------------------------
@@ -794,24 +786,24 @@ remaining =
 -- bytes are left in the input. If @n <= 0@ then the empty string is returned.
 getByteString :: Int -> Get B.ByteString
 getByteString n =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     if n <= 0
-      then yes i o bs lbs more loc pol roll B.empty
-      else runCont (unsafeGetByteString n) i o bs lbs more loc pol roll yes no
+      then yes i o bs lbs more roll loc pol B.empty
+      else runCont (unsafeGetByteString n) i o bs lbs more roll loc pol yes no
 {-# INLINE getByteString #-}
 
 -- | An efficient get method for strict ByteStrings. @n@ __must__ be non-negative.
 --   Fails if fewer than @n@ bytes are left in the input.
 unsafeGetByteString :: Int -> Get B.ByteString
 unsafeGetByteString n =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     let o' = o + n
         n' = o' - B.length bs
     in if n' <= 0
-         then yes i o' bs lbs more loc pol roll (B.unsafeTake n $ B.unsafeDrop o bs)
+         then yes i o' bs lbs more roll loc pol (B.unsafeTake n $ B.unsafeDrop o bs)
 
          else getMoreByteString id more loc yes no
-                (byteString (B.unsafeDrop o bs)) n' i bs lbs pol roll
+                (byteString (B.unsafeDrop o bs)) n' i bs lbs roll pol
 {-# INLINE unsafeGetByteString #-}
 
 -- This can run faster with (!Int, MutableByteArray s -> Int -> ST s ())
@@ -829,38 +821,39 @@ getMoreByteString
   -> TotalOffset
   -> B.ByteString
   -> L.ByteString
-  -> Policy
   -> Rollback
+  -> Policy
   -> Decoder r
 getMoreByteString f more loc yes no = go
   where
-    go acc n i0 bs0 lbs0 pol0 roll0 =
-      advance i0 bs0 lbs0 more loc pol0 roll0
-        ( \i bs lbs pol roll ->
+    {-# NOINLINE go #-}
+    go acc n i0 bs0 lbs0 roll0 pol0 =
+      advance i0 bs0 lbs0 more roll0 loc pol0
+        ( \i bs lbs roll pol ->
             let n' = n - B.length bs
             in if n' <= 0
                  then
-                   yes i n bs lbs more loc pol roll $
+                   yes i n bs lbs more roll loc pol $
                      f $ L.toStrict
                            (toLazyByteString $ acc <> byteString (B.unsafeTake n bs))
 
-                 else go (acc <> byteString bs) n' i bs lbs pol roll
+                 else go (acc <> byteString bs) n' i bs lbs roll pol
         )
         no
-
+{-# INLINE getMoreByteString #-}
 
 -- | Return at least @n@ bytes, usually more. @n@ __must__ be non-negative.
 --   If not enough data is available the computation will escape with 'Partial'.
 unsafeRead :: (B.ByteString -> a) -> Int -> Get a
 unsafeRead f n =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     let o' = o + n
         n' = o' - B.length bs
     in if n' <= 0
-         then yes i o' bs lbs more loc pol roll (f (B.unsafeDrop o bs))
+         then yes i o' bs lbs more roll loc pol (f (B.unsafeDrop o bs))
 
          else getMoreByteString f more loc yes no
-                (byteString (B.unsafeDrop o bs)) n' i bs lbs pol roll
+                (byteString (B.unsafeDrop o bs)) n' i bs lbs roll pol
 {-# INLINE unsafeRead #-}
 
 -- | @accursedRead f n@ where @f@ must be deterministic and not have side effects.
@@ -880,40 +873,40 @@ accursedRead f =
 -- bytes are left in the input.
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     if n <= 0
-      then yes i o bs lbs more loc pol roll L.Empty
-      else runCont (unsafeGetLazyByteString n) i o bs lbs more loc pol roll yes no
+      then yes i o bs lbs more roll loc pol L.Empty
+      else runCont (unsafeGetLazyByteString n) i o bs lbs more roll loc pol yes no
 {-# INLINE getLazyByteString #-}
 
 -- | An efficient get method for lazy ByteStrings. @n@ __must__ be non-negative.
 --   Fails if fewer than @n@ bytes are left in the input.
 unsafeGetLazyByteString :: Int64 -> Get L.ByteString
 unsafeGetLazyByteString n0 =
-  C $ \i0 o0 bs0 lbs0 more loc pol0 roll0 yes no ->
+  C $ \i0 o0 bs0 lbs0 more roll0 loc pol0 yes no ->
     let n1 = n0 + fromIntegral (o0 - B.length bs0)
     in if n1 <= 0
          then let !n32 = fromIntegral n0
-              in yes i0 (o0 + n32) bs0 lbs0 more loc pol0 roll0
+              in yes i0 (o0 + n32) bs0 lbs0 more roll0 loc pol0
                    (L.fromStrict . B.unsafeTake n32 $ B.unsafeDrop o0 bs0)
          else
-           let go i bs lbs pol roll acc n =
-                 advance i bs lbs more loc pol roll
-                   ( \i' bs' lbs' pol' roll' ->
+           let go i bs lbs roll pol acc n =
+                 advance i bs lbs more roll loc pol
+                   ( \i' bs' lbs' roll' pol' ->
                        let n32 = fromIntegral n
                            n' = n - fromIntegral (B.length bs')
                        in if n' <= 0
-                            then yes i' n32 bs' lbs' more loc pol' roll'
+                            then yes i' n32 bs' lbs' more roll' loc pol'
                                    (acc $ L.fromStrict (B.unsafeTake n32 bs'))
 
-                            else go i' bs' lbs' pol' roll' (acc . L.Chunk bs') n'
+                            else go i' bs' lbs' roll' pol' (acc . L.Chunk bs') n'
                    )
                    no
 
                !acc0 | o0 == B.length bs0 = id
                      | otherwise          = L.Chunk (B.unsafeDrop o0 bs0)
 
-           in go i0 bs0 lbs0 pol0 roll0 acc0 n1
+           in go i0 bs0 lbs0 roll0 pol0 acc0 n1
 {-# INLINE unsafeGetLazyByteString #-}
 
 
@@ -923,73 +916,100 @@ unsafeGetLazyByteString n0 =
 -- if it reaches the end of input without finding a NUL.
 getLazyByteStringNul :: Get L.ByteString
 getLazyByteStringNul =
-  C $ \i0 o0 bs0 lbs0 more loc pol0 roll0 yes no ->
+  C $ \i0 o0 bs0 lbs0 more roll0 loc pol0 yes no ->
     case B.elemIndex 0 bs0 of
       Just x ->
         let x'  = x + 1
             !o1 = o0 + fromIntegral x'
-        in yes i0 o1 bs0 lbs0 more loc pol0 roll0
+        in yes i0 o1 bs0 lbs0 more roll0 loc pol0
              (L.fromStrict . B.unsafeTake x $ B.unsafeDrop o0 bs0)
 
       Nothing ->
-        let go i bs lbs pol roll acc =
-              advance i bs lbs more loc pol roll
-                ( \i' bs' lbs' pol' roll' ->
+        let go i bs lbs roll pol acc =
+              advance i bs lbs more roll loc pol
+                ( \i' bs' lbs' roll' pol' ->
                     case B.elemIndex 0 bs' of
                       Just x ->
                         let !x' = x + 1
-                        in yes i' x' bs' lbs' more loc pol' roll'
+                        in yes i' x' bs' lbs' more roll' loc pol'
                              (acc $ L.fromStrict (B.unsafeTake x bs'))
 
-                      Nothing -> go i' bs' lbs' pol' roll' (acc . L.Chunk bs')
+                      Nothing -> go i' bs' lbs' roll' pol' (acc . L.Chunk bs')
                 )
                 no
 
             !acc0 | o0 == B.length bs0 = id
                   | otherwise          = L.Chunk (B.unsafeDrop o0 bs0)
 
-        in go i0 bs0 lbs0 pol0 roll0 acc0
+        in go i0 bs0 lbs0 roll0 pol0 acc0
 {-# INLINE getLazyByteStringNul #-}
 
 
 
-rummage
-  :: (L.ByteString -> L.ByteString)
-  -> TotalOffset
-  -> L.ByteString
-  -> (TotalOffset -> (L.ByteString -> L.ByteString) -> a)
-  -> a
-rummage acc0 i0 lbs0 f = go acc0 i0 lbs0
-  where
-    go acc i lbs =
-      case lbs of
-        L.Chunk bs lbs' ->
-          let !i' = i + fromIntegral (B.length bs)
-          in go (acc . L.Chunk bs) i' lbs'
+data Carry = Carry {-# UNPACK #-} !TotalOffset (L.ByteString -> L.ByteString)
 
-        L.Empty         -> f i acc
-{-# INLINE rummage #-}
+carry1 :: Carry -> B.ByteString -> Carry
+carry1 (Carry n acc) bs =
+  let !n' = n + fromIntegral (B.length bs)
+  in Carry n' (\x -> acc $! L.Chunk bs x)
+
+carryN :: Carry -> L.ByteString -> Carry
+carryN (Carry n0 acc0) = go n0 acc0
+  where
+    go n acc bss =
+      case bss of
+        L.Empty      -> Carry n acc
+        L.Chunk b bs ->
+          let !n' = n + fromIntegral (B.length b)
+          in go n' (\x -> acc $! L.Chunk b x) bs
+
+
 
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
 -- all input and keeping the string in-memory.
 getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString =
-  C $ \i o bs lbs more loc pol roll yes _no ->
+  C $ \i o bs lbs more roll loc pol yes _no ->
     case more of
-      NoMore  ->
+      End  ->
         let !i' = i + fromIntegral (B.length bs) + L.length lbs
-        in yes i' 0 B.empty L.Empty NoMore loc pol roll (L.chunk (B.unsafeDrop o bs) lbs)
+        in yes i' 0 B.empty L.Empty End roll loc pol (L.chunk (B.unsafeDrop o bs) lbs)
 
       More ->
         let !i' = i + fromIntegral (B.length bs)
 
-            !acc | o == B.length bs = id
-                 | otherwise        = L.Chunk bs
+            !acc0 | o == B.length bs = id
+                  | otherwise        = L.Chunk (B.unsafeDrop o bs)
 
-        in rummage acc i' lbs $ \i'' cur ->
-             flush i'' loc roll $ \i''' rest roll' ->
-               yes i''' 0 B.empty L.Empty NoMore loc Drop roll' $ cur rest
+            !carry0 = carryN (Carry i' acc0) lbs
+
+        in case loc of
+             Outside -> flush carry0
+               where
+                 flush c@(Carry n acc) =
+                   Partial $ \resupply ->
+                     case resupply of
+                       Supply bsR lbsR ->
+                         let !c' = carryN (carry1 c bsR) lbsR
+                         in flush c'
+
+                       EndOfInput    ->
+                         yes n 0 B.empty L.Empty End roll loc pol (acc L.Empty)
+
+             Inside -> flush carry0 roll -- $! keepN roll lbs
+               where
+                 flush c@(Carry n acc) roll' =
+                   Partial $ \resupply ->
+                     case resupply of
+                       Supply bsR lbsR ->
+                         let !c'     = carryN (carry1 c bsR) lbsR
+                             !roll'' = keepN (Rollback roll bsR) lbsR
+
+                         in flush c' roll''
+
+                       EndOfInput    ->
+                         yes n 0 B.empty L.Empty End roll' loc Drop (acc L.Empty)
 {-# INLINE getRemainingLazyByteString #-}
 
 
@@ -997,32 +1017,32 @@ getRemainingLazyByteString =
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
 skip n =
-  C $ \i o bs lbs more loc pol roll yes no ->
+  C $ \i o bs lbs more roll loc pol yes no ->
     if n <= 0
-      then yes i o bs lbs more loc pol roll ()
-      else runCont (unsafeSkip n) i o bs lbs more loc pol roll yes no
+      then yes i o bs lbs more roll loc pol ()
+      else runCont (unsafeSkip n) i o bs lbs more roll loc pol yes no
 {-# INLINE skip #-}
 
 -- | Skip ahead @n@ bytes. @n@ __must__ be non-negative.
 --   Fails if fewer than @n@ bytes are available.
 unsafeSkip :: Int -> Get ()
 unsafeSkip n0 =
-  C $ \i0 o0 bs0 lbs0 more loc pol0 roll0 yes no ->
+  C $ \i0 o0 bs0 lbs0 more roll0 loc pol0 yes no ->
     let o1 = o0 + n0
         n1 = o1 - B.length bs0
     in if n1 <= 0
-         then yes i0 o1 bs0 lbs0 more loc pol0 roll0 ()
+         then yes i0 o1 bs0 lbs0 more roll0 loc pol0 ()
          else
-           let go i bs lbs pol roll n =
-                 advance i bs lbs more loc pol roll
-                   ( \i' bs' lbs' pol' roll' ->
+           let go i bs lbs roll pol n =
+                 advance i bs lbs more roll loc pol
+                   ( \i' bs' lbs' roll' pol' ->
                        let n32 = fromIntegral n
                            n' = n - fromIntegral (B.length bs')
                        in if n' <= 0
-                            then yes i' n32 bs' lbs' more loc pol' roll' ()
-                            else go i' bs' lbs' pol' roll' n'
+                            then yes i' n32 bs' lbs' more roll' loc pol' ()
+                            else go i' bs' lbs' roll' pol' n'
                    )
                    no
 
-           in go i0 bs0 lbs0 pol0 roll0 n1
+           in go i0 bs0 lbs0 roll0 pol0 n1
 {-# INLINE unsafeSkip #-}
