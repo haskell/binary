@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.8.9.3
+--------------
+
+- Drop `-Wnoncanonical-monadfail-instances` from build flags
+
 binary-0.8.9.2
 --------------
 
