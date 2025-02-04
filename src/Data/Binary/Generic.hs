@@ -83,7 +83,7 @@ instance Binary a => GBinaryGet (K1 i a) where
 -- encode the constructor. If it has 2^16 constructors or less it will
 -- use two bytes, and so on till 2^64-1.
 
-#define GUARD(WORD) (size - 1) <= fromIntegral (maxBound :: WORD)
+#define GUARD(WORD) size <= fromIntegral (maxBound :: WORD)
 #define PUTSUM(WORD) GUARD(WORD) = putSum (0 :: WORD) (fromIntegral size)
 #define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral size)
 

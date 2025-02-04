@@ -70,6 +70,7 @@ test-suite qc
   other-modules:
     Action
     Arbitrary
+    Generic
   build-depends:
     base >= 4.5.0.0 && < 5,
     base-orphans >=0.8.1 && <0.9,
