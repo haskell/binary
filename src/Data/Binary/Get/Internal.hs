@@ -11,6 +11,7 @@ module Data.Binary.Get.Internal (
     , runCont
     , Decoder(..)
     , runGetIncremental
+    , runGetIncremental'
 
     , readN
     , readNWith
@@ -153,8 +154,12 @@ instance (Show a) => Show (Decoder a) where
 -- | Run a 'Get' monad. See 'Decoder' for what to do next, like providing
 -- input, handling decoding errors and to get the output value.
 runGetIncremental :: Get a -> Decoder a
-runGetIncremental g = noMeansNo $
-  runCont g B.empty (\i a -> Done i a)
+runGetIncremental g = noMeansNo $ runCont g B.empty Done
+
+-- | Similar to 'runGetIncremental', but accept an initial chunk, it's faster
+-- than feeding initial chunk after 'runGetIncremental'.
+runGetIncremental' :: Get a -> B.ByteString -> Decoder a
+runGetIncremental' g bs = noMeansNo $ runCont g bs Done
 
 -- | Make sure we don't have to pass Nothing to a Partial twice.
 -- This way we don't need to pass around an EOF value in the Get monad, it
