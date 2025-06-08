@@ -9,6 +9,11 @@
 {-# LANGUAGE PolyKinds #-}
 #endif
 
+#if MIN_VERSION_base(4,17,0)
+{-# LANGUAGE UndecidableInstances #-}
+#define HAS_GENERICALLY_NEWTYPE
+#endif
+
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
 #endif
@@ -180,6 +185,12 @@ defaultPutList xs = put (length xs) <> mapM_ put xs
 
 ------------------------------------------------------------------------
 -- Simple instances
+
+#ifdef HAS_GENERICALLY_NEWTYPE
+instance (Generic t, GBinaryPut (Rep t), GBinaryGet (Rep t)) => Binary (Generically t) where
+  put (Generically x) = gput $ from x
+  get = (Generically . to) `fmap` gget
+#endif
 
 #ifdef HAS_VOID
 -- Void never gets written nor reconstructed since it's impossible to have a
