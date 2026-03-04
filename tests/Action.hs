@@ -171,7 +171,7 @@ prop_fail =
                          " but got " ++ show off)
               | inp /= L.drop (fromIntegral off) lbs ->
                   error $ "remaining output incorrect, was: " ++ show inp ++
-                    ", should hav been: " ++ show (L.drop (fromIntegral off) lbs)
+                    ", should have been: " ++ show (L.drop (fromIntegral off) lbs)
               | otherwise -> property True
         Right (_inp, _off, _value) -> label "test case without 'fail'" $ property True
 
@@ -197,7 +197,7 @@ failReason _ = "NoFail"
 
 -- | The result of an evaluation.
 data Eval = ESuccess Int
-          -- ^ The evalutation completed successfully. Contains the number of
+          -- ^ The evaluation completed successfully. Contains the number of
           -- remaining bytes of the input.
           | EFail FailReason [String] Int
           -- ^ The evaluation completed with a failure. Contains the labels up
@@ -212,7 +212,7 @@ data FailReason
   deriving (Show,Eq)
 
 -- | Given the number of input bytes and a list of actions, evaluate the
--- actions and return whether the actions succeeed or fail.
+-- actions and return whether the actions succeed or fail.
 eval :: Int -> [Action] -> Eval
 eval inp0 = go inp0 []
   where

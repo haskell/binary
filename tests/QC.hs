@@ -265,7 +265,7 @@ prop_bytesRead lbs =
 -- | We're trying to guarantee that the Decoder will not ask for more input
 -- with Partial if it has been given Nothing once.
 -- In this test we're making the decoder return 'Partial' to get more
--- input, and to get knownledge of the current position using 'BytesRead'.
+-- input, and to get knowledge of the current position using 'BytesRead'.
 -- Both of these operations, when used with the <|> operator, result internally
 -- in that the decoder return with Partial and BytesRead multiple times,
 -- in which case we need to keep track of if the user has passed Nothing to a

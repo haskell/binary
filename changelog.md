@@ -121,7 +121,7 @@ binary-0.7.6.0
 binary-0.7.5.0
 --------------
 
-- Fix performance bug that was noticable when you get a big strict ByteString
+- Fix performance bug that was noticeable when you get a big strict ByteString
   and the input to the decoder consists of many small chunks.
     - https://github.com/kolmodin/binary/issues/73
     - https://github.com/kolmodin/binary/pull/76
@@ -196,7 +196,7 @@ binary-0.6.4
 binary-0.6.3
 ------------
 
-- Documentation tweeks, internal restructuring, more tests.
+- Documentation tweaks, internal restructuring, more tests.
 
 binary-0.6.2
 ------------

@@ -257,7 +257,7 @@ import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | A decoder procuced by running a 'Get' monad.
+-- | A decoder produced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
               -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input. Contains any
@@ -421,7 +421,7 @@ getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
 ------------------------------------------------------------------------
--- Primtives
+-- Primitives
 
 -- helper, get a raw Ptr onto a strict ByteString copied out of the
 -- underlying lazy byteString.
@@ -586,7 +586,7 @@ getWord32host :: Get Word32
 getWord32host = getPtr  (sizeOf (undefined :: Word32))
 {-# INLINE getWord32host #-}
 
--- | /O(1)./ Read a Word64 in native host order and host endianess.
+-- | /O(1)./ Read a Word64 in native host order and host endianness.
 getWord64host   :: Get Word64
 getWord64host = getPtr  (sizeOf (undefined :: Word64))
 {-# INLINE getWord64host #-}
@@ -607,7 +607,7 @@ getInt32host :: Get Int32
 getInt32host = getPtr  (sizeOf (undefined :: Int32))
 {-# INLINE getInt32host #-}
 
--- | /O(1)./ Read an Int64 in native host order and host endianess.
+-- | /O(1)./ Read an Int64 in native host order and host endianness.
 getInt64host   :: Get Int64
 getInt64host = getPtr  (sizeOf (undefined :: Int64))
 {-# INLINE getInt64host #-}
