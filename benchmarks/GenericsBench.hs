@@ -4,7 +4,7 @@ module Main where
 import qualified Data.ByteString.Lazy            as L
 import           Cabal24 (PackageDescription)
 
-import           Criterion.Main
+import Test.Tasty.Bench
 
 import qualified Data.Binary                     as Binary
 import           Data.Binary.Get                 (Get)
