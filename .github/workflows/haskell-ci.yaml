@@ -1,0 +1,43 @@
+name: Haskell CI
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['8.0.2', '8.2.2', '8.4.4', '8.6.5', '8.8.4', '8.10.7', '9.0.2', '9.2.8', '9.4.8', '9.6.7', '9.8.4', '9.10.3', '9.12.2', '9.14.1']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: haskell-actions/setup@v2
+        id: setup-haskell
+        with:
+          ghc-version: ${{ matrix.ghc }}
+      - name: cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{ steps.setup-haskell.outputs.cabal-store }}
+            dist-newstyle
+          key: ${{ runner.os }}-${{ matrix.ghc }}
+      - name: Rename package to allow building test suite
+        run: |
+          sed -i 's/\(name:\s*binary\)/\1-cabal-is-broken/' binary.cabal
+          sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
+      - name: Build
+        run: cabal build
+      - name: Build tests
+        run: cabal build --enable-tests
+      - name: Test
+        run: cabal test --enable-tests
+      # benchmarks currently don't compile for GHC 9.14
+      # - name: Build benchmarks
+      #   run: cabal build --enable-benchmarks
+      # - name: Bench
+      #   run: cabal bench --enable-benchmarks
+      - name: Haddock
+        run: cabal haddock

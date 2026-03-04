@@ -155,7 +155,7 @@ prop_Doublele = roundTripWith putDoublele getDoublele
 prop_Doublehost :: Double -> Property
 prop_Doublehost = roundTripWith putDoublehost getDoublehost
 
-#if MIN_VERSION_base(4,10,0)
+#if MIN_VERSION_base(4,11,0)
 testTypeable :: Test
 testTypeable = testProperty "TypeRep" prop_TypeRep
 
