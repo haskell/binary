@@ -34,10 +34,16 @@ jobs:
         run: cabal build --enable-tests
       - name: Test
         run: cabal test --enable-tests
-      # benchmarks currently don't compile for GHC 9.14
-      # - name: Build benchmarks
-      #   run: cabal build --enable-benchmarks
-      # - name: Bench
-      #   run: cabal bench --enable-benchmarks
+      - name: Build benchmarks
+        run: cabal build --enable-benchmarks
+      - name: Bench
+        run: |
+          cabal run bench:throughput
+          cabal run bench:get
+          cabal run bench:put
+          cabal run bench:generics-bench
+          cabal run bench:builder
+        env:
+          TASTY_TIMEOUT: 100
       - name: Haddock
         run: cabal haddock
