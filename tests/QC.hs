@@ -40,6 +40,7 @@ import           Test.QuickCheck hiding (total)
 
 import qualified Action                               (tests)
 import           Arbitrary                            ()
+import           Generic                              (Generic256)
 import           Data.Binary
 import           Data.Binary.Get
 import           Data.Binary.Put
@@ -528,6 +529,11 @@ prop_fixed_resolution_constr x = runGet get (runPut (fixedPut x)) == x
 
 ------------------------------------------------------------------------
 
+prop_Generic256 :: Generic256 -> Property
+prop_Generic256 = roundTripWith put get
+
+------------------------------------------------------------------------
+
 type T a = a -> Property
 type B a = a -> Bool
 
@@ -708,4 +714,6 @@ tests =
             ]
 #endif
         , testTypeable
+        , testGroup "Generic"
+            [ testProperty "Generic256" $ p prop_Generic256 ]
         ]
