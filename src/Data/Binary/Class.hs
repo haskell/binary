@@ -3,11 +3,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE Trustworthy #-}
-
-#if __GLASGOW_HASKELL__ >= 706
 {-# LANGUAGE PolyKinds #-}
-#endif
+{-# LANGUAGE Trustworthy #-}
 
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
