@@ -12,12 +12,12 @@ import Data.Monoid (Monoid(mappend, mempty))
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Criterion.Main
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
 import Data.Char (ord)
 import Data.Word (Word8)
+import Test.Tasty.Bench
 
 import Data.Binary.Builder
 

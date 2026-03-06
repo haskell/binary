@@ -26,11 +26,11 @@ main = do
   mb <- case args of
           (arg:_) -> readIO arg
           _ -> return 100
-  memBench (mb*10) 
+  memBench (mb*10)
   putStrLn ""
   putStrLn "Binary (de)serialisation benchmarks:"
 
-  -- do bytewise 
+  -- do bytewise
   sequence_
     [ test wordSize chunkSize Host mb
     | wordSize  <- [1]

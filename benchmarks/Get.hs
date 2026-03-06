@@ -1,20 +1,13 @@
-{-# LANGUAGE CPP, OverloadedStrings, ExistentialQuantification, BangPatterns #-}
-
-#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
-#include "MachDeps.h"
-#endif
-
-module Main where
+{-# LANGUAGE OverloadedStrings, BangPatterns #-}
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
-import Criterion.Main
 import qualified Data.ByteString as S
-import qualified Data.ByteString.Char8 as C8
 import qualified Data.ByteString.Lazy as L
 import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
+import Test.Tasty.Bench
 
 import Control.Applicative
 import Data.Binary
@@ -24,12 +17,6 @@ import qualified Data.Serialize.Get as Cereal
 
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString.Lazy as AL
-
-#if !MIN_VERSION_bytestring(0,10,0)
-instance NFData S.ByteString
-instance NFData L.ByteString where
-  rnf = rnf . L.toChunks
-#endif
 
 main :: IO ()
 main = do
@@ -45,23 +32,27 @@ main = do
   defaultMain
     [ bgroup "brackets"
         [ bench "Binary 100kb, one chunk" $
-            whnf (checkBracket . runTest bracketParser) brackets
+            whnf (checkBracket . runGet bracketParser) brackets
         , bench "Binary 100kb, 100 byte chunks" $
-            whnf (checkBracket . runTest bracketParser) bracketsInChunks
+            whnf (checkBracket . runGet bracketParser) bracketsInChunks
         , bench "Attoparsec lazy-bs 100kb, one chunk" $
             whnf (checkBracket . runAttoL bracketParser_atto) brackets
         , bench "Attoparsec lazy-bs 100kb, 100 byte chunks" $
             whnf (checkBracket . runAttoL bracketParser_atto) bracketsInChunks
         , bench "Attoparsec strict-bs 100kb" $
-            whnf (checkBracket . runAtto bracketParser_atto) $ S.concat (L.toChunks brackets)
+            whnf (checkBracket . runAtto bracketParser_atto) $ L.toStrict brackets
+        , bench "Cereal lazy-bs 100kb, one chunk" $
+            whnf (checkBracket . runCerealL bracketParser_cereal) brackets
+        , bench "Cereal lazy-bs 100kb, 100 byte chunks" $
+            whnf (checkBracket . runCerealL bracketParser_cereal) bracketsInChunks
         , bench "Cereal strict-bs 100kb" $
-            whnf (checkBracket . runCereal bracketParser_cereal) $ S.concat (L.toChunks brackets)
+            whnf (checkBracket . runCereal bracketParser_cereal) $ L.toStrict brackets
         ]
     , bgroup "comparison getStruct4, 1MB of struct of 4 Word8s"
       [ bench "Attoparsec" $
           whnf (runAtto (getStruct4_atto mega)) oneMegabyte
       , bench "Binary" $
-          whnf (runTest (getStruct4 mega)) oneMegabyteLBS
+          whnf (runGet (getStruct4 mega)) oneMegabyteLBS
       , bench "Cereal" $
           whnf (runCereal (getStruct4_cereal mega)) oneMegabyte
       ]
@@ -69,29 +60,29 @@ main = do
         [ bench "Attoparsec" $
             whnf (runAtto (getWord8N1_atto mega)) oneMegabyte
         , bench "Binary" $
-            whnf (runTest (getWord8N1 mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N1 mega)) oneMegabyteLBS
         , bench "Cereal" $
             whnf (runCereal (getWord8N1_cereal mega)) oneMegabyte
         ]
     , bgroup "getWord8 1MB"
         [ bench "chunk size 2 bytes" $
-            whnf (runTest (getWord8N2 mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N2 mega)) oneMegabyteLBS
         , bench "chunk size 4 bytes" $
-            whnf (runTest (getWord8N4 mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N4 mega)) oneMegabyteLBS
         , bench "chunk size 8 bytes" $
-            whnf (runTest (getWord8N8 mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N8 mega)) oneMegabyteLBS
         , bench "chunk size 16 bytes" $
-            whnf (runTest (getWord8N16 mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N16 mega)) oneMegabyteLBS
         ]
     , bgroup "getWord8 1MB Applicative"
         [ bench "chunk size 2 bytes" $
-            whnf (runTest (getWord8N2A mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N2A mega)) oneMegabyteLBS
         , bench "chunk size 4 bytes" $
-            whnf (runTest (getWord8N4A mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N4A mega)) oneMegabyteLBS
         , bench "chunk size 8 bytes" $
-            whnf (runTest (getWord8N8A mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N8A mega)) oneMegabyteLBS
         , bench "chunk size 16 bytes" $
-            whnf (runTest (getWord8N16A mega)) oneMegabyteLBS
+            whnf (runGet (getWord8N16A mega)) oneMegabyteLBS
         ]
     , bgroup "roll"
         [ bench "foldr"  $ nf (roll_foldr  :: [Word8] -> Integer) manyBytes
@@ -106,23 +97,25 @@ checkBracket :: Int -> Int
 checkBracket x | x == bracketCount = x
                | otherwise = error "argh!"
 
-runTest :: Get a -> L.ByteString -> a
-runTest decoder inp = runGet decoder inp
-
-runCereal :: Cereal.Get a -> C8.ByteString -> a
+runCereal :: Cereal.Get a -> S.ByteString -> a
 runCereal decoder inp = case Cereal.runGet decoder inp of
                           Right a -> a
                           Left err -> error err
 
-runAtto :: AL.Parser a -> C8.ByteString -> a
+runCerealL :: Cereal.Get a -> L.ByteString -> a
+runCerealL decoder inp = case Cereal.runGetLazy decoder inp of
+                          Right a -> a
+                          Left err -> error err
+
+runAtto :: AL.Parser a -> S.ByteString -> a
 runAtto decoder inp = case A.parseOnly decoder inp of
                         Right a -> a
                         Left err -> error err
 
-runAttoL :: Show a => AL.Parser a -> L.ByteString -> a
-runAttoL decoder inp = case AL.parse decoder inp of
-                        AL.Done _ r -> r
-                        a -> error (show a)
+runAttoL :: AL.Parser a -> L.ByteString -> a
+runAttoL decoder inp = case AL.parseOnly decoder inp of
+                        Right a -> a
+                        Left err -> error err
 
 -- Defs.
 
@@ -135,15 +128,11 @@ oneMegabyteLBS = L.fromChunks [oneMegabyte]
 mega :: Int
 mega = 1024 * 1024
 
--- 100k of brackets
-bracketTest :: L.ByteString -> Int
-bracketTest inp = runTest bracketParser inp
-
 bracketCount :: Int
 bracketCount = fromIntegral $ L.length brackets `div` 2
 
 brackets :: L.ByteString
-brackets = L.fromChunks [C8.concat (L.toChunks bracketsInChunks)]
+brackets = L.fromChunks [L.toStrict bracketsInChunks]
 
 bracketsInChunks :: L.ByteString
 bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
@@ -154,31 +143,36 @@ bracketsInChunks = L.fromChunks (replicate chunksOfBrackets oneChunk)
 bracketParser :: Get Int
 bracketParser = cont <|> return 0
   where
-  cont = do v <- some ( do 40 <- getWord8
-                           n <- many cont
-                           41 <- getWord8
-                           return $! sum n + 1)
-            return $! sum v
+    cont = do
+      v <- some $ do
+        40 <- getWord8 -- '('
+        n <- many cont
+        41 <- getWord8 -- ')'
+        return $! sum n + 1
+      return $! sum v
 
 bracketParser_cereal :: Cereal.Get Int
 bracketParser_cereal = cont <|> return 0
   where
-  cont = do v <- some ( do 40 <- Cereal.getWord8
-                           n <- many cont
-                           41 <- Cereal.getWord8
-                           return $! sum n + 1)
-            return $! sum v
+    cont = do
+      v <- some $ do
+        40 <- Cereal.getWord8 -- '('
+        n <- many cont
+        41 <- Cereal.getWord8 -- ')'
+        return $! sum n + 1
+      return $! sum v
 
 bracketParser_atto :: A.Parser Int
 bracketParser_atto = cont <|> return 0
   where
-  cont = do v <- some ( do _ <- A.word8 40
-                           n <- bracketParser_atto
-                           _ <- A.word8 41
-                           return $! n + 1)
-            return $! sum v
+    cont = do
+      v <- some $ do
+        _ <- A.word8 40 -- '('
+        n <- A.many' cont
+        _ <- A.word8 41 -- ')'
+        return $! sum n + 1
+      return $! sum v
 
--- Strict struct of 4 Word8s
 data S2 = S2 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
 data S4 = S4 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
 data S8 = S8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8

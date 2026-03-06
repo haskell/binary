@@ -30,7 +30,7 @@ build-type:      Simple
 tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.8, GHC == 9.4.8, GHC == 9.6.7, GHC == 9.8.4, GHC == 9.10.3, GHC == 9.12.2, GHC == 9.14.1
 extra-source-files:
   tools/derive/*.hs
--- from the benchmark 'bench'
+-- from the benchmark 'throughput'
 extra-source-files:
   benchmarks/CBenchmark.h
 extra-doc-files:
@@ -111,7 +111,7 @@ test-suite read-write-file
   default-language: Haskell2010
 
 
-benchmark bench
+benchmark throughput
   type: exitcode-stdio-1.0
   hs-source-dirs: benchmarks
   main-is: Benchmark.hs
@@ -131,7 +131,6 @@ benchmark bench
     build-depends: ghc-prim
   default-language: Haskell2010
 
-
 benchmark get
   type: exitcode-stdio-1.0
   hs-source-dirs: benchmarks
@@ -142,9 +141,9 @@ benchmark get
     binary,
     bytestring >= 0.10.4,
     cereal,
-    criterion == 1.*,
     deepseq,
-    mtl
+    mtl,
+    tasty-bench
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -152,7 +151,6 @@ benchmark get
     -- prior to ghc-7.4 generics lived in ghc-prim
     build-depends: ghc-prim
   default-language: Haskell2010
-
 
 benchmark put
   type: exitcode-stdio-1.0
@@ -162,8 +160,8 @@ benchmark put
     base >= 4.5.0.0 && < 5,
     binary,
     bytestring >= 0.10.4,
-    criterion == 1.*,
-    deepseq
+    deepseq,
+    tasty-bench
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2 -Wall
@@ -186,10 +184,10 @@ benchmark generics-bench
     generic-deriving >= 0.10,
     directory,
     filepath,
+    tasty-bench,
     unordered-containers,
-    zlib,
-    criterion
-    
+    zlib
+
   other-modules:
     Cabal24
     GenericsBenchCache
@@ -210,9 +208,9 @@ benchmark builder
     base >= 4.5.0.0 && < 5,
     binary,
     bytestring >= 0.10.4,
-    criterion == 1.*,
     deepseq,
-    mtl
+    mtl,
+    tasty-bench
   -- build dependencies from using binary source rather than depending on the library
   build-depends: array, containers
   ghc-options: -O2
