@@ -13,6 +13,7 @@ import           Distribution.Simple.Utils (withTempDirectory)
 import           Distribution.Verbosity    (silent)
 
 import           Data.Binary
+import           Data.Word
 
 data Foo = Bar !Word32 !Word32 !Word32 deriving (Eq, Show)
 
@@ -38,6 +39,6 @@ readWriteTest = TestCase $ do
     exampleData @=? content
 
 main :: IO ()
-main = do 
+main = do
   _ <- runTestTT readWriteTest
   return ()

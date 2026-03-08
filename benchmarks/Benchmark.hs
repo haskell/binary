@@ -5,6 +5,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
+import Data.Word
 
 import Control.Exception
 import System.CPUTime
