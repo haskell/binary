@@ -22,6 +22,7 @@ import           Data.ByteString.Short                (ShortByteString)
 import           Data.Int
 import           Data.Ratio
 import           Data.Typeable
+import           Data.Word
 import           System.IO.Unsafe
 
 import           Data.Orphans ()

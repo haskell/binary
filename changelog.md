@@ -1,6 +1,11 @@
 binary
 ======
 
+binary-0.9.0.0
+--------------
+
+- Don't reexport `Data.Word` from `Data.Binary`
+
 binary-0.8.9.2
 --------------
 
@@ -170,7 +175,7 @@ binary-0.7.1.0
 --------------
 
 - Add `lookAheadE :: Get (Either a b) -> Get (Either a b)`.
-- Add MonadPlus instance for Get. 
+- Add MonadPlus instance for Get.
 
 
 binary-0.7.0.1

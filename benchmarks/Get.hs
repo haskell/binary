@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
+import Data.Word
 import Test.Tasty.Bench
 
 import Control.Applicative
