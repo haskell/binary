@@ -150,6 +150,7 @@ module Data.Binary.Get (
     -- $incrementalinterface
     , Decoder(..)
     , runGetIncremental
+    , runGetIncremental'
 
     -- ** Providing input
     , pushChunk
@@ -233,7 +234,7 @@ import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
 
-import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
+import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental, runGetIncremental')
 import qualified Data.Binary.Get.Internal as I
 
 -- needed for casting words to float/double
@@ -289,6 +290,11 @@ data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
 -- 'pushEndOfInput'.
 runGetIncremental :: Get a -> Decoder a
 runGetIncremental = calculateOffset . I.runGetIncremental
+
+-- | Similar to 'runGetIncremental', but accept an initial chunk, it's faster
+-- than feeding initial chunk after 'runGetIncremental'.
+runGetIncremental' :: Get a -> B.ByteString -> Decoder a
+runGetIncremental' g = calculateOffset . I.runGetIncremental' g
 
 calculateOffset :: I.Decoder a -> Decoder a
 calculateOffset r0 = go r0 0
