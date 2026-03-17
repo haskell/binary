@@ -93,6 +93,7 @@ instance ( GSumPut  a, GSumPut  b
          | otherwise = sizeError "encode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
+    {-# INLINE[0] gput #-}
 
 instance ( GSumGet  a, GSumGet  b
          , SumSize    a, SumSize    b) => GBinaryGet (a :+: b) where
@@ -100,6 +101,7 @@ instance ( GSumGet  a, GSumGet  b
          | otherwise = sizeError "decode" size
       where
         size = unTagged (sumSize :: Tagged (a :+: b) Word64)
+    {-# INLINE[0] gget #-}
 
 sizeError :: Show size => String -> size -> error
 sizeError s size =
@@ -125,6 +127,7 @@ instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
         where
           sizeL = size `shiftR` 1
           sizeR = size - sizeL
+    {-# INLINE getSum #-}
 
 instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
     putSum !code !size s = case s of
