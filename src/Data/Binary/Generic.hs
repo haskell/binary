@@ -138,6 +138,7 @@ instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
       where
         sizeL = size `shiftR` 1
         sizeR = size - sizeL
+    {-# INLINE putSum #-}
 
 instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
