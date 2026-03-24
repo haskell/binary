@@ -30,6 +30,7 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.Bits
 import Data.Word
+import Data.Proxy
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
@@ -84,8 +85,8 @@ instance Binary a => GBinaryGet (K1 i a) where
 -- use two bytes, and so on till 2^64-1.
 
 #define GUARD(WORD) (size - 1) <= fromIntegral (maxBound :: WORD)
-#define PUTSUM(WORD) GUARD(WORD) = putSum (0 :: WORD) (fromIntegral (size - 1))
-#define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral (size - 1))
+#define PUTSUM(WORD) GUARD(WORD) = putSum (Proxy :: Proxy WORD) 0 size
+#define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum size . fromIntegral
 
 instance ( GSumPut  a, GSumPut  b
          , SumSize    a, SumSize    b) => GBinaryPut (a :+: b) where
@@ -109,41 +110,40 @@ sizeError s size =
 
 ------------------------------------------------------------------------
 
-checkGetSum :: (Ord word, Num word, Bits word, GSumGet f)
-            => word -> word -> Get (f a)
-checkGetSum maxCode code
-    | code <= maxCode = getSum code maxCode
-    | otherwise       = fail "Unknown encoding for constructor"
+checkGetSum :: (GSumGet f) => Word64 -> Word64 -> Get (f a)
+checkGetSum size code
+    | code < size = getSum code size
+    | otherwise   = fail "Unknown encoding for constructor"
 {-# INLINE checkGetSum #-}
 
 class GSumGet f where
-    getSum :: (Ord word, Num word, Bits word) => word -> word -> Get (f a)
+    getSum :: Word64 -> Word64 -> Get (f a)
 
 class GSumPut f where
-    putSum :: (Num w, Bits w, Binary w) => w -> w -> f a -> Put
+    putSum :: (Binary word, Num word) => Proxy word -> Word64 -> Word64 -> f a -> Put
 
 instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
-    getSum !code !maxCode
-        | code <= maxCodeL = L1 <$> getSum code                  maxCodeL
-        | otherwise        = R1 <$> getSum (code - maxCodeL - 1) maxCodeR
+    getSum !code !size
+        | code < sizeL = L1 <$> getSum code           sizeL
+        | otherwise    = R1 <$> getSum (code - sizeL) sizeR
       where
-        maxCodeL = (maxCode - 1) `shiftR` 1
-        maxCodeR = maxCode - maxCodeL - 1
+        sizeL = size `shiftR` 1
+        sizeR = size - sizeL
     {-# INLINE getSum #-}
 
 instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
-    putSum !code !maxCode s = case s of
-        L1 x -> putSum code                  maxCodeL x
-        R1 x -> putSum (code + maxCodeL + 1) maxCodeR x
+    putSum p !code !size s = case s of
+        L1 x -> putSum p code           sizeL x
+        R1 x -> putSum p (code + sizeL) sizeR x
       where
-        maxCodeL = (maxCode - 1) `shiftR` 1
-        maxCodeR = maxCode - maxCodeL - 1
+        sizeL = size `shiftR` 1
+        sizeR = size - sizeL
 
 instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
 
 instance GBinaryPut a => GSumPut (C1 c a) where
-    putSum !code _ x = put code <> gput x
+    putSum (_ :: Proxy word) !code _ x = put (fromIntegral code :: word) <> gput x
 
 ------------------------------------------------------------------------
 
