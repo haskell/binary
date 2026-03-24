@@ -84,8 +84,8 @@ instance Binary a => GBinaryGet (K1 i a) where
 -- use two bytes, and so on till 2^64-1.
 
 #define GUARD(WORD) (size - 1) <= fromIntegral (maxBound :: WORD)
-#define PUTSUM(WORD) GUARD(WORD) = putSum (0 :: WORD) (fromIntegral size)
-#define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral size)
+#define PUTSUM(WORD) GUARD(WORD) = putSum (0 :: WORD) (fromIntegral (size - 1))
+#define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum (fromIntegral (size - 1))
 
 instance ( GSumPut  a, GSumPut  b
          , SumSize    a, SumSize    b) => GBinaryPut (a :+: b) where
@@ -111,8 +111,9 @@ sizeError s size =
 
 checkGetSum :: (Ord word, Num word, Bits word, GSumGet f)
             => word -> word -> Get (f a)
-checkGetSum size code | code < size = getSum code size
-                      | otherwise   = fail "Unknown encoding for constructor"
+checkGetSum maxCode code
+    | code <= maxCode = getSum code maxCode
+    | otherwise       = fail "Unknown encoding for constructor"
 {-# INLINE checkGetSum #-}
 
 class GSumGet f where
@@ -122,20 +123,21 @@ class GSumPut f where
     putSum :: (Num w, Bits w, Binary w) => w -> w -> f a -> Put
 
 instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
-    getSum !code !size | code < sizeL = L1 <$> getSum code           sizeL
-                       | otherwise    = R1 <$> getSum (code - sizeL) sizeR
-        where
-          sizeL = size `shiftR` 1
-          sizeR = size - sizeL
+    getSum !code !maxCode
+        | code <= maxCodeL = L1 <$> getSum code                  maxCodeL
+        | otherwise        = R1 <$> getSum (code - maxCodeL - 1) maxCodeR
+      where
+        maxCodeL = (maxCode - 1) `shiftR` 1
+        maxCodeR = maxCode - maxCodeL - 1
     {-# INLINE getSum #-}
 
 instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
-    putSum !code !size s = case s of
-                             L1 x -> putSum code           sizeL x
-                             R1 x -> putSum (code + sizeL) sizeR x
-        where
-          sizeL = size `shiftR` 1
-          sizeR = size - sizeL
+    putSum !code !maxCode s = case s of
+        L1 x -> putSum code                  maxCodeL x
+        R1 x -> putSum (code + maxCodeL + 1) maxCodeR x
+      where
+        maxCodeL = (maxCode - 1) `shiftR` 1
+        maxCodeR = maxCode - maxCodeL - 1
 
 instance GBinaryGet a => GSumGet (C1 c a) where
     getSum _ _ = gget
