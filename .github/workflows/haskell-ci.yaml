@@ -36,14 +36,5 @@ jobs:
         run: cabal test --enable-tests
       - name: Build benchmarks
         run: cabal build --enable-benchmarks
-      - name: Bench
-        run: |
-          cabal run bench:throughput
-          cabal run bench:get
-          cabal run bench:put
-          cabal run bench:generics-bench
-          cabal run bench:builder
-        env:
-          TASTY_TIMEOUT: 100
       - name: Haddock
         run: cabal haddock
