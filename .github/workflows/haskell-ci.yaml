@@ -17,7 +17,7 @@ jobs:
         id: setup-haskell
         with:
           ghc-version: ${{ matrix.ghc }}
-      - name: cache
+      - name: Cache
         uses: actions/cache@v5
         with:
           path: |
@@ -38,3 +38,24 @@ jobs:
         run: cabal build --enable-benchmarks
       - name: Haddock
         run: cabal haddock
+
+  build-i386:
+    runs-on: ubuntu-latest
+    container:
+      image: i386/ubuntu
+    steps:
+      - uses: actions/checkout@v1 # newer version don't work
+      - name: Install GHCup
+        run: |
+          apt-get update -y
+          apt-get install -y autoconf build-essential zlib1g-dev libgmp-dev curl libncurses5 libtinfo5 libncurses5-dev libtinfo-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_INSTALL_NO_STACK=1 sh
+          echo "$HOME/.cabal/bin:$HOME/.ghcup/bin" >> "$GITHUB_PATH"
+      - name: Rename package to allow building test suite
+        run: |
+          sed -i 's/\(name:\s*binary\)/\1-cabal-is-broken/' binary.cabal
+          sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
+      - name: Build
+        run: cabal build
+      - name: Test
+        run: cabal test --enable-tests
