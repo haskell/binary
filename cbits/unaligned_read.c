@@ -1,6 +1,4 @@
-#include <string.h>
-
-#include "HsFFI.h"
+#include "unaligned_read.h"
 
 #define UNALIGNED_READ(TYPE) Hs##TYPE _hs_binary_unaligned_read_##TYPE(HsWord8 *ptr) { Hs##TYPE result; memcpy(&result, ptr, sizeof(Hs##TYPE)); return result; }
 

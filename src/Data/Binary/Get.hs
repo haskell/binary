@@ -460,7 +460,7 @@ getInt8 = fromIntegral <$> getWord8
 -- force GHC to inline getWordXX
 {-# RULES
 "getWord8/readN" getWord8 = readN 1 B.unsafeHead
-#-}
+ #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
@@ -587,7 +587,7 @@ getWordhost = readNWith SIZEOF_HSWORD $ \(Ptr p#) ->
 #else
 getWordhost = readNWith (sizeOf (0 :: Word)) unalignedReadWord
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Word" unalignedReadWord :: Ptr Word -> IO Word
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Word" unalignedReadWord :: Ptr Word -> IO Word
 #endif
 {-# INLINE getWordhost #-}
 
@@ -600,7 +600,7 @@ getWord16host = readNWith 2 $ \(Ptr p#) ->
 #else
 getWord16host = readNWith (sizeOf (0 :: Word16)) unalignedReadWord16
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Word16" unalignedReadWord16 :: Ptr Word16 -> IO Word16
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Word16" unalignedReadWord16 :: Ptr Word16 -> IO Word16
 #endif
 {-# INLINE getWord16host #-}
 
@@ -613,7 +613,7 @@ getWord32host = readNWith 4 $ \(Ptr p#) ->
 #else
 getWord32host = readNWith (sizeOf (0 :: Word32)) unalignedReadWord32
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Word32" unalignedReadWord32 :: Ptr Word32 -> IO Word32
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Word32" unalignedReadWord32 :: Ptr Word32 -> IO Word32
 #endif
 {-# INLINE getWord32host #-}
 
@@ -626,7 +626,7 @@ getWord64host = readNWith 8 $ \(Ptr p#) ->
 #else
 getWord64host = readNWith (sizeOf (0 :: Word64)) unalignedReadWord64
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Word64" unalignedReadWord64 :: Ptr Word64 -> IO Word64
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Word64" unalignedReadWord64 :: Ptr Word64 -> IO Word64
 #endif
 {-# INLINE getWord64host #-}
 
@@ -640,7 +640,7 @@ getInthost = readNWith SIZEOF_HSINT $ \(Ptr p#) ->
 #else
 getInthost = readNWith (sizeOf (0 :: Int)) unalignedReadInt
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Int" unalignedReadInt :: Ptr Int -> IO Int
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Int" unalignedReadInt :: Ptr Int -> IO Int
 #endif
 {-# INLINE getInthost #-}
 
@@ -653,7 +653,7 @@ getInt16host = readNWith 2 $ \(Ptr p#) ->
 #else
 getInt16host = readNWith (sizeOf (0 :: Int16)) unalignedReadInt16
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Int16" unalignedReadInt16 :: Ptr Int16 -> IO Int16
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Int16" unalignedReadInt16 :: Ptr Int16 -> IO Int16
 #endif
 {-# INLINE getInt16host #-}
 
@@ -666,7 +666,7 @@ getInt32host = readNWith 4 $ \(Ptr p#) ->
 #else
 getInt32host = readNWith (sizeOf (0 :: Int32)) unalignedReadInt32
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Int32" unalignedReadInt32 :: Ptr Int32 -> IO Int32
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Int32" unalignedReadInt32 :: Ptr Int32 -> IO Int32
 #endif
 {-# INLINE getInt32host #-}
 
@@ -679,7 +679,7 @@ getInt64host = readNWith 8 $ \(Ptr p#) ->
 #else
 getInt64host = readNWith (sizeOf (0 :: Int64)) unalignedReadInt64
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Int64" unalignedReadInt64 :: Ptr Int64 -> IO Int64
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Int64" unalignedReadInt64 :: Ptr Int64 -> IO Int64
 #endif
 {-# INLINE getInt64host #-}
 
@@ -714,7 +714,7 @@ getFloathost = readNWith 4 $ \(Ptr p#) ->
 #else
 getFloathost = readNWith (sizeOf (0 :: Float)) unalignedReadFloat
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Float" unalignedReadFloat :: Ptr Float -> IO Float
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Float" unalignedReadFloat :: Ptr Float -> IO Float
 #endif
 {-# INLINE getFloathost #-}
 
@@ -745,6 +745,6 @@ getDoublehost = readNWith 8 $ \(Ptr p#) ->
 #else
 getDoublehost = readNWith (sizeOf (0 :: Double)) unalignedReadDouble
 
-foreign import ccall unsafe "_hs_binary_unaligned_read_Double" unalignedReadDouble :: Ptr Double -> IO Double
+foreign import ccall unsafe "unaligned_read.h _hs_binary_unaligned_read_Double" unalignedReadDouble :: Ptr Double -> IO Double
 #endif
 {-# INLINE getDoublehost #-}

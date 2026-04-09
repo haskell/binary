@@ -3,10 +3,6 @@
 {-# LANGUAGE Safe #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-#if __GLASGOW_HASKELL__ >= 800
-#define HAS_DATA_KIND
-#endif
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Generic
@@ -34,9 +30,7 @@ import Data.Proxy
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
-#ifdef HAS_DATA_KIND
-import Data.Kind
-#endif
+import Data.Kind (Type)
 import GHC.Generics
 import Prelude -- Silence AMP warning.
 
@@ -151,11 +145,7 @@ instance GBinaryPut a => GSumPut (C1 c a) where
 class SumSize f where
     sumSize :: Tagged f Word64
 
-#ifdef HAS_DATA_KIND
 newtype Tagged (s :: Type -> Type) b = Tagged {unTagged :: b}
-#else
-newtype Tagged (s :: * -> *)       b = Tagged {unTagged :: b}
-#endif
 
 instance (SumSize a, SumSize b) => SumSize (a :+: b) where
     sumSize = Tagged $ unTagged (sumSize :: Tagged a Word64) +
