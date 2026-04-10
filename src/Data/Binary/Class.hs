@@ -51,6 +51,7 @@ import Data.Word
 import Data.Bits
 import Data.Int
 import Data.Complex (Complex(..))
+import Data.Proxy (Proxy(..))
 #ifdef HAS_VOID
 import Data.Void
 #endif
@@ -193,6 +194,10 @@ instance Binary Void where
 instance Binary () where
     put ()  = mempty
     get     = return ()
+
+instance Binary (Proxy a) where
+    put Proxy = pure ()
+    get       = pure Proxy
 
 -- Bools are encoded as a byte in the range 0 .. 1
 instance Binary Bool where

@@ -1,10 +1,11 @@
 binary
 ======
 
-binary-0.9.0.0
+binary-x.x.x.x
 --------------
 
 - Don't reexport `Data.Word` from `Data.Binary`
+- Add `Binary (Proxy a)` instance
 
 binary-0.8.9.2
 --------------
