@@ -171,6 +171,7 @@ module Data.Binary.Get (
     , getLazyByteString
     , getLazyByteStringNul
     , getRemainingLazyByteString
+    , getShortByteString
 
     -- ** Decoding Words
     , getWord8
@@ -232,6 +233,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
+import Data.ByteString.Short (ShortByteString, toShort)
 
 import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
@@ -431,6 +433,9 @@ getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
 -- all input and keeping the string in-memory.
 getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
+
+getShortByteString :: Int -> Get ShortByteString
+getShortByteString = fmap toShort . getByteString
 
 ------------------------------------------------------------------------
 -- Primitives

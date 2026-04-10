@@ -4,6 +4,7 @@ binary
 binary-x.x.x.x
 --------------
 
+- Add `Data.Binary.Get.getShortByteString`
 - Don't reexport `Data.Word` from `Data.Binary`
 - Add `Binary (Proxy a)` instance
 

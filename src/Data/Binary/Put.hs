@@ -38,9 +38,7 @@ module Data.Binary.Put (
     , putInt8
     , putByteString
     , putLazyByteString
-#if MIN_VERSION_bytestring(0,10,4)
     , putShortByteString
-#endif
 
     -- * Big-endian primitives
     , putWord16be
@@ -88,9 +86,7 @@ import Data.Int
 import Data.Word
 import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
-#if MIN_VERSION_bytestring(0,10,4)
 import Data.ByteString.Short
-#endif
 
 #ifdef HAS_SEMIGROUP
 import Data.Semigroup
@@ -226,12 +222,10 @@ putLazyByteString   :: L.ByteString -> Put
 putLazyByteString   = tell . B.fromLazyByteString
 {-# INLINE putLazyByteString #-}
 
-#if MIN_VERSION_bytestring(0,10,4)
 -- | Write 'ShortByteString' to the buffer
 putShortByteString :: ShortByteString -> Put
 putShortByteString = tell . B.fromShortByteString
 {-# INLINE putShortByteString #-}
-#endif
 
 -- | Write a Word16 in big endian format
 putWord16be         :: Word16 -> Put
