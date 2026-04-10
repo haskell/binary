@@ -192,10 +192,12 @@ putInt32le = B.int32LE
 -- | Write a Int64 in big endian format
 putInt64be :: Int64 -> Builder
 putInt64be = B.int64BE
+{-# INLINE putInt64be #-}
 
 -- | Write a Int64 in little endian format
 putInt64le :: Int64 -> Builder
 putInt64le = B.int64LE
+{-# INLINE putInt64le #-}
 
 
 ------------------------------------------------------------------------
