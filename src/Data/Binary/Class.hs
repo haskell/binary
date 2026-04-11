@@ -1013,11 +1013,8 @@ putTypeRep (App f x) = do
     putTypeRep f
     putTypeRep x
 #if __GLASGOW_HASKELL__ < 903
--- N.B. This pattern never matches,
--- even on versions of GHC older than 9.3:
+-- N.B. On newer versions of GHC, this pattern never matches:
 -- a `Fun` typerep will match with the `App` pattern.
--- This match is kept solely for pattern-match warnings,
--- which are incorrect on GHC prior to 9.3.
 putTypeRep (Fun arg res) = do
     put (3 :: Word8)
     putTypeRep arg
@@ -1050,6 +1047,16 @@ getSomeTypeRep = do
                        [ "Applied type: " ++ show f
                        , "To argument:  " ++ show x
                        ]
+#if __GLASGOW_HASKELL__ < 903
+        3 -> do SomeTypeRep arg <- getSomeTypeRep
+                SomeTypeRep res <- getSomeTypeRep
+                case typeRepKind arg `eqTypeRep` (typeRep :: TypeRep Type) of
+                  Just HRefl ->
+                      case typeRepKind res `eqTypeRep` (typeRep :: TypeRep Type) of
+                        Just HRefl -> return $ SomeTypeRep $ Fun arg res
+                        Nothing -> failure "Kind mismatch" []
+                  Nothing -> failure "Kind mismatch" []
+#endif
         _ -> failure "Invalid SomeTypeRep" []
   where
     failure description info =
