@@ -955,7 +955,7 @@ instance Binary RuntimeRep where
           17 -> pure Word32Rep
 #endif
 #endif
-          _  -> fail "GHCi.TH.Binary.putRuntimeRep: invalid tag"
+          _  -> fail "Data.Binary.put @RuntimeRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TyCon where
@@ -985,7 +985,7 @@ instance Binary KindRep where
           3 -> KindRepFun <$> get <*> get
           4 -> KindRepTYPE <$> get
           5 -> KindRepTypeLit <$> get <*> get
-          _ -> fail "GHCi.TH.Binary.putKindRep: invalid tag"
+          _ -> fail "Data.Binary.put @KindRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TypeLitSort where
@@ -1002,7 +1002,7 @@ instance Binary TypeLitSort where
 #ifdef HAS_TYPELITS_CHAR
           2 -> pure TypeLitChar
 #endif
-          _ -> fail "GHCi.TH.Binary.putTypeLitSort: invalid tag"
+          _ -> fail "Data.Binary.put @TypeLitSort: invalid tag"
 
 putTypeRep :: TypeRep a -> Put
 putTypeRep rep  -- Handle Type specially since it's so common
@@ -1063,8 +1063,8 @@ getSomeTypeRep = do
         _ -> failure "Invalid SomeTypeRep" []
   where
     failure description info =
-        fail $ unlines $ [ "GHCi.TH.Binary.getSomeTypeRep: "++description ]
-                      ++ map ("    "++) info
+        fail $ unlines $ ["Data.Binary.getSomeTypeRep: " ++ description]
+                      ++ map ("    " ++) info
 
 instance Typeable a => Binary (TypeRep (a :: k)) where
     put = putTypeRep
@@ -1073,7 +1073,7 @@ instance Typeable a => Binary (TypeRep (a :: k)) where
         case rep `eqTypeRep` expected of
           Just HRefl -> pure rep
           Nothing    -> fail $ unlines
-                        [ "GHCi.TH.Binary: Type mismatch"
+                        [ "Data.Binary.get @(TypeRep a): Type mismatch"
                         , "    Deserialized type: " ++ show rep
                         , "    Expected type:     " ++ show expected
                         ]
