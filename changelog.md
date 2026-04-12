@@ -1,12 +1,20 @@
 binary
 ======
 
+binary-x.x.x.x
+--------------
+
+- Don't reexport `Data.Word` from `Data.Binary`
+- Add `Binary (Proxy a)` instance
+- Add binary instance for `GHC.Generics.Generically`. `Binary T` can
+  be derived via `Generically T` for a suitable generic type `T`.
 
 binary-0.8.9.2
 --------------
 
-- Add binary instance for `GHC.Generics.Generically`. `Binary T` can
-  be derived via `Generically T` for a suitable generic type `T`.
+- Documentation improvements
+- Ensure that `many` has an unfolding
+- Import `Data.List` as qualified
 
 binary-0.8.9.1
 --------------
@@ -121,7 +129,7 @@ binary-0.7.6.0
 binary-0.7.5.0
 --------------
 
-- Fix performance bug that was noticable when you get a big strict ByteString
+- Fix performance bug that was noticeable when you get a big strict ByteString
   and the input to the decoder consists of many small chunks.
     - https://github.com/kolmodin/binary/issues/73
     - https://github.com/kolmodin/binary/pull/76
@@ -170,7 +178,7 @@ binary-0.7.1.0
 --------------
 
 - Add `lookAheadE :: Get (Either a b) -> Get (Either a b)`.
-- Add MonadPlus instance for Get. 
+- Add MonadPlus instance for Get.
 
 
 binary-0.7.0.1
@@ -196,7 +204,7 @@ binary-0.6.4
 binary-0.6.3
 ------------
 
-- Documentation tweeks, internal restructuring, more tests.
+- Documentation tweaks, internal restructuring, more tests.
 
 binary-0.6.2
 ------------

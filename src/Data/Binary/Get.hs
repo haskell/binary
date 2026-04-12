@@ -1,8 +1,13 @@
 {-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns #-}
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 #if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
 #include "MachDeps.h"
+#endif
+
+#if defined(MIN_VERSION_GLASGOW_HASKELL) && MIN_VERSION_GLASGOW_HASKELL(9,10,0,0)
+#define HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE
 #endif
 
 -----------------------------------------------------------------------------
@@ -41,7 +46,7 @@
 -- The fields in @Trade@ are marked as strict (using @!@) since we don't need
 -- laziness here. In practise, you would probably consider using the UNPACK
 -- pragma as well.
--- <https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#unpack-pragma>
+-- <https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/pragmas.html#unpack-pragma>
 --
 -- Now, let's have a look at a decoder for this format.
 --
@@ -234,6 +239,13 @@ import qualified Data.Binary.Get.Internal as I
 -- needed for casting words to float/double
 import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+import GHC.Exts
+import GHC.IO
+import GHC.Int
+import GHC.Word
+#endif
+
 -- $lazyinterface
 -- The lazy interface consumes a single lazy 'L.ByteString'. It's the easiest
 -- interface to get started with, but it doesn't support interleaving I\/O and
@@ -257,7 +269,7 @@ import Data.Binary.FloatCast (wordToFloat, wordToDouble)
 -- If it succeeds it will return 'Done' with the resulting value,
 -- the position and the remaining input.
 
--- | A decoder procuced by running a 'Get' monad.
+-- | A decoder produced by running a 'Get' monad.
 data Decoder a = Fail !B.ByteString {-# UNPACK #-} !ByteOffset String
               -- ^ The decoder ran into an error. The decoder either used
               -- 'fail' or was not provided enough input. Contains any
@@ -421,14 +433,16 @@ getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
 ------------------------------------------------------------------------
--- Primtives
+-- Primitives
 
 -- helper, get a raw Ptr onto a strict ByteString copied out of the
 -- underlying lazy byteString.
 
+#if !defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
 getPtr :: Storable a => Int -> Get a
 getPtr n = readNWith n peek
 {-# INLINE getPtr #-}
+#endif
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
@@ -444,125 +458,116 @@ getInt8 = fromIntegral <$> getWord8
 -- force GHC to inline getWordXX
 {-# RULES
 "getWord8/readN" getWord8 = readN 1 B.unsafeHead
-"getWord16be/readN" getWord16be = readN 2 word16be
-"getWord16le/readN" getWord16le = readN 2 word16le
-"getWord32be/readN" getWord32be = readN 4 word32be
-"getWord32le/readN" getWord32le = readN 4 word32le
-"getWord64be/readN" getWord64be = readN 8 word64be
-"getWord64le/readN" getWord64le = readN 8 word64le #-}
+#-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16
-getWord16be = readN 2 word16be
-
-word16be :: B.ByteString -> Word16
-word16be = \s ->
-        (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 8) .|.
-        (fromIntegral (s `B.unsafeIndex` 1))
-{-# INLINE[2] getWord16be #-}
-{-# INLINE word16be #-}
+#if defined(WORDS_BIGENDIAN)
+getWord16be = getWord16host
+#else
+getWord16be = byteSwap16 <$> getWord16host
+#endif
+{-# INLINE getWord16be #-}
 
 -- | Read a Word16 in little endian format
 getWord16le :: Get Word16
-getWord16le = readN 2 word16le
-
-word16le :: B.ByteString -> Word16
-word16le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 8) .|.
-              (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord16le #-}
-{-# INLINE word16le #-}
+#if defined(WORDS_BIGENDIAN)
+getWord16le = byteSwap16 <$> getWord16host
+#else
+getWord16le = getWord16host
+#endif
+{-# INLINE getWord16le #-}
 
 -- | Read a Word32 in big endian format
 getWord32be :: Get Word32
-getWord32be = readN 4 word32be
-
-word32be :: B.ByteString -> Word32
-word32be = \s ->
-              (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL`  8) .|.
-              (fromIntegral (s `B.unsafeIndex` 3) )
-{-# INLINE[2] getWord32be #-}
-{-# INLINE word32be #-}
+#if defined(WORDS_BIGENDIAN)
+getWord32be = getWord32host
+#else
+getWord32be = byteSwap32 <$> getWord32host
+#endif
+{-# INLINE getWord32be #-}
 
 -- | Read a Word32 in little endian format
 getWord32le :: Get Word32
-getWord32le = readN 4 word32le
-
-word32le :: B.ByteString -> Word32
-word32le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
-              (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord32le #-}
-{-# INLINE word32le #-}
+#if defined(WORDS_BIGENDIAN)
+getWord32le = byteSwap32 <$> getWord32host
+#else
+getWord32le = getWord32host
+#endif
+{-# INLINE getWord32le #-}
 
 -- | Read a Word64 in big endian format
 getWord64be :: Get Word64
-getWord64be = readN 8 word64be
-
-word64be :: B.ByteString -> Word64
-word64be = \s ->
-              (fromIntegral (s `B.unsafeIndex` 0) `unsafeShiftL` 56) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL` 48) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 40) .|.
-              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 32) .|.
-              (fromIntegral (s `B.unsafeIndex` 4) `unsafeShiftL` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 5) `unsafeShiftL` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL`  8) .|.
-              (fromIntegral (s `B.unsafeIndex` 7) )
-{-# INLINE[2] getWord64be #-}
-{-# INLINE word64be #-}
+#if defined(WORDS_BIGENDIAN)
+getWord64be = getWord64host
+#else
+getWord64be = byteSwap64 <$> getWord64host
+#endif
+{-# INLINE getWord64be #-}
 
 -- | Read a Word64 in little endian format
 getWord64le :: Get Word64
-getWord64le = readN 8 word64le
-
-word64le :: B.ByteString -> Word64
-word64le = \s ->
-              (fromIntegral (s `B.unsafeIndex` 7) `unsafeShiftL` 56) .|.
-              (fromIntegral (s `B.unsafeIndex` 6) `unsafeShiftL` 48) .|.
-              (fromIntegral (s `B.unsafeIndex` 5) `unsafeShiftL` 40) .|.
-              (fromIntegral (s `B.unsafeIndex` 4) `unsafeShiftL` 32) .|.
-              (fromIntegral (s `B.unsafeIndex` 3) `unsafeShiftL` 24) .|.
-              (fromIntegral (s `B.unsafeIndex` 2) `unsafeShiftL` 16) .|.
-              (fromIntegral (s `B.unsafeIndex` 1) `unsafeShiftL`  8) .|.
-              (fromIntegral (s `B.unsafeIndex` 0) )
-{-# INLINE[2] getWord64le #-}
-{-# INLINE word64le #-}
+#if defined(WORDS_BIGENDIAN)
+getWord64le = byteSwap64 <$> getWord64host
+#else
+getWord64le = getWord64host
+#endif
+{-# INLINE getWord64le #-}
 
 
 -- | Read an Int16 in big endian format.
 getInt16be :: Get Int16
+#if defined(WORDS_BIGENDIAN)
+getInt16be = getInt16host
+#else
 getInt16be = fromIntegral <$> getWord16be
+#endif
 {-# INLINE getInt16be #-}
 
 -- | Read an Int32 in big endian format.
 getInt32be :: Get Int32
+#if defined(WORDS_BIGENDIAN)
+getInt32be = getInt32host
+#else
 getInt32be =  fromIntegral <$> getWord32be
+#endif
 {-# INLINE getInt32be #-}
 
 -- | Read an Int64 in big endian format.
 getInt64be :: Get Int64
+#if defined(WORDS_BIGENDIAN)
+getInt64be = getInt64host
+#else
 getInt64be = fromIntegral <$> getWord64be
+#endif
 {-# INLINE getInt64be #-}
 
 
 -- | Read an Int16 in little endian format.
 getInt16le :: Get Int16
+#if defined(WORDS_BIGENDIAN)
 getInt16le = fromIntegral <$> getWord16le
+#else
+getInt16le = getInt16host
+#endif
 {-# INLINE getInt16le #-}
 
 -- | Read an Int32 in little endian format.
 getInt32le :: Get Int32
+#if defined(WORDS_BIGENDIAN)
 getInt32le =  fromIntegral <$> getWord32le
+#else
+getInt32le = getInt32host
+#endif
 {-# INLINE getInt32le #-}
 
 -- | Read an Int64 in little endian format.
 getInt64le :: Get Int64
+#if defined(WORDS_BIGENDIAN)
 getInt64le = fromIntegral <$> getWord64le
+#else
+getInt64le = getInt64host
+#endif
 {-# INLINE getInt64le #-}
 
 
@@ -573,43 +578,91 @@ getInt64le = fromIntegral <$> getWord64le
 -- host order, host endian form, for the machine you're on. On a 64 bit
 -- machine the Word is an 8 byte value, on a 32 bit machine, 4 bytes.
 getWordhost :: Get Word
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getWordhost = readNWith SIZEOF_HSWORD $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsWord# p# 0# s of
+    (# s', w# #) -> (# s', W# w# #)
+#else
 getWordhost = getPtr (sizeOf (undefined :: Word))
+#endif
 {-# INLINE getWordhost #-}
 
 -- | /O(1)./ Read a 2 byte Word16 in native host order and host endianness.
-getWord16host :: Get Word16
-getWord16host = getPtr (sizeOf (undefined :: Word16))
+getWord16host   :: Get Word16
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getWord16host = readNWith 2 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsWord16# p# 0# s of
+    (# s', w16# #) -> (# s', W16# w16# #)
+#else
+getWord16host = getPtr  (sizeOf (undefined :: Word16))
+#endif
 {-# INLINE getWord16host #-}
 
 -- | /O(1)./ Read a Word32 in native host order and host endianness.
-getWord32host :: Get Word32
+getWord32host   :: Get Word32
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getWord32host = readNWith 4 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsWord32# p# 0# s of
+    (# s', w32# #) -> (# s', W32# w32# #)
+#else
 getWord32host = getPtr  (sizeOf (undefined :: Word32))
+#endif
 {-# INLINE getWord32host #-}
 
--- | /O(1)./ Read a Word64 in native host order and host endianess.
+-- | /O(1)./ Read a Word64 in native host order and host endianness.
 getWord64host   :: Get Word64
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getWord64host = readNWith 8 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsWord64# p# 0# s of
+    (# s', w64# #) -> (# s', W64# w64# #)
+#else
 getWord64host = getPtr  (sizeOf (undefined :: Word64))
+#endif
 {-# INLINE getWord64host #-}
 
 -- | /O(1)./ Read a single native machine word in native host
 -- order. It works in the same way as 'getWordhost'.
 getInthost :: Get Int
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getInthost = readNWith SIZEOF_HSINT $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsInt# p# 0# s of
+    (# s', i# #) -> (# s', I# i# #)
+#else
 getInthost = getPtr (sizeOf (undefined :: Int))
+#endif
 {-# INLINE getInthost #-}
 
 -- | /O(1)./ Read a 2 byte Int16 in native host order and host endianness.
 getInt16host :: Get Int16
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getInt16host = readNWith 2 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsInt16# p# 0# s of
+    (# s', i16# #) -> (# s', I16# i16# #)
+#else
 getInt16host = getPtr (sizeOf (undefined :: Int16))
+#endif
 {-# INLINE getInt16host #-}
 
 -- | /O(1)./ Read an Int32 in native host order and host endianness.
 getInt32host :: Get Int32
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getInt32host = readNWith 4 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsInt32# p# 0# s of
+    (# s', i32# #) -> (# s', I32# i32# #)
+#else
 getInt32host = getPtr  (sizeOf (undefined :: Int32))
+#endif
 {-# INLINE getInt32host #-}
 
--- | /O(1)./ Read an Int64 in native host order and host endianess.
+-- | /O(1)./ Read an Int64 in native host order and host endianness.
 getInt64host   :: Get Int64
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getInt64host = readNWith 8 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsInt64# p# 0# s of
+    (# s', i64# #) -> (# s', I64# i64# #)
+#else
 getInt64host = getPtr  (sizeOf (undefined :: Int64))
+#endif
 {-# INLINE getInt64host #-}
 
 
@@ -618,30 +671,58 @@ getInt64host = getPtr  (sizeOf (undefined :: Int64))
 
 -- | Read a 'Float' in big endian IEEE-754 format.
 getFloatbe :: Get Float
+#if defined(WORDS_BIGENDIAN)
+getFloatbe = getFloathost
+#else
 getFloatbe = wordToFloat <$> getWord32be
+#endif
 {-# INLINE getFloatbe #-}
 
 -- | Read a 'Float' in little endian IEEE-754 format.
 getFloatle :: Get Float
+#if defined(WORDS_BIGENDIAN)
 getFloatle = wordToFloat <$> getWord32le
+#else
+getFloatle = getFloathost
+#endif
 {-# INLINE getFloatle #-}
 
 -- | Read a 'Float' in IEEE-754 format and host endian.
 getFloathost :: Get Float
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getFloathost = readNWith 4 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsFloat# p# 0# s of
+    (# s', f# #) -> (# s', F# f# #)
+#else
 getFloathost = wordToFloat <$> getWord32host
+#endif
 {-# INLINE getFloathost #-}
 
 -- | Read a 'Double' in big endian IEEE-754 format.
 getDoublebe :: Get Double
+#if defined(WORDS_BIGENDIAN)
+getDoublebe = getDoublehost
+#else
 getDoublebe = wordToDouble <$> getWord64be
+#endif
 {-# INLINE getDoublebe #-}
 
 -- | Read a 'Double' in little endian IEEE-754 format.
 getDoublele :: Get Double
+#if defined(WORDS_BIGENDIAN)
 getDoublele = wordToDouble <$> getWord64le
+#else
+getDoublele = getDoublehost
+#endif
 {-# INLINE getDoublele #-}
 
 -- | Read a 'Double' in IEEE-754 format and host endian.
 getDoublehost :: Get Double
+#if defined(HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE)
+getDoublehost = readNWith 8 $ \(Ptr p#) ->
+  IO $ \s -> case readWord8OffAddrAsDouble# p# 0# s of
+    (# s', d# #) -> (# s', D# d# #)
+#else
 getDoublehost = wordToDouble <$> getWord64host
+#endif
 {-# INLINE getDoublehost #-}

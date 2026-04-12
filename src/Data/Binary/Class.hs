@@ -3,11 +3,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE Trustworthy #-}
-
-#if __GLASGOW_HASKELL__ >= 706
 {-# LANGUAGE PolyKinds #-}
-#endif
+{-# LANGUAGE Trustworthy #-}
 
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
@@ -51,10 +48,14 @@ module Data.Binary.Class (
 
     ) where
 
+import Prelude hiding (Foldable(..))
+import Data.Foldable (Foldable(..))
+
 import Data.Word
 import Data.Bits
 import Data.Int
 import Data.Complex (Complex(..))
+import Data.Proxy (Proxy(..))
 #ifdef HAS_VOID
 import Data.Void
 #endif
@@ -83,7 +84,7 @@ import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder.Prim as Prim
 
-import Data.List    (unfoldr, foldl')
+import Data.List    (unfoldr)
 
 -- And needed for the instances:
 #if MIN_VERSION_base(4,10,0)
@@ -206,6 +207,10 @@ instance Binary Void where
 instance Binary () where
     put ()  = mempty
     get     = return ()
+
+instance Binary (Proxy a) where
+    put Proxy = pure ()
+    get       = pure Proxy
 
 -- Bools are encoded as a byte in the range 0 .. 1
 instance Binary Bool where

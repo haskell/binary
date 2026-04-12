@@ -5,6 +5,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get
+import Data.Word
 
 import Control.Exception
 import System.CPUTime
@@ -26,11 +27,11 @@ main = do
   mb <- case args of
           (arg:_) -> readIO arg
           _ -> return 100
-  memBench (mb*10) 
+  memBench (mb*10)
   putStrLn ""
   putStrLn "Binary (de)serialisation benchmarks:"
 
-  -- do bytewise 
+  -- do bytewise
   sequence_
     [ test wordSize chunkSize Host mb
     | wordSize  <- [1]

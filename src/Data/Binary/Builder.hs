@@ -74,7 +74,7 @@ import qualified Data.ByteString.Short as T
 #endif
 
 import qualified Data.ByteString.Builder as B
-import qualified Data.ByteString.Builder.Prim as Prim
+import qualified Data.ByteString.Builder.Extra as B
 import Data.ByteString.Builder ( Builder, toLazyByteString )
 import Data.ByteString.Builder.Extra ( flush )
 import Data.Monoid
@@ -192,10 +192,12 @@ putInt32le = B.int32LE
 -- | Write a Int64 in big endian format
 putInt64be :: Int64 -> Builder
 putInt64be = B.int64BE
+{-# INLINE putInt64be #-}
 
 -- | Write a Int64 in little endian format
 putInt64le :: Int64 -> Builder
 putInt64le = B.int64LE
+{-# INLINE putInt64le #-}
 
 
 ------------------------------------------------------------------------
@@ -208,26 +210,26 @@ putInt64le = B.int64LE
 -- different endian or word sized machines, without conversion.
 --
 putWordhost :: Word -> Builder
-putWordhost = Prim.primFixed Prim.wordHost
+putWordhost = B.wordHost
 {-# INLINE putWordhost #-}
 
 -- | Write a Word16 in native host order and host endianness.
 -- 2 bytes will be written, unaligned.
 putWord16host :: Word16 -> Builder
-putWord16host = Prim.primFixed Prim.word16Host
+putWord16host = B.word16Host
 {-# INLINE putWord16host #-}
 
 -- | Write a Word32 in native host order and host endianness.
 -- 4 bytes will be written, unaligned.
 putWord32host :: Word32 -> Builder
-putWord32host = Prim.primFixed Prim.word32Host
+putWord32host = B.word32Host
 {-# INLINE putWord32host #-}
 
 -- | Write a Word64 in native host order.
 -- On a 32 bit machine we write two host order Word32s, in big endian form.
 -- 8 bytes will be written, unaligned.
 putWord64host :: Word64 -> Builder
-putWord64host = Prim.primFixed Prim.word64Host
+putWord64host = B.word64Host
 {-# INLINE putWord64host #-}
 
 -- | /O(1)./ A Builder taking a single native machine word. The word is
@@ -237,26 +239,26 @@ putWord64host = Prim.primFixed Prim.word64Host
 -- different endian or word sized machines, without conversion.
 --
 putInthost :: Int -> Builder
-putInthost = Prim.primFixed Prim.intHost
+putInthost = B.intHost
 {-# INLINE putInthost #-}
 
 -- | Write a Int16 in native host order and host endianness.
 -- 2 bytes will be written, unaligned.
 putInt16host :: Int16 -> Builder
-putInt16host = Prim.primFixed Prim.int16Host
+putInt16host = B.int16Host
 {-# INLINE putInt16host #-}
 
 -- | Write a Int32 in native host order and host endianness.
 -- 4 bytes will be written, unaligned.
 putInt32host :: Int32 -> Builder
-putInt32host = Prim.primFixed Prim.int32Host
+putInt32host = B.int32Host
 {-# INLINE putInt32host #-}
 
 -- | Write a Int64 in native host order.
 -- On a 32 bit machine we write two host order Int32s, in big endian form.
 -- 8 bytes will be written, unaligned.
 putInt64host :: Int64 -> Builder
-putInt64host = Prim.primFixed Prim.int64Host
+putInt64host = B.int64Host
 {-# INLINE putInt64host #-}
 
 
@@ -265,10 +267,10 @@ putInt64host = Prim.primFixed Prim.int64Host
 
 -- | Write a character using UTF-8 encoding.
 putCharUtf8 :: Char -> Builder
-putCharUtf8 = Prim.primBounded Prim.charUtf8
+putCharUtf8 = B.charUtf8
 {-# INLINE putCharUtf8 #-}
 
 -- | Write a String using UTF-8 encoding.
 putStringUtf8 :: String -> Builder
-putStringUtf8 = Prim.primMapListBounded Prim.charUtf8
+putStringUtf8 = B.stringUtf8
 {-# INLINE putStringUtf8 #-}

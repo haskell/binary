@@ -67,11 +67,7 @@ module Data.Binary (
     , decodeFile                -- :: Binary a => FilePath -> IO a
     , decodeFileOrFail
 
-    , module Data.Word -- useful
-
     ) where
-
-import Data.Word
 
 import Data.Binary.Class
 import Data.Binary.Put

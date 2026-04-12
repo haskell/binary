@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns, TypeFamilies #-}
 
--- CPP C style pre-precessing, the #if defined lines
+-- CPP C style pre-processing, the #if defined lines
 -- RankNTypes forall r. statement
 -- MagicHash the (# unboxing #), also needs GHC.primitives
 
@@ -56,7 +56,7 @@ import Data.Binary.Internal ( accursedUnutterablePerformIO )
 
 -- Kolmodin 20100427: at zurihac we discussed of having partial take a
 -- "Maybe ByteString" and implemented it in this way.
--- The reasoning was that you could accidently provide an empty bytestring,
+-- The reasoning was that you could accidentally provide an empty bytestring,
 -- and it should not terminate the decoding (empty would mean eof).
 -- However, I'd say that it's also a risk that you get stuck in a loop,
 -- where you keep providing an empty string. Anyway, no new input should be
@@ -76,7 +76,7 @@ data Decoder a = Fail !B.ByteString String
               -- output value you also get the unused input.
               | BytesRead {-# UNPACK #-} !Int64 (Int64 -> Decoder a)
               -- ^ The decoder needs to know the current position in the input.
-              -- Given the number of bytes remaning in the decoder, the outer
+              -- Given the number of bytes remaining in the decoder, the outer
               -- decoder runner needs to calculate the position and
               -- resume the decoding.
 
