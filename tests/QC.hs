@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DeriveGeneric, ScopedTypeVariables, DataKinds, TypeSynonymInstances #-}
+{-# LANGUAGE CPP, DeriveGeneric, ScopedTypeVariables, DataKinds, TypeSynonymInstances, MagicHash, UnboxedTuples #-}
 module Main ( main ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -31,6 +31,7 @@ import           Data.Orphans ()
 import           Numeric.Natural
 #endif
 
+import           GHC.Exts (Array#, Word#)
 import           GHC.Fingerprint
 import           GHC.Generics (Generic)
 
@@ -180,6 +181,12 @@ atomicTypeReps =
     , typeRep (Proxy :: Proxy ('Left Int))
     , typeRep (Proxy :: Proxy (Either Int String))
     , typeRep (Proxy :: Proxy (() -> ()))
+    , typeRep (Proxy :: Proxy (# #))
+    , typeRep (Proxy :: Proxy (#,#))
+    , typeRep (Proxy :: Proxy Word#)
+    , typeRep (Proxy :: Proxy (Word# -> Word#))
+    , typeRep (Proxy :: Proxy Array#)
+    , typeRep (Proxy :: Proxy (Array# Int))
     ]
 
 instance Arbitrary TypeRep where

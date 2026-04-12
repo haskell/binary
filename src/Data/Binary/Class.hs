@@ -6,6 +6,10 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE Trustworthy #-}
 
+#if MIN_VERSION_base(4,10,0)
+{-# LANGUAGE MultiWayIf #-}
+#endif
+
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
 #endif
@@ -87,7 +91,7 @@ import Data.List    (unfoldr)
 import Type.Reflection
 import Type.Reflection.Unsafe
 import Data.Kind (Type)
-import GHC.Exts (RuntimeRep(..), VecCount, VecElem)
+import GHC.Exts (TYPE, RuntimeRep(..), VecCount, VecElem)
 #endif
 import qualified Data.ByteString as B
 #if MIN_VERSION_bytestring(0,10,4)
@@ -1047,16 +1051,15 @@ getSomeTypeRep = do
                        [ "Applied type: " ++ show f
                        , "To argument:  " ++ show x
                        ]
-#if __GLASGOW_HASKELL__ < 903
         3 -> do SomeTypeRep arg <- getSomeTypeRep
                 SomeTypeRep res <- getSomeTypeRep
-                case typeRepKind arg `eqTypeRep` (typeRep :: TypeRep Type) of
-                  Just HRefl ->
-                      case typeRepKind res `eqTypeRep` (typeRep :: TypeRep Type) of
-                        Just HRefl -> return $ SomeTypeRep $ Fun arg res
-                        Nothing -> failure "Kind mismatch" []
-                  Nothing -> failure "Kind mismatch" []
-#endif
+                if
+                  | App argkcon _ <- typeRepKind arg
+                  , App reskcon _ <- typeRepKind res
+                  , Just HRefl <- argkcon `eqTypeRep` (typeRep :: TypeRep TYPE)
+                  , Just HRefl <- reskcon `eqTypeRep` (typeRep :: TypeRep TYPE)
+                  -> return $ SomeTypeRep $ Fun arg res
+                  | otherwise -> failure "Kind mismatch" []
         _ -> failure "Invalid SomeTypeRep" []
   where
     failure description info =
