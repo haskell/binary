@@ -64,7 +64,6 @@ This is achieved by deriving an instance of ``Generic`` and then
 deriving the appropriate ``Binary T`` instance via ``Generically T``.
 
 ```haskell
-{-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia        #-}
@@ -77,7 +76,7 @@ data Foo = Foo
   deriving Binary via Generically Foo
 ```
 
-Beginning with GHC 7.2 this generic definition has been a part of the
+Beginning with GHC 7.2, a generic definition has been a part of the
 ``Binary`` typeclass. This could also be derived using the
 ``anyclass`` strategy:
 
