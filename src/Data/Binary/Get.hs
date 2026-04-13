@@ -585,7 +585,7 @@ getWordhost = readNWith SIZEOF_HSWORD $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsWord# p# 0# s of
     (# s', w# #) -> (# s', W# w# #)
 #else
-getWordhost = readNWith SIZEOF_HSWORD unalignedReadWord
+getWordhost = readNWith (sizeOf (0 :: Word)) unalignedReadWord
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Word" unalignedReadWord :: Ptr Word -> IO Word
 #endif
@@ -598,7 +598,7 @@ getWord16host = readNWith 2 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsWord16# p# 0# s of
     (# s', w16# #) -> (# s', W16# w16# #)
 #else
-getWord16host = readNWith 2 unalignedReadWord16
+getWord16host = readNWith (sizeOf (0 :: Word16)) unalignedReadWord16
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Word16" unalignedReadWord16 :: Ptr Word16 -> IO Word16
 #endif
@@ -611,7 +611,7 @@ getWord32host = readNWith 4 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsWord32# p# 0# s of
     (# s', w32# #) -> (# s', W32# w32# #)
 #else
-getWord32host = readNWith 4 unalignedReadWord32
+getWord32host = readNWith (sizeOf (0 :: Word32)) unalignedReadWord32
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Word32" unalignedReadWord32 :: Ptr Word32 -> IO Word32
 #endif
@@ -624,7 +624,7 @@ getWord64host = readNWith 8 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsWord64# p# 0# s of
     (# s', w64# #) -> (# s', W64# w64# #)
 #else
-getWord64host = readNWith 8 unalignedReadWord64
+getWord64host = readNWith (sizeOf (0 :: Word64)) unalignedReadWord64
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Word64" unalignedReadWord64 :: Ptr Word64 -> IO Word64
 #endif
@@ -638,7 +638,7 @@ getInthost = readNWith SIZEOF_HSINT $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsInt# p# 0# s of
     (# s', i# #) -> (# s', I# i# #)
 #else
-getInthost = readNWith SIZEOF_HSINT unalignedReadInt
+getInthost = readNWith (sizeOf (0 :: Int)) unalignedReadInt
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Int" unalignedReadInt :: Ptr Int -> IO Int
 #endif
@@ -651,7 +651,7 @@ getInt16host = readNWith 2 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsInt16# p# 0# s of
     (# s', i16# #) -> (# s', I16# i16# #)
 #else
-getInt16host = readNWith 2 unalignedReadInt16
+getInt16host = readNWith (sizeOf (0 :: Int16)) unalignedReadInt16
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Int16" unalignedReadInt16 :: Ptr Int16 -> IO Int16
 #endif
@@ -664,7 +664,7 @@ getInt32host = readNWith 4 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsInt32# p# 0# s of
     (# s', i32# #) -> (# s', I32# i32# #)
 #else
-getInt32host = readNWith 4 unalignedReadInt32
+getInt32host = readNWith (sizeOf (0 :: Int32)) unalignedReadInt32
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Int32" unalignedReadInt32 :: Ptr Int32 -> IO Int32
 #endif
@@ -677,7 +677,7 @@ getInt64host = readNWith 8 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsInt64# p# 0# s of
     (# s', i64# #) -> (# s', I64# i64# #)
 #else
-getInt64host = readNWith 8 unalignedReadInt64
+getInt64host = readNWith (sizeOf (0 :: Int64)) unalignedReadInt64
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Int64" unalignedReadInt64 :: Ptr Int64 -> IO Int64
 #endif
@@ -712,7 +712,7 @@ getFloathost = readNWith 4 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsFloat# p# 0# s of
     (# s', f# #) -> (# s', F# f# #)
 #else
-getFloathost = readNWith 4 unalignedReadFloat
+getFloathost = readNWith (sizeOf (0 :: Float)) unalignedReadFloat
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Float" unalignedReadFloat :: Ptr Float -> IO Float
 #endif
@@ -743,10 +743,8 @@ getDoublehost = readNWith 8 $ \(Ptr p#) ->
   IO $ \s -> case readWord8OffAddrAsDouble# p# 0# s of
     (# s', d# #) -> (# s', D# d# #)
 #else
-getDoublehost = readNWith 8 unalignedReadDouble
+getDoublehost = readNWith (sizeOf (0 :: Double)) unalignedReadDouble
 
 foreign import ccall unsafe "_hs_binary_unaligned_read_Double" unalignedReadDouble :: Ptr Double -> IO Double
 #endif
 {-# INLINE getDoublehost #-}
-
--- TODO: use sizeOf
