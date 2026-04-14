@@ -438,6 +438,8 @@ getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOn
 -- | @getShortByteString n@ gets a `ShortByteString` of length @n@.
 -- Fails if fewer than @n@ bytes are left in the input.
 -- If @n <= 0@, the empty string is returned.
+--
+-- @since x.x.x.x
 getShortByteString :: Int -> Get ShortByteString
 getShortByteString = fmap toShort . getByteString
 
