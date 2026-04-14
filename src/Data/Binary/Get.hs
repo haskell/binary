@@ -400,8 +400,9 @@ pushEndOfInput r =
 skip :: Int -> Get ()
 skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
 
--- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
--- bytes are left in the input.
+-- | @getLazyByteString n@ efficiently gets a lazy `Data.ByteString.Lazy.ByteString` of length @n@.
+-- Fails if fewer than @n@ bytes are left in the input.
+-- If @n <= 0@, the empty string is returned.
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
 
@@ -434,6 +435,9 @@ getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
 getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
 
+-- | @getShortByteString n@ gets a `ShortByteString` of length @n@.
+-- Fails if fewer than @n@ bytes are left in the input.
+-- If @n <= 0@, the empty string is returned.
 getShortByteString :: Int -> Get ShortByteString
 getShortByteString = fmap toShort . getByteString
 
