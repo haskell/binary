@@ -742,6 +742,14 @@ tests =
         , testTypeable
 
         , testGroup "Generic"
-            [ testProperty "Generic256" $ prop_Generic256
+            [ testProperty "Generic256" prop_Generic256
+            ]
+
+        , testGroup "Char"
+            [ testProperty "encodings are unique" $
+                withMaxSize 4 $ \bs ->
+                  case runGetOrFail (get :: Get Char) bs of
+                    Left _ -> discard
+                    Right (_, n, x) -> runPut (put x) === L.take n bs
             ]
         ]
