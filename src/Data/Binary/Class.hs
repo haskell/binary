@@ -2,6 +2,7 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
@@ -57,6 +58,7 @@ module Data.Binary.Class (
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 
+import Data.Char (chr)
 import Data.Word
 import Data.Bits
 import Data.Int
@@ -499,35 +501,44 @@ instance Binary a => Binary (Complex a) where
 
 ------------------------------------------------------------------------
 
--- Char is serialised as UTF-8
+-- | Uses WTF-8 (like UTF-8, but surrogates are allowed).
 instance Binary Char where
     put = putCharUtf8
     putList str = put (length str) <> putStringUtf8 str
     get = do
-        let getByte = liftM (fromIntegral :: Word8 -> Int) get
-            shiftL6 = flip shiftL 6 :: Int -> Int
-        w <- getByte
-        r <- case () of
-                _ | w < 0x80  -> return w
-                  | w < 0xe0  -> do
-                                    x <- liftM (xor 0x80) getByte
-                                    return (x .|. shiftL6 (xor 0xc0 w))
-                  | w < 0xf0  -> do
-                                    x <- liftM (xor 0x80) getByte
-                                    y <- liftM (xor 0x80) getByte
-                                    return (y .|. shiftL6 (x .|. shiftL6
-                                            (xor 0xe0 w)))
-                  | otherwise -> do
-                                x <- liftM (xor 0x80) getByte
-                                y <- liftM (xor 0x80) getByte
-                                z <- liftM (xor 0x80) getByte
-                                return (z .|. shiftL6 (y .|. shiftL6
-                                        (x .|. shiftL6 (xor 0xf0 w))))
-        getChr r
+        w <- fmap fromIntegral getWord8
+        if
+            | w < 0x80 -> getChr w
+            | w < 0xc2 -> invalid -- continuation byte or overlong encoding
+            | w < 0xe0 -> do
+                x <- getWord8 >>= continuationByte
+                getChr ((x .&. 0x3f) .|. ((w .&. 0x1f) `shiftL` 6))
+            | w < 0xf0  -> do
+                x <- getWord8 >>= continuationByte
+                when (w == 0xe0 && x < 0xa0) invalid -- overlong encoding
+                y <- getWord8 >>= continuationByte
+                getChr ((y .&. 0x3f) .|. ((x .&. 0x3f) `shiftL` 6) .|. ((w .&. 0x0f) `shiftL` 12))
+            | w < 0xf5 -> do
+                x <- getWord8 >>= continuationByte
+                when (w == 0xf0 && x < 0x90) invalid -- overlong encoding
+                when (w == 0xf4 && x > 0x8f) invalid -- outside of Unicode range
+                y <- getWord8 >>= continuationByte
+                z <- getWord8 >>= continuationByte
+                getChr ((z .&. 0x3f) .|. ((y .&. 0x3f) `shiftL` 6) .|. ((x .&. 0x3f) `shiftL` 12) .|. ((w .&. 0x07) `shiftL` 18))
+            | otherwise -> invalid
       where
-        getChr w
-          | w <= 0x10ffff = return $! toEnum $ fromEnum w
-          | otherwise = fail "Not a valid Unicode code point!"
+        invalid :: Get a
+        invalid = fail "invalid Char encoding"
+
+        continuationByte :: Word8 -> Get Int
+        continuationByte x =
+            let x' = x .&. 0xc0
+            in if x' == 0x80
+                then pure (fromIntegral x)
+                else invalid -- no continuation byte
+
+        getChr :: Int -> Get Char
+        getChr i = pure $! chr i
 
 ------------------------------------------------------------------------
 -- Instances for the first few tuples
