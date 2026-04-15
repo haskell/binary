@@ -16,9 +16,7 @@ import           Control.Monad                        (unless, liftM2)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as L
 import qualified Data.ByteString.Lazy.Internal        as L
-#if MIN_VERSION_bytestring(0,10,4)
 import           Data.ByteString.Short                (ShortByteString)
-#endif
 import           Data.Int
 import           Data.Ratio
 import           Data.Typeable
@@ -716,9 +714,7 @@ tests =
 
             , test' "B.ByteString" (test :: T B.ByteString) test
             , test' "L.ByteString" (test :: T L.ByteString) test
-#if MIN_VERSION_bytestring(0,10,4)
             , test' "ShortByteString" (test :: T ShortByteString) test
-#endif
             ]
 
         , testGroup "Invariants" $ map (uncurry testProperty)
@@ -726,10 +722,8 @@ tests =
             , ("[B.ByteString] invariant", p (prop_invariant :: B [B.ByteString]               ))
             , ("L.ByteString invariant",   p (prop_invariant :: B L.ByteString                 ))
             , ("[L.ByteString] invariant", p (prop_invariant :: B [L.ByteString]               ))
-#if MIN_VERSION_bytestring(0,10,4)
             , ("ShortByteString invariant",  p (prop_invariant :: B ShortByteString            ))
             , ("[ShortByteString] invariant", p (prop_invariant :: B [ShortByteString]         ))
-#endif
             ]
 #ifdef HAS_FIXED_CONSTRUCTOR
         , testGroup "Fixed"

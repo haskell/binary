@@ -171,6 +171,7 @@ module Data.Binary.Get (
     , getLazyByteString
     , getLazyByteStringNul
     , getRemainingLazyByteString
+    , getShortByteString
 
     -- ** Decoding Words
     , getWord8
@@ -232,6 +233,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
+import Data.ByteString.Short (ShortByteString, toShort)
 
 import Data.Binary.Get.Internal hiding ( Decoder(..), runGetIncremental )
 import qualified Data.Binary.Get.Internal as I
@@ -398,8 +400,9 @@ pushEndOfInput r =
 skip :: Int -> Get ()
 skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
 
--- | An efficient get method for lazy ByteStrings. Fails if fewer than @n@
--- bytes are left in the input.
+-- | @getLazyByteString n@ efficiently gets a lazy `Data.ByteString.Lazy.ByteString` of length @n@.
+-- Fails if fewer than @n@ bytes are left in the input.
+-- If @n <= 0@, the empty string is returned.
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
 
@@ -431,6 +434,14 @@ getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
 -- all input and keeping the string in-memory.
 getRemainingLazyByteString :: Get L.ByteString
 getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOnEOF
+
+-- | @getShortByteString n@ gets a `ShortByteString` of length @n@.
+-- Fails if fewer than @n@ bytes are left in the input.
+-- If @n <= 0@, the empty string is returned.
+--
+-- @since x.x.x.x
+getShortByteString :: Int -> Get ShortByteString
+getShortByteString = fmap toShort . getByteString
 
 ------------------------------------------------------------------------
 -- Primitives

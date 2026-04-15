@@ -28,9 +28,7 @@ module Data.Binary.Builder (
     , append
     , fromByteString        -- :: S.ByteString -> Builder
     , fromLazyByteString    -- :: L.ByteString -> Builder
-#if MIN_VERSION_bytestring(0,10,4)
     , fromShortByteString   -- :: T.ByteString -> Builder
-#endif
     -- * Flushing the buffer state
     , flush
 
@@ -66,12 +64,9 @@ module Data.Binary.Builder (
     , putStringUtf8
     ) where
 
-import qualified Data.ByteString      as S
-import qualified Data.ByteString.Lazy as L
-
-#if MIN_VERSION_bytestring(0,10,4)
+import qualified Data.ByteString       as S
+import qualified Data.ByteString.Lazy  as L
 import qualified Data.ByteString.Short as T
-#endif
 
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Builder.Extra as B
@@ -127,7 +122,6 @@ fromLazyByteString :: L.ByteString -> Builder
 fromLazyByteString = B.lazyByteString
 {-# INLINE fromLazyByteString #-}
 
-#if MIN_VERSION_bytestring(0,10,4)
 -- | /O(n)./ A builder taking 'T.ShortByteString' and copy it to a Builder,
 -- satisfying
 --
@@ -135,7 +129,6 @@ fromLazyByteString = B.lazyByteString
 fromShortByteString :: T.ShortByteString -> Builder
 fromShortByteString = B.shortByteString
 {-# INLINE fromShortByteString #-}
-#endif
 
 ------------------------------------------------------------------------
 
