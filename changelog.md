@@ -9,6 +9,8 @@ TODO: fix since annotations
 - Add `Data.Binary.Get.getShortByteString`
 - Don't reexport `Data.Word` from `Data.Binary`
 - Add `Binary (Proxy a)` instance
+- Add binary instance for `GHC.Generics.Generically`. `Binary T` can
+  be derived via `Generically T` for a suitable generic type `T`.
 
 binary-0.8.9.2
 --------------

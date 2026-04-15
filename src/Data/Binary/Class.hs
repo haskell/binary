@@ -1,9 +1,11 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE Trustworthy #-}
 
 #if MIN_VERSION_base(4,10,0)
@@ -12,6 +14,10 @@
 
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
+#endif
+
+#if MIN_VERSION_base(4,17,0)
+#define HAS_GENERICALLY
 #endif
 
 #if MIN_VERSION_base(4,8,0)
@@ -177,6 +183,15 @@ class Binary t where
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
 defaultPutList xs = put (length xs) <> mapM_ put xs
+
+#ifdef HAS_GENERICALLY
+instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generically a) where
+  put :: Generically a -> Put
+  put (Generically a) = gput (from a)
+
+  get :: Get (Generically a)
+  get = Generically . to <$> gget
+#endif
 
 ------------------------------------------------------------------------
 -- Simple instances
