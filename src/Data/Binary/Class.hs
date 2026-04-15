@@ -6,6 +6,10 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE Trustworthy #-}
 
+#if MIN_VERSION_base(4,10,0)
+{-# LANGUAGE MultiWayIf #-}
+#endif
+
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
 #endif
@@ -87,7 +91,7 @@ import Data.List    (unfoldr)
 import Type.Reflection
 import Type.Reflection.Unsafe
 import Data.Kind (Type)
-import GHC.Exts (RuntimeRep(..), VecCount, VecElem)
+import GHC.Exts (TYPE, RuntimeRep(..), VecCount, VecElem)
 #endif
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Short as BS
@@ -947,7 +951,7 @@ instance Binary RuntimeRep where
           17 -> pure Word32Rep
 #endif
 #endif
-          _  -> fail "GHCi.TH.Binary.putRuntimeRep: invalid tag"
+          _  -> fail "Data.Binary.put @RuntimeRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TyCon where
@@ -977,7 +981,7 @@ instance Binary KindRep where
           3 -> KindRepFun <$> get <*> get
           4 -> KindRepTYPE <$> get
           5 -> KindRepTypeLit <$> get <*> get
-          _ -> fail "GHCi.TH.Binary.putKindRep: invalid tag"
+          _ -> fail "Data.Binary.put @KindRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TypeLitSort where
@@ -994,7 +998,7 @@ instance Binary TypeLitSort where
 #ifdef HAS_TYPELITS_CHAR
           2 -> pure TypeLitChar
 #endif
-          _ -> fail "GHCi.TH.Binary.putTypeLitSort: invalid tag"
+          _ -> fail "Data.Binary.put @TypeLitSort: invalid tag"
 
 putTypeRep :: TypeRep a -> Put
 putTypeRep rep  -- Handle Type specially since it's so common
@@ -1009,11 +1013,8 @@ putTypeRep (App f x) = do
     putTypeRep f
     putTypeRep x
 #if __GLASGOW_HASKELL__ < 903
--- N.B. This pattern never matches,
--- even on versions of GHC older than 9.3:
+-- N.B. On newer versions of GHC, this pattern never matches:
 -- a `Fun` typerep will match with the `App` pattern.
--- This match is kept solely for pattern-match warnings,
--- which are incorrect on GHC prior to 9.3.
 putTypeRep (Fun arg res) = do
     put (3 :: Word8)
     putTypeRep arg
@@ -1046,11 +1047,20 @@ getSomeTypeRep = do
                        [ "Applied type: " ++ show f
                        , "To argument:  " ++ show x
                        ]
+        3 -> do SomeTypeRep arg <- getSomeTypeRep
+                SomeTypeRep res <- getSomeTypeRep
+                if
+                  | App argkcon _ <- typeRepKind arg
+                  , App reskcon _ <- typeRepKind res
+                  , Just HRefl <- argkcon `eqTypeRep` (typeRep :: TypeRep TYPE)
+                  , Just HRefl <- reskcon `eqTypeRep` (typeRep :: TypeRep TYPE)
+                  -> return $ SomeTypeRep $ Fun arg res
+                  | otherwise -> failure "Kind mismatch" []
         _ -> failure "Invalid SomeTypeRep" []
   where
     failure description info =
-        fail $ unlines $ [ "GHCi.TH.Binary.getSomeTypeRep: "++description ]
-                      ++ map ("    "++) info
+        fail $ unlines $ ["Data.Binary.getSomeTypeRep: " ++ description]
+                      ++ map ("    " ++) info
 
 instance Typeable a => Binary (TypeRep (a :: k)) where
     put = putTypeRep
@@ -1059,7 +1069,7 @@ instance Typeable a => Binary (TypeRep (a :: k)) where
         case rep `eqTypeRep` expected of
           Just HRefl -> pure rep
           Nothing    -> fail $ unlines
-                        [ "GHCi.TH.Binary: Type mismatch"
+                        [ "Data.Binary.get @(TypeRep a): Type mismatch"
                         , "    Deserialized type: " ++ show rep
                         , "    Expected type:     " ++ show expected
                         ]
