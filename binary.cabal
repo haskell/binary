@@ -53,7 +53,7 @@ library
                    Data.Binary.Internal,
                    Data.Binary.Generic,
                    Data.Binary.FloatCast
-
+  c-sources:       cbits/unaligned_read.c
   ghc-options:     -O2 -Wall -fliberate-case-threshold=1000
 
   if impl(ghc >= 8.0)
