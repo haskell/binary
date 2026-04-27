@@ -5,7 +5,7 @@ on:
   - pull_request
 
 jobs:
-  build:
+  ghc:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -39,7 +39,7 @@ jobs:
       - name: Haddock
         run: cabal haddock
 
-  build-i386:
+  ghc-i386:
     runs-on: ubuntu-latest
     container:
       image: i386/ubuntu
@@ -59,3 +59,24 @@ jobs:
         run: cabal build
       - name: Test
         run: cabal test --enable-tests
+
+  mhs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: binary
+      - name: Checkout MicroHs repository
+        uses: actions/checkout@v6
+        with:
+          repository: augustss/MicroHs
+          path: mhs
+      - name: Install MicroHs
+        run: |
+          cd mhs
+          make minstall
+          echo "$HOME/.mcabal/bin" >> $GITHUB_PATH
+      - name: Install binary
+        run: |
+          cd binary
+          mcabal -r install

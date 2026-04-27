@@ -90,12 +90,15 @@ import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
+#ifdef __GLASGOW_HASKELL__
 import qualified Data.ByteString.Builder.Prim as Prim
+#endif
 
 import Data.List    (unfoldr)
+import qualified Data.List as List
 
 -- And needed for the instances:
-#if MIN_VERSION_base(4,10,0)
+#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,10,0)
 import Type.Reflection
 import Type.Reflection.Unsafe
 import Data.Kind (Type)
@@ -184,7 +187,7 @@ class Binary t where
 
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
-defaultPutList xs = put (length xs) <> mapM_ put xs
+defaultPutList xs = put (List.length xs) <> mapM_ put xs
 
 #ifdef HAS_GENERICALLY
 instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generically a) where
@@ -243,73 +246,89 @@ instance Binary Ordering where
 -- Words8s are written as bytes
 instance Binary Word8 where
     put     = putWord8
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word8 xs)
+#endif
     get     = getWord8
 
 -- Words16s are written as 2 bytes in big-endian (network) order
 instance Binary Word16 where
     put     = putWord16be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word16BE xs)
+#endif
     get     = getWord16be
 
 -- Words32s are written as 4 bytes in big-endian (network) order
 instance Binary Word32 where
     put     = putWord32be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word32BE xs)
+#endif
     get     = getWord32be
 
 -- Words64s are written as 8 bytes in big-endian (network) order
 instance Binary Word64 where
     put     = putWord64be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word64BE xs)
+#endif
     get     = getWord64be
 
 -- Int8s are written as a single byte.
 instance Binary Int8 where
     put     = putInt8
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int8 xs)
+#endif
     get     = getInt8
 
 -- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
     put     = putInt16be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int16BE xs)
+#endif
     get     = getInt16be
 
 -- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
     put     = putInt32be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int32BE xs)
+#endif
     get     = getInt32be
 
 -- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
     put     = putInt64be
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int64BE xs)
+#endif
     get     = getInt64be
 
 ------------------------------------------------------------------------
@@ -317,19 +336,23 @@ instance Binary Int64 where
 -- Words are are written as Word64s, that is, 8 bytes in big endian format
 instance Binary Word where
     put     = putWord64be . fromIntegral
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
+#endif
     get     = liftM fromIntegral getWord64be
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
     put     = putInt64be . fromIntegral
+#ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
+#endif
     get     = liftM fromIntegral getInt64be
 
 ------------------------------------------------------------------------
@@ -349,7 +372,11 @@ instance Binary Integer where
 
     {-# INLINE put #-}
     put n | n >= lo && n <= hi =
+#ifdef __GLASGOW_HASKELL__
         putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
+#else
+        putWord8 0 <> putInt32be (fromIntegral n)
+#endif
      where
         lo = fromIntegral (minBound :: SmallInt) :: Integer
         hi = fromIntegral (maxBound :: SmallInt) :: Integer
@@ -504,7 +531,7 @@ instance Binary a => Binary (Complex a) where
 -- | Uses WTF-8 (like UTF-8, but surrogates are allowed).
 instance Binary Char where
     put = putCharUtf8
-    putList str = put (length str) <> putStringUtf8 str
+    putList str = put (List.length str) <> putStringUtf8 str
     get = do
         w <- fmap fromIntegral getWord8
         if
@@ -853,7 +880,7 @@ instance Binary a => Binary (Semigroup.Last a) where
   get = fmap Semigroup.Last get
   put = put . Semigroup.getLast
 
-#if __GLASGOW_HASKELL__ < 901
+#if !MIN_VERSION_base(4,15,0)
 -- | @since 0.8.4.0
 instance Binary a => Binary (Semigroup.Option a) where
   get = fmap Semigroup.Option get
@@ -886,7 +913,7 @@ instance Binary a => Binary (NE.NonEmpty a) where
 ------------------------------------------------------------------------
 -- Typeable/Reflection
 
-#if MIN_VERSION_base(4,10,0)
+#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,10,0)
 
 -- $typeable-instances
 --

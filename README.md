@@ -6,23 +6,18 @@
 
 The ``binary`` package provides Data.Binary, containing the Binary class,
 and associated methods, for serialising values to and from lazy
-ByteStrings. 
-A key feature of ``binary`` is that the interface is both pure, and 
+ByteStrings.
+A key feature of ``binary`` is that the interface is both pure, and
 moderately efficient.
-The ``binary`` package is portable to GHC and Hugs.
+The ``binary`` package is portable to GHC and MicroHs.
 
 ## Installing binary from Hackage ##
 
 ``binary`` is part of The Glasgow Haskell Compiler (GHC) and therefore if you
-have either GHC or [The Haskell Platform](http://www.haskell.org/platform/)
-installed, you already have ``binary``.
+have GHC installed, you already have ``binary``.
 
 More recent versions of ``binary`` than you might have installed may be
-available. You can use ``cabal-install`` to install a later version from
-[Hackage](http://hackage.haskell.org/package/binary).
-
-    $ cabal update
-    $ cabal install binary
+available from [Hackage](https://hackage.haskell.org/package/binary).
 
 ## Building binary ##
 
