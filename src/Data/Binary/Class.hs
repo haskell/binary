@@ -518,7 +518,10 @@ freezeByteArray arr = IO $ \s ->
 
 instance (Binary a,Integral a) => Binary (R.Ratio a) where
     put r = put (R.numerator r) <> put (R.denominator r)
-    get = liftM2 (R.%) get get
+    get = do
+        n <- get
+        d <- get
+        if d == 0 then fail "zero denominator" else pure (n R.% d)
 
 instance Binary a => Binary (Complex a) where
     {-# INLINE put #-}
