@@ -15,6 +15,8 @@ module Data.Binary.Get.Internal (
     , readN
     , readNWith
 
+    , failGet
+
     -- * Parsing
     , bytesRead
     , isolate
@@ -92,7 +94,7 @@ instance Monad Get where
   return = pure
   (>>=) = bindG
 #if !(MIN_VERSION_base(4,9,0))
-  fail = failG -- base < 4.9
+  fail = failGet -- base < 4.9
 #elif !(MIN_VERSION_base(4,13,0))
   fail = Fail.fail -- base < 4.13
 #endif
@@ -103,15 +105,20 @@ instance Monad Get where
 
 #if MIN_VERSION_base(4,9,0)
 instance Fail.MonadFail Get where
-  fail = failG
+  fail = failGet
 #endif
 
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
 {-# INLINE bindG #-}
 
-failG :: String -> Get a
-failG str = C $ \i _ks -> Fail i str
+-- | Let the 'Get' action fail with an error message.
+--
+-- > failGet = fail @Get
+--
+-- @since x.x.x.x
+failGet :: String -> Get a
+failGet str = C $ \i _ks -> Fail i str
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
