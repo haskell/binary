@@ -1025,8 +1025,14 @@ instance Binary KindRep where
     put (KindRepVar bndr) = putWord8 1 >> put bndr
     put (KindRepApp a b) = putWord8 2 >> put a >> put b
     put (KindRepFun a b) = putWord8 3 >> put a >> put b
+#if __GLASGOW_HASKELL__ >= 1001
+    put KindRepType       = putWord8 4
+    put KindRepConstraint = putWord8 5
+    put (KindRepTypeLit sort r) = putWord8 6 >> put sort >> put r
+#else
     put (KindRepTYPE r) = putWord8 4 >> put r
     put (KindRepTypeLit sort r) = putWord8 5 >> put sort >> put r
+#endif
 
     get = do
         tag <- getWord8
@@ -1035,8 +1041,14 @@ instance Binary KindRep where
           1 -> KindRepVar <$> get
           2 -> KindRepApp <$> get <*> get
           3 -> KindRepFun <$> get <*> get
+#if __GLASGOW_HASKELL__ >= 1001
+          4 -> pure KindRepType
+          5 -> pure KindRepConstraint
+          6 -> KindRepTypeLit <$> get <*> get
+#else
           4 -> KindRepTYPE <$> get
           5 -> KindRepTypeLit <$> get <*> get
+#endif
           _ -> fail "Data.Binary.put @KindRep: invalid tag"
 
 -- | @since 0.8.5.0
