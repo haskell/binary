@@ -773,12 +773,11 @@ instance (Binary e) => Binary (T.Tree e) where
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
     put a =
         put (bounds a)
-        <> put (rangeSize $ bounds a) -- write the length
-        <> mapM_ put (elems a)        -- now the elems.
+        <> mapM_ put (elems a)
     get = do
         bs <- get
-        n  <- get                  -- read the length
-        xs <- getMany n            -- now the elems.
+        let n = rangeSize bs
+        xs <- getMany n
         return (listArray bs xs)
 
 --
@@ -787,11 +786,10 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
     put a =
         put (bounds a)
-        <> put (rangeSize $ bounds a) -- now write the length
         <> mapM_ put (elems a)
     get = do
         bs <- get
-        n  <- get
+        let n = rangeSize bs
         xs <- getMany n
         return (listArray bs xs)
 
