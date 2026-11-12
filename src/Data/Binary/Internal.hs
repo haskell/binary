@@ -4,10 +4,10 @@ module Data.Binary.Internal
  ( accursedUnutterablePerformIO ) where
 
 #if defined(__MHS__)
-import Primitives (primPerformIO)
+import System.IO.Unsafe(unsafePerformIO)
 
 accursedUnutterablePerformIO :: IO a -> a
-accursedUnutterablePerformIO = primPerformIO
+accursedUnutterablePerformIO = unsafePerformIO
 #elif MIN_VERSION_bytestring(0,10,6)
 import Data.ByteString.Internal( accursedUnutterablePerformIO )
 #else
