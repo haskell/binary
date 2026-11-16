@@ -23,19 +23,9 @@ import Data.Word (Word32, Word64)
 #if defined(__GLASGOW_HASKELL__)
 import GHC.Float (castWord32ToFloat, castFloatToWord32, castWord64ToDouble, castDoubleToWord64)
 #elif defined(__MHS__)
-import Primitives (primUnsafeCoerce, primWordToFloatRaw, primWordFromFloatRaw, primWord64ToDoubleRaw, primWord64FromDoubleRaw)
-
-castWord32ToFloat :: Word32 -> Float
-castWord32ToFloat = primWordToFloatRaw . primUnsafeCoerce
-
-castFloatToWord32 :: Float -> Word32
-castFloatToWord32 = primUnsafeCoerce . primWordFromFloatRaw
-
-castWord64ToDouble :: Word64 -> Double
-castWord64ToDouble = primWord64ToDoubleRaw
-
-castDoubleToWord64 :: Double -> Word64
-castDoubleToWord64 = primWord64FromDoubleRaw
+-- XXX: use these imports for GHC as well, once they're available
+import Data.Float (castWord32ToFloat, castFloatToWord32)
+import Data.Double (castWord64ToDouble, castDoubleToWord64)
 #endif
 
 floatToWord :: Float -> Word32
