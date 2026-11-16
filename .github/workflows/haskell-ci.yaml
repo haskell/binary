@@ -6,7 +6,7 @@ on:
 
 jobs:
   ghc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +40,7 @@ jobs:
         run: cabal haddock
 
   ghc-i386:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
       image: i386/ubuntu
     steps:
@@ -49,7 +49,7 @@ jobs:
         run: |
           apt-get update -y
           apt-get install -y autoconf build-essential zlib1g-dev libgmp-dev curl libncurses5 libtinfo5 libncurses5-dev libtinfo-dev
-          curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_INSTALL_NO_STACK=1 sh
+          curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | BOOTSTRAP_HASKELL_NONINTERACTIVE=1 BOOTSTRAP_HASKELL_INSTALL_NO_STACK=1 BOOTSTRAP_HASKELL_GHC_VERSION=9.6.7 sh
           echo "$HOME/.cabal/bin:$HOME/.ghcup/bin" >> "$GITHUB_PATH"
       - name: Rename package to allow building test suite
         run: |
