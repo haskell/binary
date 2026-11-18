@@ -744,21 +744,15 @@ instance (Binary e) => Binary (Seq.Seq e) where
 ------------------------------------------------------------------------
 -- Floating point
 
--- | Uses non-IEEE754 encoding. Does not round-trip NaN.
+-- | Uses IEEE754 encoding.
 instance Binary Double where
-    put d = put (decodeFloat d)
-    get   = do
-        x <- get
-        y <- get
-        return $! encodeFloat x y
+    put = putDoublebe
+    get = getDoublebe
 
--- | Uses non-IEEE754 encoding. Does not round-trip NaN.
+-- | Uses IEEE754 encoding.
 instance Binary Float where
-    put f = put (decodeFloat f)
-    get   =  do
-        x <- get
-        y <- get
-        return $! encodeFloat x y
+    put = putFloatbe
+    get = getFloatbe
 
 ------------------------------------------------------------------------
 -- Trees

@@ -6,6 +6,7 @@ binary-x.x.x.x
 
 TODO: fix since annotations
 
+- Change `Binary` instances for `Float` and `Double` to use IEEE754 encoding.
 - Add `Data.Binary.Get.getShortByteString`
 - Don't reexport `Data.Word` from `Data.Binary`
 - Add `Binary (Proxy a)` instance
