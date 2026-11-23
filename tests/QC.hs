@@ -30,7 +30,11 @@ import           Data.Orphans ()
 import           Numeric.Natural
 #endif
 
-import           GHC.Exts (Array#, Word#)
+import           GHC.Exts (Array#, Word#
+#if MIN_VERSION_base(4,10,0)
+                          , VecCount, VecElem
+#endif
+                          )
 import           GHC.Fingerprint
 import           GHC.Generics (Generic)
 
@@ -159,7 +163,25 @@ prop_Doublehost = roundTripWith putDoublehost getDoublehost
 
 #if MIN_VERSION_base(4,10,0)
 testTypeable :: Test
-testTypeable = testProperty "TypeRep" prop_TypeRep
+testTypeable = testGroup "Typeable"
+    [ testProperty "TypeRep" prop_TypeRep
+    , testProperty "VecCount invalid tag fails" prop_VecCount_invalid
+    , testProperty "VecElem invalid tag fails" prop_VecElem_invalid
+    ]
+
+prop_VecCount_invalid :: Word8 -> Property
+prop_VecCount_invalid w =
+    fromIntegral w > fromEnum (maxBound :: VecCount) ==>
+      case decodeOrFail (encode w) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, VecCount) of
+        Left _  -> True
+        Right _ -> False
+
+prop_VecElem_invalid :: Word8 -> Property
+prop_VecElem_invalid w =
+    fromIntegral w > fromEnum (maxBound :: VecElem) ==>
+      case decodeOrFail (encode w) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, VecElem) of
+        Left _  -> True
+        Right _ -> False
 
 prop_TypeRep :: TypeRep -> Property
 prop_TypeRep = roundTripWith put get

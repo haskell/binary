@@ -942,12 +942,20 @@ instance Binary a => Binary (NE.NonEmpty a) where
 -- | @since 0.8.5.0
 instance Binary VecCount where
     put = putWord8 . fromIntegral . fromEnum
-    get = toEnum . fromIntegral <$> getWord8
+    get = do
+        tag <- getWord8
+        if fromIntegral tag <= fromEnum (maxBound :: VecCount)
+          then pure (toEnum (fromIntegral tag))
+          else fail "Data.Binary.get @VecCount: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary VecElem where
     put = putWord8 . fromIntegral . fromEnum
-    get = toEnum . fromIntegral <$> getWord8
+    get = do
+        tag <- getWord8
+        if fromIntegral tag <= fromEnum (maxBound :: VecElem)
+          then pure (toEnum (fromIntegral tag))
+          else fail "Data.Binary.get @VecElem: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary RuntimeRep where
