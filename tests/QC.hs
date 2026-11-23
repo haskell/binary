@@ -284,6 +284,43 @@ prop_seq_negative_length n =
       Left _  -> True
       Right _ -> False
 
+prop_maybe_invalid_tag :: Word8 -> Property
+prop_maybe_invalid_tag w =
+  w > 1 ==>
+    case decodeOrFail (encode (w, ())) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Maybe ()) of
+      Left _  -> True
+      Right _ -> False
+
+prop_either_invalid_tag :: Word8 -> Property
+prop_either_invalid_tag w =
+  w > 1 ==>
+    case decodeOrFail (encode (w, ())) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Either () ()) of
+      Left _  -> True
+      Right _ -> False
+
+prop_integer_invalid_tag :: Word8 -> Property
+prop_integer_invalid_tag w =
+  w > 1 ==>
+    case decodeOrFail (encode (w, (1 :: Word8), ([] :: [Word8]))) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Integer) of
+      Left _  -> True
+      Right _ -> False
+
+prop_integer_invalid_sign :: Word8 -> Property
+prop_integer_invalid_sign s =
+  s /= 1 && s /= 255 ==>
+    case decodeOrFail (encode ((1 :: Word8), s, ([] :: [Word8]))) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Integer) of
+      Left _  -> True
+      Right _ -> False
+
+#ifdef HAS_NATURAL
+prop_natural_invalid_tag :: Word8 -> Property
+prop_natural_invalid_tag w =
+  w > 1 ==>
+    case decodeOrFail (encode (w, ([] :: [Word8]))) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Natural) of
+      Left _  -> True
+      Right _ -> False
+#endif
+
 
 prop_bytesRead :: L.ByteString -> Property
 prop_bytesRead lbs =
@@ -673,6 +710,13 @@ tests =
             , testProperty "skip negative length" (p prop_skip_negative)
             , testProperty "list negative length" (p prop_list_negative_length)
             , testProperty "seq negative length"  (p prop_seq_negative_length)
+            , testProperty "Maybe invalid tag"    (p prop_maybe_invalid_tag)
+            , testProperty "Either invalid tag"   (p prop_either_invalid_tag)
+            , testProperty "Integer invalid tag"  (p prop_integer_invalid_tag)
+            , testProperty "Integer invalid sign" (p prop_integer_invalid_sign)
+#ifdef HAS_NATURAL
+            , testProperty "Natural invalid tag"  (p prop_natural_invalid_tag)
+#endif
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))

@@ -393,10 +393,14 @@ instance Binary Integer where
         tag <- get :: Get Word8
         case tag of
             0 -> liftM fromIntegral (get :: Get SmallInt)
-            _ -> do sign  <- get
+            1 -> do sign  <- get :: Get Word8
                     bytes <- get
                     let v = roll bytes
-                    return $! if sign == (1 :: Word8) then v else - v
+                    case sign of
+                        1   -> return $! v
+                        255 -> return $! - v
+                        _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+            _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
 
 -- | @since 0.8.0.0
 #ifdef HAS_FIXED_CONSTRUCTOR
@@ -446,8 +450,9 @@ instance Binary Natural where
         tag <- get :: Get Word8
         case tag of
             0 -> liftM fromIntegral (get :: Get NaturalWord)
-            _ -> do bytes <- get
+            1 -> do bytes <- get
                     return $! roll bytes
+            _ -> fail ("Data.Binary.get @Natural: invalid tag " ++ show tag)
 #endif
 
 {-
@@ -673,7 +678,8 @@ instance (Binary a) => Binary (Maybe a) where
         w <- getWord8
         case w of
             0 -> return Nothing
-            _ -> liftM Just get
+            1 -> liftM Just get
+            _ -> fail ("Data.Binary.get @Maybe: invalid tag " ++ show w)
 
 instance (Binary a, Binary b) => Binary (Either a b) where
     put (Left  a) = putWord8 0 <> put a
@@ -682,7 +688,8 @@ instance (Binary a, Binary b) => Binary (Either a b) where
         w <- getWord8
         case w of
             0 -> liftM Left  get
-            _ -> liftM Right get
+            1 -> liftM Right get
+            _ -> fail ("Data.Binary.get @Either: invalid tag " ++ show w)
 
 ------------------------------------------------------------------------
 -- ByteStrings (have specially efficient instances)
