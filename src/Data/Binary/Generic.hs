@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, CPP, FlexibleInstances, KindSignatures,
+{-# LANGUAGE BangPatterns, CPP, EmptyCase, FlexibleInstances, KindSignatures,
     ScopedTypeVariables, TypeOperators, TypeSynonymInstances #-}
 {-# LANGUAGE Safe #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -36,10 +36,10 @@ import Prelude -- Silence AMP warning.
 
 -- Type without constructors
 instance GBinaryPut V1 where
-    gput _ = pure ()
+    gput x = case x of {}
 
 instance GBinaryGet V1 where
-    gget   = return undefined
+    gget   = fail "Cannot decode uninhabited type"
 
 -- Constructor without arguments
 instance GBinaryPut U1 where

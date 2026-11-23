@@ -562,6 +562,28 @@ instance Arbitrary Generic256 where
 prop_Generic256 :: Generic256 -> Property
 prop_Generic256 = roundTripWith put get
 
+data GenericVoid deriving Generic
+
+instance Binary GenericVoid
+
+prop_GenericVoid_get :: L.ByteString -> Bool
+prop_GenericVoid_get lbs =
+    case decodeOrFail lbs :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, GenericVoid) of
+      Left _  -> True
+      Right _ -> False
+
+prop_GenericVoid_put :: Bool
+prop_GenericVoid_put = mustThrowError (L.length (encode (undefined :: GenericVoid)))
+
+prop_GenericVoid_list :: Bool
+prop_GenericVoid_list = null (decode (encode ([] :: [GenericVoid])) :: [GenericVoid])
+
+prop_GenericVoid_nonEmptyList :: Bool
+prop_GenericVoid_nonEmptyList =
+    case decodeOrFail (encode (1 :: Int)) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, [GenericVoid]) of
+      Left _  -> True
+      Right _ -> False
+
 ------------------------------------------------------------------------
 
 type T a = a -> Property
@@ -743,6 +765,10 @@ tests =
 
         , testGroup "Generic"
             [ testProperty "Generic256" prop_Generic256
+            , testProperty "GenericVoid get fails" prop_GenericVoid_get
+            , testProperty "GenericVoid put is strict" prop_GenericVoid_put
+            , testProperty "GenericVoid empty list" prop_GenericVoid_list
+            , testProperty "GenericVoid non-empty list fails" prop_GenericVoid_nonEmptyList
             ]
 
         , testGroup "Char"
