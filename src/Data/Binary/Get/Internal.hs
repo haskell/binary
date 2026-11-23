@@ -385,7 +385,7 @@ remaining = C $ \ inp ks ->
 -- ByteStrings
 --
 
--- | @getLazyByteString n@ efficiently gets a strict `Data.ByteString.ByteString` of length @n@.
+-- | @getByteString n@ efficiently gets a strict `Data.ByteString.ByteString` of length @n@.
 -- Fails if fewer than @n@ bytes are left in the input.
 -- If @n <= 0@, the empty string is returned.
 getByteString :: Int -> Get B.ByteString
