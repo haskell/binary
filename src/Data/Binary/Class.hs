@@ -1017,7 +1017,7 @@ instance Binary RuntimeRep where
           17 -> pure Word32Rep
 #endif
 #endif
-          _  -> fail "Data.Binary.put @RuntimeRep: invalid tag"
+          _  -> fail "Data.Binary.get @RuntimeRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TyCon where
@@ -1047,7 +1047,7 @@ instance Binary KindRep where
           3 -> KindRepFun <$> get <*> get
           4 -> KindRepTYPE <$> get
           5 -> KindRepTypeLit <$> get <*> get
-          _ -> fail "Data.Binary.put @KindRep: invalid tag"
+          _ -> fail "Data.Binary.get @KindRep: invalid tag"
 
 -- | @since 0.8.5.0
 instance Binary TypeLitSort where
@@ -1064,7 +1064,7 @@ instance Binary TypeLitSort where
 #ifdef HAS_TYPELITS_CHAR
           2 -> pure TypeLitChar
 #endif
-          _ -> fail "Data.Binary.put @TypeLitSort: invalid tag"
+          _ -> fail "Data.Binary.get @TypeLitSort: invalid tag"
 
 putTypeRep :: TypeRep a -> Put
 putTypeRep rep  -- Handle Type specially since it's so common
