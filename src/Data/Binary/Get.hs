@@ -399,13 +399,17 @@ pushEndOfInput r =
 
 -- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
 skip :: Int -> Get ()
-skip n = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
+skip n
+  | n <= 0    = return ()
+  | otherwise = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
 
 -- | @getLazyByteString n@ efficiently gets a lazy `Data.ByteString.Lazy.ByteString` of length @n@.
 -- Fails if fewer than @n@ bytes are left in the input.
 -- If @n <= 0@, the empty string is returned.
 getLazyByteString :: Int64 -> Get L.ByteString
-getLazyByteString n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
+getLazyByteString n0
+  | n0 <= 0   = return L.empty
+  | otherwise = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
 
 consumeBytes :: Consume Int64
 consumeBytes n str

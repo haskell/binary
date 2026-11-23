@@ -260,6 +260,16 @@ prop_getByteString_negative n =
   n < 1 ==>
     runGet (getByteString n) L.empty == B.empty
 
+prop_getLazyByteString_negative :: Int64 -> Property
+prop_getLazyByteString_negative n =
+  n < 1 ==>
+    runGet (getLazyByteString n) L.empty == L.empty
+
+prop_skip_negative :: Int -> Property
+prop_skip_negative n =
+  n < 1 ==>
+    runGet (skip n) L.empty == ()
+
 prop_list_negative_length :: Int -> Property
 prop_list_negative_length n =
   n < 0 ==>
@@ -659,6 +669,8 @@ tests =
         , testGroup "Boundaries"
             [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
+            , testProperty "read lazy negative length" (p prop_getLazyByteString_negative)
+            , testProperty "skip negative length" (p prop_skip_negative)
             , testProperty "list negative length" (p prop_list_negative_length)
             , testProperty "seq negative length"  (p prop_seq_negative_length)
             , -- Arbitrary test input
