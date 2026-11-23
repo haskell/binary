@@ -213,3 +213,21 @@ benchmark wasm
   build-depends: array, containers
   ghc-options: -O2 -Wall
   default-language: Haskell2010
+
+benchmark pcap
+  type: exitcode-stdio-1.0
+  hs-source-dirs: benchmarks
+  main-is: PcapBench.hs
+  other-modules:
+    Pcap
+  build-depends:
+    base >= 4.9 && < 5,
+    binary,
+    bytestring >= 0.10.4,
+    deepseq,
+    tasty-bench,
+    zlib
+  -- build dependencies from using binary source rather than depending on the library
+  build-depends: array, containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
