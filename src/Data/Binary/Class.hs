@@ -655,7 +655,9 @@ instance Binary a => Binary [a] where
 
 -- | @'getMany' n@ get @n@ elements in order, without blowing the stack.
 getMany :: Binary a => Int -> Get [a]
-getMany n = go [] n
+getMany n
+    | n < 0     = fail "getMany: negative length"
+    | otherwise = go [] n
  where
     go xs 0 = return $! reverse xs
     go xs i = do x <- get
@@ -735,7 +737,9 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 instance (Binary e) => Binary (Seq.Seq e) where
     put s = put (Seq.length s) <> Fold.mapM_ put s
     get = do n <- get :: Get Int
-             rep Seq.empty n get
+             if n < 0
+               then fail "Data.Binary.get @(Seq e): negative length"
+               else rep Seq.empty n get
       where rep xs 0 _ = return $! xs
             rep xs n g = xs `seq` n `seq` do
                            x <- g

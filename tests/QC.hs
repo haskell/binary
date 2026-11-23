@@ -19,6 +19,7 @@ import qualified Data.ByteString.Lazy.Internal        as L
 import           Data.ByteString.Short                (ShortByteString)
 import           Data.Int
 import           Data.Ratio
+import qualified Data.Sequence                        as Seq
 import           Data.Typeable
 import           Data.Word
 import           System.IO.Unsafe
@@ -236,6 +237,20 @@ prop_getByteString_negative :: Int -> Property
 prop_getByteString_negative n =
   n < 1 ==>
     runGet (getByteString n) L.empty == B.empty
+
+prop_list_negative_length :: Int -> Property
+prop_list_negative_length n =
+  n < 0 ==>
+    case decodeOrFail (encode n) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, [()]) of
+      Left _  -> True
+      Right _ -> False
+
+prop_seq_negative_length :: Int -> Property
+prop_seq_negative_length n =
+  n < 0 ==>
+    case decodeOrFail (encode n) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Seq.Seq ()) of
+      Left _  -> True
+      Right _ -> False
 
 
 prop_bytesRead :: L.ByteString -> Property
@@ -622,6 +637,8 @@ tests =
         , testGroup "Boundaries"
             [ testProperty "read to much"         (p (prop_readTooMuch :: B Word8))
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
+            , testProperty "list negative length" (p prop_list_negative_length)
+            , testProperty "seq negative length"  (p prop_seq_negative_length)
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
