@@ -318,7 +318,7 @@ runGetState g lbs0 pos' = go (runGetIncremental g) lbs0
   go (Done s pos a) lbs = (a, L.chunk s lbs, pos+pos')
   go (Partial k) lbs = go (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
   go (Fail _ pos msg) _ =
-    error ("Data.Binary.Get.runGetState at position " ++ show pos ++ ": " ++ msg)
+    error ("Data.Binary.Get.runGetState at position " ++ show (pos + pos') ++ ": " ++ msg)
 
 takeHeadChunk :: L.ByteString -> Maybe B.ByteString
 takeHeadChunk lbs =
