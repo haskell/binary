@@ -557,7 +557,7 @@ main = defaultMain tests
 genInteger :: Gen Integer
 genInteger = do
   b <- arbitrary
-  if b then genIntegerSmall else genIntegerSmall
+  if b then genIntegerSmall else genIntegerBig
 
 genIntegerSmall :: Gen Integer
 genIntegerSmall = arbitrary
