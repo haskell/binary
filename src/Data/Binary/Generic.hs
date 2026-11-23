@@ -37,6 +37,7 @@ import Prelude -- Silence AMP warning.
 -- Type without constructors
 instance GBinaryPut V1 where
     gput x = case x of {}
+    {-# INLINE gput #-}
 
 instance GBinaryGet V1 where
     gget   = fail "Cannot decode uninhabited type"
@@ -44,6 +45,7 @@ instance GBinaryGet V1 where
 -- Constructor without arguments
 instance GBinaryPut U1 where
     gput U1 = pure ()
+    {-# INLINE gput #-}
 
 instance GBinaryGet U1 where
     gget    = return U1
@@ -51,6 +53,7 @@ instance GBinaryGet U1 where
 -- Product: constructor with parameters
 instance (GBinaryPut a, GBinaryPut b) => GBinaryPut (a :*: b) where
     gput (x :*: y) = gput x <> gput y
+    {-# INLINE gput #-}
 
 instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
     gget = (:*:) <$> gget <*> gget
@@ -58,6 +61,7 @@ instance (GBinaryGet a, GBinaryGet b) => GBinaryGet (a :*: b) where
 -- Metadata (constructor name, etc)
 instance GBinaryPut a => GBinaryPut (M1 i c a) where
     gput = gput . unM1
+    {-# INLINE gput #-}
 
 instance GBinaryGet a => GBinaryGet (M1 i c a) where
     gget = M1 <$> gget
@@ -65,6 +69,7 @@ instance GBinaryGet a => GBinaryGet (M1 i c a) where
 -- Constants, additional parameters, and rank-1 recursion
 instance Binary a => GBinaryPut (K1 i a) where
     gput = put . unK1
+    {-# INLINE gput #-}
 
 instance Binary a => GBinaryGet (K1 i a) where
     gget = K1 <$> get
@@ -139,6 +144,7 @@ instance GBinaryGet a => GSumGet (C1 c a) where
 
 instance GBinaryPut a => GSumPut (C1 c a) where
     putSum (_ :: Proxy word) !code _ x = put (fromIntegral code :: word) <> gput x
+    {-# INLINE putSum #-}
 
 ------------------------------------------------------------------------
 
@@ -150,6 +156,8 @@ newtype Tagged (s :: Type -> Type) b = Tagged {unTagged :: b}
 instance (SumSize a, SumSize b) => SumSize (a :+: b) where
     sumSize = Tagged $ unTagged (sumSize :: Tagged a Word64) +
                        unTagged (sumSize :: Tagged b Word64)
+    {-# INLINE sumSize #-}
 
 instance SumSize (C1 c a) where
     sumSize = Tagged 1
+    {-# INLINE sumSize #-}
