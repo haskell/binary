@@ -1,8 +1,7 @@
-{-# LANGUAGE CPP, RankNTypes, MagicHash, BangPatterns, TypeFamilies #-}
-
--- CPP C style pre-processing, the #if defined lines
--- RankNTypes forall r. statement
--- MagicHash the (# unboxing #), also needs GHC.primitives
+{-# LANGUAGE CPP, RankNTypes, BangPatterns #-}
+#ifdef __GLASGOW_HASKELL__
+{-# LANGUAGE UnboxedTuples #-}
+#endif
 
 module Data.Binary.Get.Internal (
 
@@ -46,7 +45,6 @@ module Data.Binary.Get.Internal (
 
 import Foreign
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Unsafe as B
 
 import Control.Applicative
 import Control.Monad
@@ -54,7 +52,7 @@ import Control.Monad
 import qualified Control.Monad.Fail as Fail
 #endif
 
-import Data.Binary.Internal ( accursedUnutterablePerformIO )
+import Data.Binary.Get.Internal.Buf
 
 -- Kolmodin 20100427: at zurihac we discussed of having partial take a
 -- "Maybe ByteString" and implemented it in this way.
@@ -82,13 +80,27 @@ data Decoder a = Fail !B.ByteString String
               -- decoder runner needs to calculate the position and
               -- resume the decoding.
 
--- unrolled codensity/state monad
-newtype Get a = C { runCont :: forall r.
-                               B.ByteString ->
-                               Success a r ->
-                               Decoder   r }
+doneBuf :: Buf -> a -> Decoder a
+doneBuf s a = Done (packBuf s) a
 
-type Success a r = B.ByteString -> a -> Decoder r
+------------------------------------------------------------------------
+-- The Get monad
+
+-- unrolled codensity/state monad
+newtype Get a = C { unGet :: forall r.
+                             Buf ->
+                             Success a r ->
+                             Decoder r }
+
+type Success a r = Buf -> a -> Decoder r
+
+runCont :: Get a -> B.ByteString -> (B.ByteString -> a -> Decoder r) -> Decoder r
+runCont (C c) bs ks = c (unpackBuf bs) (\s' a -> ks (packBuf s') a)
+{-# INLINE runCont #-}
+
+fromCont :: (forall r. B.ByteString -> (B.ByteString -> a -> Decoder r) -> Decoder r) -> Get a
+fromCont f = C $ \s ks -> f (packBuf s) (\bs' a -> ks (unpackBuf bs') a)
+{-# INLINE fromCont #-}
 
 instance Monad Get where
   return = pure
@@ -109,7 +121,7 @@ instance Fail.MonadFail Get where
 #endif
 
 bindG :: Get a -> (a -> Get b) -> Get b
-bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
+bindG (C c) f = C $ \s ks -> c s (\s' a -> unGet (f a) s' ks)
 {-# INLINE bindG #-}
 
 -- | Let the 'Get' action fail with an error message.
@@ -118,22 +130,22 @@ bindG (C c) f = C $ \i ks -> c i (\i' a -> (runCont (f a)) i' ks)
 --
 -- @since x.x.x.x
 failGet :: String -> Get a
-failGet str = C $ \i _ks -> Fail i str
+failGet str = C $ \s _ks -> Fail (packBuf s) str
 
 apG :: Get (a -> b) -> Get a -> Get b
 apG d e = do
   b <- d
   a <- e
   return (b a)
-{-# INLINE [0] apG #-}
+{-# INLINE apG #-}
 
 fmapG :: (a -> b) -> Get a -> Get b
-fmapG f m = C $ \i ks -> runCont m i (\i' a -> ks i' (f a))
+fmapG f (C m) = C $ \s ks -> m s (\s' a -> ks s' (f a))
 {-# INLINE fmapG #-}
 
 instance Applicative Get where
   pure = \x -> C $ \s ks -> ks s x
-  {-# INLINE [0] pure #-}
+  {-# INLINE pure #-}
   (<*>) = apG
   {-# INLINE (<*>) #-}
 
@@ -200,7 +212,7 @@ prompt' kf ks =
 
 -- | Get the total number of bytes read to this point.
 bytesRead :: Get Int64
-bytesRead = C $ \inp k -> BytesRead (fromIntegral $ B.length inp) (k inp)
+bytesRead = C $ \s ks -> BytesRead (fromIntegral (bufLength s)) (ks s)
 
 -- | Isolate a decoder to operate with a fixed number of bytes, and fail if
 -- fewer bytes were consumed, or more bytes were attempted to be consumed.
@@ -225,7 +237,7 @@ isolate n0 act
                  " which is less than the expected " ++ show n0 ++ " bytes"
   go 0 (Partial resume) = go 0 (resume Nothing)
   go n (Partial resume) = do
-    inp <- C $ \inp k -> do
+    inp <- fromCont $ \inp k -> do
       let takeLimited str =
             let (inp', out) = B.splitAt n str
             in k out (Just inp')
@@ -244,7 +256,7 @@ type Consume s = s -> B.ByteString -> Either s (B.ByteString, B.ByteString)
 withInputChunks :: s -> Consume s -> ([B.ByteString] -> b) -> ([B.ByteString] -> Get b) -> Get b
 withInputChunks initS consume onSucc onFail = go initS []
   where
-  go state acc = C $ \inp ks ->
+  go state acc = fromCont $ \inp ks ->
     case consume state inp of
       Left state' -> do
         let acc' = inp : acc
@@ -260,10 +272,11 @@ failOnEOF bs = C $ \_ _ -> Fail (B.concat bs) "not enough bytes"
 -- | Test whether all input has been consumed, i.e. there are no remaining
 -- undecoded bytes.
 isEmpty :: Get Bool
-isEmpty = C $ \inp ks ->
-    if B.null inp
-      then prompt inp (ks inp True) (\inp' -> ks inp' False)
-      else ks inp False
+isEmpty = C $ \s ks ->
+    if bufNull s
+      then prompt B.empty (ks s True) (\inp' -> ks (unpackBuf inp') False)
+      else ks s False
+{-# INLINE isEmpty #-}
 
 -- | DEPRECATED. Same as 'getByteString'.
 {-# DEPRECATED getBytes "Use 'getByteString' instead of 'getBytes'." #-}
@@ -273,17 +286,17 @@ getBytes = getByteString
 
 -- | @since 0.7.0.0
 instance Alternative Get where
-  empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
+  empty = C $ \s _ks -> Fail (packBuf s) "Data.Binary.Get(Alternative).empty"
   {-# INLINE empty #-}
-  (<|>) f g = C $ \inp ks ->
+  (<|>) f g = C $ \s ks ->
     let go !acc r = case r of
-                      Done inp' a        -> ks inp' a
-                      Fail _ _           -> runCont g (concatChunks inp acc) ks
+                      Done inp' a        -> ks (unpackBuf inp') a
+                      Fail _ _           -> unGet g (unpackBuf (concatChunks (packBuf s) acc)) ks
                       Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                       BytesRead unused k -> BytesRead unused (go acc . k)
-    in case runCont f inp Done of
-         Done inp' a -> ks inp' a
-         Fail _ _    -> runCont g inp ks
+    in case unGet f s doneBuf of
+         Done inp' a -> ks (unpackBuf inp') a
+         Fail _ _    -> unGet g s ks
          r0          -> go [] r0
   {-# INLINE (<|>) #-}
   some p = (:) <$> p <*> many p
@@ -302,7 +315,10 @@ concatChunks inp acc = B.concat (if B.null inp then reverse acc else inp : rever
 {-# INLINE concatChunks #-}
 
 pushFront :: B.ByteString -> Get ()
-pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
+pushFront bs = C $ \s ks ->
+  if B.null bs
+    then ks s ()
+    else ks (unpackBuf (B.append bs (packBuf s))) ()
 {-# INLINE pushFront #-}
 
 -- | Run the given decoder, but without consuming its input. If the given
@@ -310,15 +326,15 @@ pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
 --
 -- @since 0.7.0.0
 lookAhead :: Get a -> Get a
-lookAhead g = C $ \inp ks ->
+lookAhead g = C $ \s ks ->
   let go !acc r = case r of
-                    Done _ a           -> ks (concatChunks inp acc) a
-                    Fail inp' s        -> Fail inp' s
+                    Done _ a           -> ks (unpackBuf (concatChunks (packBuf s) acc)) a
+                    Fail inp' s'       -> Fail inp' s'
                     Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                     BytesRead unused k -> BytesRead unused (go acc . k)
-  in case runCont g inp Done of
-       Done _ a    -> ks inp a
-       Fail inp' s -> Fail inp' s
+  in case unGet g s doneBuf of
+       Done _ a    -> ks s a
+       Fail inp' e -> Fail inp' e
        r0          -> go [] r0
 {-# INLINE lookAhead #-}
 
@@ -338,17 +354,17 @@ lookAheadM g = do
 --
 -- @since 0.7.1.0
 lookAheadE :: Get (Either a b) -> Get (Either a b)
-lookAheadE g = C $ \inp ks ->
+lookAheadE g = C $ \s ks ->
   let go !acc r = case r of
-                    Done _ (Left x)     -> ks (concatChunks inp acc) (Left x)
-                    Done inp' (Right x) -> ks inp' (Right x)
-                    Fail inp' s         -> Fail inp' s
+                    Done _ (Left x)     -> ks (unpackBuf (concatChunks (packBuf s) acc)) (Left x)
+                    Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
+                    Fail inp' e         -> Fail inp' e
                     Partial k           -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
                     BytesRead unused k  -> BytesRead unused (go acc . k)
-  in case runCont g inp Done of
-       Done _ (Left x)     -> ks inp (Left x)
-       Done inp' (Right x) -> ks inp' (Right x)
-       Fail inp' s         -> Fail inp' s
+  in case unGet g s doneBuf of
+       Done _ (Left x)     -> ks s (Left x)
+       Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
+       Fail inp' e         -> Fail inp' e
        r0                  -> go [] r0
 {-# INLINE lookAheadE #-}
 
@@ -357,14 +373,16 @@ lookAheadE g = C $ \inp ks ->
 --
 -- @since 0.7.2.0
 label :: String -> Get a -> Get a
-label msg decoder = C $ \inp ks ->
-  let r0 = runCont decoder inp (\inp' a -> Done inp' a)
-      go r = case r of
-                 Done inp' a -> ks inp' a
-                 Partial k -> Partial (go . k)
-                 Fail inp' s -> Fail inp' (s ++ "\n" ++ msg)
+label msg decoder = C $ \s ks ->
+  let go r = case r of
+                 Done inp' a   -> ks (unpackBuf inp') a
+                 Partial k     -> Partial (go . k)
+                 Fail inp' e   -> Fail inp' (e ++ "\n" ++ msg)
                  BytesRead u k -> BytesRead u (go . k)
-  in go r0
+  in case unGet decoder s doneBuf of
+       Done inp' a -> ks (unpackBuf inp') a
+       Fail inp' e -> Fail inp' (e ++ "\n" ++ msg)
+       r0          -> go r0
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
@@ -373,7 +391,7 @@ label msg decoder = C $ \inp ks ->
 -- off by calculating the remaining input in another way.
 {-# DEPRECATED remaining "This will force all remaining input, don't use it." #-}
 remaining :: Get Int64
-remaining = C $ \ inp ks ->
+remaining = fromCont $ \inp ks ->
   let loop acc = Partial $ \ minp ->
                   case minp of
                     Nothing -> let all_inp = B.concat (inp : (reverse acc))
@@ -389,36 +407,38 @@ remaining = C $ \ inp ks ->
 -- Fails if fewer than @n@ bytes are left in the input.
 -- If @n <= 0@, the empty string is returned.
 getByteString :: Int -> Get B.ByteString
-getByteString n | n > 0 = readN n (B.unsafeTake n)
-                | otherwise = return B.empty
+getByteString n
+  | n > 0 = C $ \s ks ->
+      if bufHasN n s
+        then ks (bufDrop n s) (bufTake n s)
+        else unGet (ensureN n >> C (\s' ks' -> ks' (bufDrop n s') (bufTake n s'))) s ks
+  | otherwise = return B.empty
 {-# INLINE getByteString #-}
 
 -- | Get the current chunk.
 get :: Get B.ByteString
-get = C $ \inp ks -> ks inp inp
+get = C $ \s ks -> ks s (packBuf s)
 
 -- | Replace the current chunk.
 put :: B.ByteString -> Get ()
-put s = C $ \_inp ks -> ks s ()
+put bs = C $ \_ ks -> ks (unpackBuf bs) ()
 
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
 -- the computation will escape with 'Partial'.
 readN :: Int -> (B.ByteString -> a) -> Get a
-readN !n f = ensureN n >> unsafeReadN n f
-{-# INLINE [0] readN #-}
-
-{-# RULES
-
-"readN/readN merge" forall n m f g.
-  apG (readN n f) (readN m g) = readN (n+m) (\bs -> f bs $ g (B.unsafeDrop n bs)) #-}
+readN !n f = C $ \s ks ->
+  if bufHasN n s
+    then ks (bufDrop n s) $! f (packBuf s)
+    else unGet (ensureN n >> unsafeReadN n f) s ks
+{-# INLINE readN #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
 -- computation will escape with 'Partial'.
 ensureN :: Int -> Get ()
-ensureN !n0 = C $ \inp ks -> do
-  if B.length inp >= n0
-    then ks inp ()
-    else runCont (withInputChunks n0 enoughChunks onSucc onFail >>= put) inp ks
+ensureN !n0 = C $ \s ks ->
+  if bufHasN n0 s
+    then ks s ()
+    else unGet (withInputChunks n0 enoughChunks onSucc onFail >>= put) s ks
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
     enoughChunks n str
@@ -433,14 +453,13 @@ ensureN !n0 = C $ \inp ks -> do
 {-# INLINE ensureN #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
-unsafeReadN !n f = C $ \inp ks -> do
-  ks (B.unsafeDrop n inp) $! f inp -- strict return
+unsafeReadN !n f = C $ \s ks ->
+  ks (bufDrop n s) $! f (packBuf s)
 
 -- | @readNWith n f@ where @f@ must be deterministic and not have side effects.
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
-readNWith n f = do
-    -- It should be safe to use accursedUnutterablePerformIO here.
-    -- The action must be deterministic and not have any external side effects.
-    -- It depends on the value of the ByteString so the value dependencies look OK.
-    readN n $ \s -> accursedUnutterablePerformIO $ B.unsafeUseAsCString s (f . castPtr)
+readNWith !n f = C $ \s ks ->
+  if bufHasN n s
+    then ks (bufDrop n s) $! bufReadWith f s
+    else unGet (ensureN n >> C (\s' ks' -> ks' (bufDrop n s') $! bufReadWith f s')) s ks
 {-# INLINE readNWith #-}

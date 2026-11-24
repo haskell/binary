@@ -231,7 +231,6 @@ import Control.Applicative
 
 import Foreign
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Internal as L
 import Data.ByteString.Short (ShortByteString, toShort)
@@ -453,19 +452,13 @@ getShortByteString = fmap toShort . getByteString
 
 -- | Read a Word8 from the monad state
 getWord8 :: Get Word8
-getWord8 = readN 1 B.unsafeHead
-{-# INLINE[2] getWord8 #-}
+getWord8 = readNWith 1 peek
+{-# INLINE getWord8 #-}
 
 -- | Read an Int8 from the monad state
 getInt8 :: Get Int8
 getInt8 = fromIntegral <$> getWord8
 {-# INLINE getInt8 #-}
-
-
--- force GHC to inline getWordXX
-{-# RULES
-"getWord8/readN" getWord8 = readN 1 B.unsafeHead
- #-}
 
 -- | Read a Word16 in big endian format
 getWord16be :: Get Word16

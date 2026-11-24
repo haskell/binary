@@ -47,6 +47,7 @@ library
                     Data.Binary.Put
                     Data.Binary.Get
                     Data.Binary.Get.Internal
+                    Data.Binary.Get.Internal.Buf
                     Data.Binary.Builder
 
   other-modules:    Data.Binary.Class

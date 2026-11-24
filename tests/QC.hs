@@ -13,6 +13,7 @@ import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
                                                             catch, evaluate)
 import           Control.Monad                        (unless, liftM2)
+import           Data.Bits                            ((.|.), shiftL)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Lazy                 as L
 import qualified Data.ByteString.Lazy.Internal        as L
@@ -22,6 +23,7 @@ import           Data.Ratio
 import qualified Data.Sequence                        as Seq
 import           Data.Typeable
 import           Data.Word
+import           Foreign                              (Ptr, peek, peekByteOff)
 import           System.IO.Unsafe
 
 import           Data.Orphans ()
@@ -48,6 +50,7 @@ import qualified Action                               (tests)
 import           Arbitrary                            ()
 import           Data.Binary
 import           Data.Binary.Get
+import           Data.Binary.Get.Internal.Buf
 import           Data.Binary.Put
 
 
@@ -669,6 +672,246 @@ prop_GenericVoid_nonEmptyList =
       Right _ -> False
 
 ------------------------------------------------------------------------
+-- Buffer representation tests (both PortableBuf and UnboxedBuf)
+
+-- | Generate strict ByteStrings covering empty, full, leading-offset,
+-- and mid-sliced buffers (important for exercising non-zero pointer offsets).
+genSlicedBS :: Gen B.ByteString
+genSlicedBS = do
+    bs <- arbitrary
+    let n = B.length bs
+    if n == 0
+      then return B.empty
+      else do
+        off <- choose (0, n)
+        len <- choose (0, n - off)
+        return (B.take len (B.drop off bs))
+
+-- | Alignment-safe 4-byte little-endian read for testing bufReadWith.
+peekWord32LEBytes :: Ptr Word32 -> IO Word32
+peekWord32LEBytes ptr = do
+    b0 <- peekByteOff ptr 0 :: IO Word8
+    b1 <- peekByteOff ptr 1 :: IO Word8
+    b2 <- peekByteOff ptr 2 :: IO Word8
+    b3 <- peekByteOff ptr 3 :: IO Word8
+    return $   fromIntegral b0
+           .|. (fromIntegral b1 `shiftL` 8)
+           .|. (fromIntegral b2 `shiftL` 16)
+           .|. (fromIntegral b3 `shiftL` 24)
+
+refWord32LE :: B.ByteString -> Word32
+refWord32LE bs =
+      fromIntegral (B.index bs 0)
+  .|. (fromIntegral (B.index bs 1) `shiftL` 8)
+  .|. (fromIntegral (B.index bs 2) `shiftL` 16)
+  .|. (fromIntegral (B.index bs 3) `shiftL` 24)
+
+data BufOp
+  = OpLen
+  | OpNull
+  | OpHasN Int
+  | OpTake Int
+  | OpDrop Int
+  | OpReadWord8
+  | OpReadWord32LE
+  deriving (Show)
+
+data BufObs
+  = ObsLen Int
+  | ObsNull Bool
+  | ObsHasN Bool
+  | ObsTake B.ByteString
+  | ObsDrop B.ByteString
+  | ObsWord8 Word8
+  | ObsWord32 Word32
+  deriving (Eq, Show)
+
+genBufOp :: Gen BufOp
+genBufOp = oneof
+  [ return OpLen
+  , return OpNull
+  , OpHasN <$> oneof [choose (-5, 5), arbitrary]
+  , OpTake <$> choose (0, 64)
+  , OpDrop <$> choose (0, 32)
+  , return OpReadWord8
+  , return OpReadWord32LE
+  ]
+
+runBufOpsRef :: B.ByteString -> [BufOp] -> ([BufObs], B.ByteString)
+runBufOpsRef bs0 = go bs0 []
+  where
+    go bs acc [] = (reverse acc, bs)
+    go bs acc (op : ops) =
+      let len = B.length bs
+      in case op of
+           OpLen -> go bs (ObsLen len : acc) ops
+           OpNull -> go bs (ObsNull (B.null bs) : acc) ops
+           OpHasN n -> go bs (ObsHasN (len >= n) : acc) ops
+           OpTake n ->
+             let k = min n len
+             in go bs (ObsTake (B.take k bs) : acc) ops
+           OpDrop n ->
+             let k = min n len
+                 bs' = B.drop k bs
+             in go bs' (ObsDrop bs' : acc) ops
+           OpReadWord8
+             | len >= 1  -> go bs (ObsWord8 (B.head bs) : acc) ops
+             | otherwise -> go bs acc ops
+           OpReadWord32LE
+             | len >= 4  -> go bs (ObsWord32 (refWord32LE bs) : acc) ops
+             | otherwise -> go bs acc ops
+
+runBufOpsPortable :: B.ByteString -> [BufOp] -> ([BufObs], B.ByteString)
+runBufOpsPortable bs0 = go (unpackPortableBuf bs0) []
+  where
+    go s acc [] = (reverse acc, packPortableBuf s)
+    go s acc (op : ops) =
+      let len = portableBufLength s
+      in case op of
+           OpLen -> go s (ObsLen len : acc) ops
+           OpNull -> go s (ObsNull (portableBufNull s) : acc) ops
+           OpHasN n -> go s (ObsHasN (portableBufHasN n s) : acc) ops
+           OpTake n ->
+             let k = min n len
+             in go s (ObsTake (portableBufTake k s) : acc) ops
+           OpDrop n ->
+             let k = min n len
+                 s' = portableBufDrop k s
+             in go s' (ObsDrop (packPortableBuf s') : acc) ops
+           OpReadWord8
+             | portableBufHasN 1 s ->
+                 go s (ObsWord8 (portableBufReadWith peek s) : acc) ops
+             | otherwise -> go s acc ops
+           OpReadWord32LE
+             | portableBufHasN 4 s ->
+                 go s (ObsWord32 (portableBufReadWith peekWord32LEBytes s) : acc) ops
+             | otherwise -> go s acc ops
+
+#ifdef __GLASGOW_HASKELL__
+runBufOpsUnboxed :: B.ByteString -> [BufOp] -> ([BufObs], B.ByteString)
+runBufOpsUnboxed bs0 = go (unpackUnboxedBuf bs0) []
+  where
+    go s acc [] = (reverse acc, packUnboxedBuf s)
+    go s acc (op : ops) =
+      let len = unboxedBufLength s
+      in case op of
+           OpLen -> go s (ObsLen len : acc) ops
+           OpNull -> go s (ObsNull (unboxedBufNull s) : acc) ops
+           OpHasN n -> go s (ObsHasN (unboxedBufHasN n s) : acc) ops
+           OpTake n ->
+             let k = min n len
+             in go s (ObsTake (unboxedBufTake k s) : acc) ops
+           OpDrop n ->
+             let k = min n len
+             in case unboxedBufDrop k s of
+                  s' -> go s' (ObsDrop (packUnboxedBuf s') : acc) ops
+           OpReadWord8
+             | unboxedBufHasN 1 s ->
+                 go s (ObsWord8 (unboxedBufReadWith peek s) : acc) ops
+             | otherwise -> go s acc ops
+           OpReadWord32LE
+             | unboxedBufHasN 4 s ->
+                 go s (ObsWord32 (unboxedBufReadWith peekWord32LEBytes s) : acc) ops
+             | otherwise -> go s acc ops
+#endif
+
+runBufOpsActive :: B.ByteString -> [BufOp] -> ([BufObs], B.ByteString)
+runBufOpsActive bs0 = go (unpackBuf bs0) []
+  where
+    go s acc [] = (reverse acc, packBuf s)
+    go s acc (op : ops) =
+      let len = bufLength s
+      in case op of
+           OpLen -> go s (ObsLen len : acc) ops
+           OpNull -> go s (ObsNull (bufNull s) : acc) ops
+           OpHasN n -> go s (ObsHasN (bufHasN n s) : acc) ops
+           OpTake n ->
+             let k = min n len
+             in go s (ObsTake (bufTake k s) : acc) ops
+           OpDrop n ->
+             let k = min n len
+             in case bufDrop k s of
+                  s' -> go s' (ObsDrop (packBuf s') : acc) ops
+           OpReadWord8
+             | bufHasN 1 s ->
+                 go s (ObsWord8 (bufReadWith peek s) : acc) ops
+             | otherwise -> go s acc ops
+           OpReadWord32LE
+             | bufHasN 4 s ->
+                 go s (ObsWord32 (bufReadWith peekWord32LEBytes s) : acc) ops
+             | otherwise -> go s acc ops
+
+prop_buf_pack_unpack :: Property
+prop_buf_pack_unpack = forAll genSlicedBS $ \bs ->
+    conjoin
+      [ packPortableBuf (unpackPortableBuf bs) === bs
+      , packBuf (unpackBuf bs) === bs
+#ifdef __GLASGOW_HASKELL__
+      , packUnboxedBuf (unpackUnboxedBuf bs) === bs
+#endif
+      ]
+
+prop_buf_boundaries :: Property
+prop_buf_boundaries = forAll genSlicedBS $ \bs ->
+    let len = B.length bs
+        ns  = [-1, 0, 1, len - 1, len, len + 1]
+        pBuf = unpackPortableBuf bs
+    in case unpackBuf bs of
+      aBuf -> conjoin
+        [ portableBufLength pBuf === len
+        , portableBufNull pBuf === B.null bs
+        , map (`portableBufHasN` pBuf) ns === map (len >=) ns
+        , portableBufTake 0 pBuf === B.empty
+        , portableBufTake len pBuf === bs
+        , packPortableBuf (portableBufDrop 0 pBuf) === bs
+        , packPortableBuf (portableBufDrop len pBuf) === B.empty
+        , bufLength aBuf === len
+        , bufNull aBuf === B.null bs
+        , map (`bufHasN` aBuf) ns === map (len >=) ns
+        , bufTake 0 aBuf === B.empty
+        , bufTake len aBuf === bs
+        , packBuf (bufDrop 0 aBuf) === bs
+        , packBuf (bufDrop len aBuf) === B.empty
+#ifdef __GLASGOW_HASKELL__
+        , case unpackUnboxedBuf bs of
+            uBuf -> conjoin
+              [ unboxedBufLength uBuf === len
+              , unboxedBufNull uBuf === B.null bs
+              , map (`unboxedBufHasN` uBuf) ns === map (len >=) ns
+              , unboxedBufTake 0 uBuf === B.empty
+              , unboxedBufTake len uBuf === bs
+              , packUnboxedBuf (unboxedBufDrop 0 uBuf) === bs
+              , packUnboxedBuf (unboxedBufDrop len uBuf) === B.empty
+              ]
+#endif
+        ]
+
+prop_buf_ops_equiv :: Property
+prop_buf_ops_equiv =
+    forAll genSlicedBS $ \bs ->
+    forAll (listOf genBufOp) $ \ops ->
+      let ref = runBufOpsRef bs ops
+      in conjoin
+        [ runBufOpsPortable bs ops === ref
+        , runBufOpsActive bs ops === ref
+#ifdef __GLASGOW_HASKELL__
+        , runBufOpsUnboxed bs ops === ref
+#endif
+        ]
+
+prop_buf_empty :: Property
+prop_buf_empty =
+    forAll (listOf genBufOp) $ \ops ->
+      let ref = runBufOpsRef B.empty ops
+      in conjoin
+        [ runBufOpsPortable B.empty ops === ref
+        , runBufOpsActive B.empty ops === ref
+#ifdef __GLASGOW_HASKELL__
+        , runBufOpsUnboxed B.empty ops === ref
+#endif
+        ]
+
+------------------------------------------------------------------------
 
 type T a = a -> Property
 type B a = a -> Bool
@@ -727,6 +970,13 @@ tests =
             , testProperty "fail"    (p prop_fail)
             , testProperty "bytesRead" (p prop_bytesRead)
             , testProperty "partial only once" (p prop_partialOnlyOnce)
+            ]
+
+        , testGroup "Buf"
+            [ testProperty "pack . unpack == id" prop_buf_pack_unpack
+            , testProperty "boundary operations" prop_buf_boundaries
+            , testProperty "operation sequences (portable vs unboxed vs ref)" prop_buf_ops_equiv
+            , testProperty "empty buffer operations" prop_buf_empty
             ]
 
         , testGroup "Model"
