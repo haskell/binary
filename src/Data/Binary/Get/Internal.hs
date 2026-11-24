@@ -289,15 +289,10 @@ instance Alternative Get where
   empty = C $ \s _ks -> Fail (packBuf s) "Data.Binary.Get(Alternative).empty"
   {-# INLINE empty #-}
   (<|>) f g = C $ \s ks ->
-    let go !acc r = case r of
-                      Done inp' a        -> ks (unpackBuf inp') a
-                      Fail _ _           -> unGet g (unpackBuf (concatChunks (packBuf s) acc)) ks
-                      Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
-                      BytesRead unused k -> BytesRead unused (go acc . k)
-    in case unGet f s doneBuf of
-         Done inp' a -> ks (unpackBuf inp') a
-         Fail _ _    -> unGet g s ks
-         r0          -> go [] r0
+    case unGet f s doneBuf of
+      Done inp' a -> ks (unpackBuf inp') a
+      Fail _ _    -> unGet g s ks
+      r0          -> altSlow (packBuf s) g ks r0
   {-# INLINE (<|>) #-}
   some p = (:) <$> p <*> many p
   {-# INLINE some #-}
@@ -307,6 +302,16 @@ instance Alternative Get where
       Nothing -> pure []
       Just x -> (:) x <$> many p
   {-# INLINEABLE many #-} -- many will never inline because it's recursive, so mark it INLINEABLE instead.
+
+altSlow :: B.ByteString -> Get a -> Success a r -> Decoder a -> Decoder r
+altSlow inp g ks = go []
+  where
+    go !acc r = case r of
+                  Done inp' a        -> ks (unpackBuf inp') a
+                  Fail _ _           -> unGet g (unpackBuf (concatChunks inp acc)) ks
+                  Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                  BytesRead unused k -> BytesRead unused (go acc . k)
+{-# NOINLINE altSlow #-}
 
 concatChunks :: B.ByteString -> [B.ByteString] -> B.ByteString
 concatChunks inp []  = inp
@@ -327,16 +332,21 @@ pushFront bs = C $ \s ks ->
 -- @since 0.7.0.0
 lookAhead :: Get a -> Get a
 lookAhead g = C $ \s ks ->
-  let go !acc r = case r of
-                    Done _ a           -> ks (unpackBuf (concatChunks (packBuf s) acc)) a
-                    Fail inp' s'       -> Fail inp' s'
-                    Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
-                    BytesRead unused k -> BytesRead unused (go acc . k)
-  in case unGet g s doneBuf of
-       Done _ a    -> ks s a
-       Fail inp' e -> Fail inp' e
-       r0          -> go [] r0
+  case unGet g s doneBuf of
+    Done _ a    -> ks s a
+    Fail inp' e -> Fail inp' e
+    r0          -> lookAheadSlow (packBuf s) ks r0
 {-# INLINE lookAhead #-}
+
+lookAheadSlow :: B.ByteString -> Success a r -> Decoder a -> Decoder r
+lookAheadSlow inp ks = go []
+  where
+    go !acc r = case r of
+                  Done _ a           -> ks (unpackBuf (concatChunks inp acc)) a
+                  Fail inp' s'       -> Fail inp' s'
+                  Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                  BytesRead unused k -> BytesRead unused (go acc . k)
+{-# NOINLINE lookAheadSlow #-}
 
 -- | Run the given decoder, and only consume its input if it returns 'Just'.
 -- If 'Nothing' is returned, the input will be unconsumed.
@@ -355,18 +365,23 @@ lookAheadM g = do
 -- @since 0.7.1.0
 lookAheadE :: Get (Either a b) -> Get (Either a b)
 lookAheadE g = C $ \s ks ->
-  let go !acc r = case r of
-                    Done _ (Left x)     -> ks (unpackBuf (concatChunks (packBuf s) acc)) (Left x)
-                    Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
-                    Fail inp' e         -> Fail inp' e
-                    Partial k           -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
-                    BytesRead unused k  -> BytesRead unused (go acc . k)
-  in case unGet g s doneBuf of
-       Done _ (Left x)     -> ks s (Left x)
-       Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
-       Fail inp' e         -> Fail inp' e
-       r0                  -> go [] r0
+  case unGet g s doneBuf of
+    Done _ (Left x)     -> ks s (Left x)
+    Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
+    Fail inp' e         -> Fail inp' e
+    r0                  -> lookAheadESlow (packBuf s) ks r0
 {-# INLINE lookAheadE #-}
+
+lookAheadESlow :: B.ByteString -> Success (Either a b) r -> Decoder (Either a b) -> Decoder r
+lookAheadESlow inp ks = go []
+  where
+    go !acc r = case r of
+                  Done _ (Left x)     -> ks (unpackBuf (concatChunks inp acc)) (Left x)
+                  Done inp' (Right x) -> ks (unpackBuf inp') (Right x)
+                  Fail inp' e         -> Fail inp' e
+                  Partial k           -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                  BytesRead unused k  -> BytesRead unused (go acc . k)
+{-# NOINLINE lookAheadESlow #-}
 
 -- | Label a decoder. If the decoder fails, the label will be appended on
 -- a new line to the error message string.
@@ -374,15 +389,21 @@ lookAheadE g = C $ \s ks ->
 -- @since 0.7.2.0
 label :: String -> Get a -> Get a
 label msg decoder = C $ \s ks ->
-  let go r = case r of
-                 Done inp' a   -> ks (unpackBuf inp') a
-                 Partial k     -> Partial (go . k)
-                 Fail inp' e   -> Fail inp' (e ++ "\n" ++ msg)
-                 BytesRead u k -> BytesRead u (go . k)
-  in case unGet decoder s doneBuf of
-       Done inp' a -> ks (unpackBuf inp') a
-       Fail inp' e -> Fail inp' (e ++ "\n" ++ msg)
-       r0          -> go r0
+  case unGet decoder s doneBuf of
+    Done inp' a -> ks (unpackBuf inp') a
+    Fail inp' e -> Fail inp' (e ++ "\n" ++ msg)
+    r0          -> labelSlow msg ks r0
+{-# INLINE label #-}
+
+labelSlow :: String -> Success a r -> Decoder a -> Decoder r
+labelSlow msg ks = go
+  where
+    go r = case r of
+             Done inp' a   -> ks (unpackBuf inp') a
+             Partial k     -> Partial (go . k)
+             Fail inp' e   -> Fail inp' (e ++ "\n" ++ msg)
+             BytesRead u k -> BytesRead u (go . k)
+{-# NOINLINE labelSlow #-}
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
