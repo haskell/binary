@@ -432,7 +432,7 @@ getByteString n
   | n > 0 = C $ \s ks ->
       if bufHasN n s
         then ks (bufDrop n s) (bufTake n s)
-        else unGet (ensureN n >> C (\s' ks' -> ks' (bufDrop n s') (bufTake n s'))) s ks
+        else unGet (ensureNSlow n >> C (\s' ks' -> ks' (bufDrop n s') (bufTake n s'))) s ks
   | otherwise = return B.empty
 {-# INLINE getByteString #-}
 
@@ -450,7 +450,7 @@ readN :: Int -> (B.ByteString -> a) -> Get a
 readN !n f = C $ \s ks ->
   if bufHasN n s
     then ks (bufDrop n s) $! f (packBuf s)
-    else unGet (ensureN n >> unsafeReadN n f) s ks
+    else unGet (ensureNSlow n >> unsafeReadN n f) s ks
 {-# INLINE readN #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
@@ -459,7 +459,11 @@ ensureN :: Int -> Get ()
 ensureN !n0 = C $ \s ks ->
   if bufHasN n0 s
     then ks s ()
-    else unGet (withInputChunks n0 enoughChunks onSucc onFail >>= put) s ks
+    else unGet (ensureNSlow n0) s ks
+{-# INLINE ensureN #-}
+
+ensureNSlow :: Int -> Get ()
+ensureNSlow !n0 = withInputChunks n0 enoughChunks onSucc onFail >>= put
   where -- might look a bit funny, but plays very well with GHC's inliner.
         -- GHC won't inline recursive functions, so we make ensureN non-recursive
     enoughChunks n str
@@ -471,7 +475,7 @@ ensureN !n0 = C $ \s ks ->
     -- to gain this optimization as well
     onSucc = B.concat . dropWhile B.null
     onFail bss = C $ \_ _ -> Fail (B.concat bss) "not enough bytes"
-{-# INLINE ensureN #-}
+{-# NOINLINE ensureNSlow #-}
 
 unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
 unsafeReadN !n f = C $ \s ks ->
@@ -482,5 +486,5 @@ readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith !n f = C $ \s ks ->
   if bufHasN n s
     then ks (bufDrop n s) $! bufReadWith f s
-    else unGet (ensureN n >> C (\s' ks' -> ks' (bufDrop n s') $! bufReadWith f s')) s ks
+    else unGet (ensureNSlow n >> C (\s' ks' -> ks' (bufDrop n s') $! bufReadWith f s')) s ks
 {-# INLINE readNWith #-}
