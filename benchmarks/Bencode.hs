@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -28,6 +29,9 @@ import Data.Binary.Put
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C8
 import Data.Int (Int64)
+#if !MIN_VERSION_base(4,11,0)
+import Data.Monoid ((<>))
+#endif
 import Data.Word (Word8)
 import GHC.Generics (Generic)
 
