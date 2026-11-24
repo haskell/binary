@@ -40,6 +40,7 @@ module Data.Binary.Get.Internal (
 
     -- ** ByteStrings
     , getByteString
+    , skip
 
     ) where
 
@@ -435,6 +436,24 @@ getByteString n
         else unGet (ensureNSlow n >> C (\s' ks' -> ks' (bufDrop n s') (bufTake n s'))) s ks
   | otherwise = return B.empty
 {-# INLINE getByteString #-}
+
+-- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
+skip :: Int -> Get ()
+skip n
+  | n > 0 = C $ \s ks ->
+      if bufHasN n s
+        then ks (bufDrop n s) ()
+        else unGet (skipSlow n) s ks
+  | otherwise = return ()
+{-# INLINE skip #-}
+
+skipSlow :: Int -> Get ()
+skipSlow n0 = withInputChunks n0 consume (const ()) failOnEOF
+  where
+    consume n str
+      | B.length str >= n = Right (B.splitAt n str)
+      | otherwise         = Left (n - B.length str)
+{-# NOINLINE skipSlow #-}
 
 -- | Get the current chunk.
 get :: Get B.ByteString

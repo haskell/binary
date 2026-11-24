@@ -396,12 +396,6 @@ pushEndOfInput r =
     Partial k -> k Nothing
     Fail _ _ _ -> r
 
--- | Skip ahead @n@ bytes. Fails if fewer than @n@ bytes are available.
-skip :: Int -> Get ()
-skip n
-  | n <= 0    = return ()
-  | otherwise = withInputChunks (fromIntegral n) consumeBytes (const ()) failOnEOF
-
 -- | @getLazyByteString n@ efficiently gets a lazy `Data.ByteString.Lazy.ByteString` of length @n@.
 -- Fails if fewer than @n@ bytes are left in the input.
 -- If @n <= 0@, the empty string is returned.
