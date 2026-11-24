@@ -111,24 +111,24 @@ sizeError s size =
 
 checkGetSum :: (GSumGet f) => Word64 -> Word64 -> Get (f a)
 checkGetSum size code
-    | code < size = getSum code size
+    | code < size = getSumWith (size > 8) id code size
     | otherwise   = fail "Unknown encoding for constructor"
 {-# INLINE checkGetSum #-}
 
 class GSumGet f where
-    getSum :: Word64 -> Word64 -> Get (f a)
+    getSumWith :: Bool -> (f a -> r) -> Word64 -> Word64 -> Get r
 
 class GSumPut f where
     putSum :: (Binary word, Num word) => Proxy word -> Word64 -> Word64 -> f a -> Put
 
 instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
-    getSum !code !size
-        | code < sizeL = L1 <$> getSum code           sizeL
-        | otherwise    = R1 <$> getSum (code - sizeL) sizeR
+    getSumWith large k !code !size
+        | code < sizeL = getSumWith large (k . L1) code           sizeL
+        | otherwise    = getSumWith large (k . R1) (code - sizeL) sizeR
       where
         sizeL = size `shiftR` 1
         sizeR = size - sizeL
-    {-# INLINE getSum #-}
+    {-# INLINE getSumWith #-}
 
 instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
     putSum p !code !size s = case s of
@@ -140,7 +140,14 @@ instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
     {-# INLINE putSum #-}
 
 instance GBinaryGet a => GSumGet (C1 c a) where
-    getSum _ _ = gget
+    getSumWith large k _ _
+      | large     = fmapSum k gget
+      | otherwise = k <$> gget
+    {-# INLINE getSumWith #-}
+
+fmapSum :: (a -> b) -> Get a -> Get b
+fmapSum f g = f <$> g
+{-# NOINLINE fmapSum #-}
 
 instance GBinaryPut a => GSumPut (C1 c a) where
     putSum (_ :: Proxy word) !code _ x = put (fromIntegral code :: word) <> gput x
