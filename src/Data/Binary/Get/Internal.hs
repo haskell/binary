@@ -275,12 +275,16 @@ getBytes = getByteString
 instance Alternative Get where
   empty = C $ \inp _ks -> Fail inp "Data.Binary.Get(Alternative).empty"
   {-# INLINE empty #-}
-  (<|>) f g = do
-    (decoder, bs) <- runAndKeepTrack f
-    case decoder of
-      Done inp x -> C $ \_ ks -> ks inp x
-      Fail _ _ -> pushBack bs >> g
-      _ -> error "Binary: impossible"
+  (<|>) f g = C $ \inp ks ->
+    let go !acc r = case r of
+                      Done inp' a        -> ks inp' a
+                      Fail _ _           -> runCont g (concatChunks inp acc) ks
+                      Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                      BytesRead unused k -> BytesRead unused (go acc . k)
+    in case runCont f inp Done of
+         Done inp' a -> ks inp' a
+         Fail _ _    -> runCont g inp ks
+         r0          -> go [] r0
   {-# INLINE (<|>) #-}
   some p = (:) <$> p <*> many p
   {-# INLINE some #-}
@@ -291,26 +295,11 @@ instance Alternative Get where
       Just x -> (:) x <$> many p
   {-# INLINEABLE many #-} -- many will never inline because it's recursive, so mark it INLINEABLE instead.
 
--- | Run a decoder and keep track of all the input it consumes.
--- Once it's finished, return the final decoder (always 'Done' or 'Fail'),
--- and unconsume all the the input the decoder required to run.
--- Any additional chunks which was required to run the decoder
--- will also be returned.
-runAndKeepTrack :: Get a -> Get (Decoder a, [B.ByteString])
-runAndKeepTrack g = C $ \inp ks ->
-  let r0 = runCont g inp (\inp' a -> Done inp' a)
-      go !acc r = case r of
-                    Done inp' a -> ks inp (Done inp' a, reverse acc)
-                    Partial k -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
-                    Fail inp' s -> ks inp (Fail inp' s, reverse acc)
-                    BytesRead unused k -> BytesRead unused (go acc . k)
-  in go [] r0
-{-# INLINE runAndKeepTrack #-}
-
-pushBack :: [B.ByteString] -> Get ()
-pushBack [] = C $ \ inp ks -> ks inp ()
-pushBack bs = C $ \ inp ks -> ks (B.concat (inp : bs)) ()
-{-# INLINE pushBack #-}
+concatChunks :: B.ByteString -> [B.ByteString] -> B.ByteString
+concatChunks inp []  = inp
+concatChunks inp [c] = if B.null inp then c else B.append inp c
+concatChunks inp acc = B.concat (if B.null inp then reverse acc else inp : reverse acc)
+{-# INLINE concatChunks #-}
 
 pushFront :: B.ByteString -> Get ()
 pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
@@ -321,12 +310,17 @@ pushFront bs = C $ \ inp ks -> ks (B.append bs inp) ()
 --
 -- @since 0.7.0.0
 lookAhead :: Get a -> Get a
-lookAhead g = do
-  (decoder, bs) <- runAndKeepTrack g
-  case decoder of
-    Done _ a -> pushBack bs >> return a
-    Fail inp s -> C $ \_ _ -> Fail inp s
-    _ -> error "Binary: impossible"
+lookAhead g = C $ \inp ks ->
+  let go !acc r = case r of
+                    Done _ a           -> ks (concatChunks inp acc) a
+                    Fail inp' s        -> Fail inp' s
+                    Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                    BytesRead unused k -> BytesRead unused (go acc . k)
+  in case runCont g inp Done of
+       Done _ a    -> ks inp a
+       Fail inp' s -> Fail inp' s
+       r0          -> go [] r0
+{-# INLINE lookAhead #-}
 
 -- | Run the given decoder, and only consume its input if it returns 'Just'.
 -- If 'Nothing' is returned, the input will be unconsumed.
@@ -344,13 +338,19 @@ lookAheadM g = do
 --
 -- @since 0.7.1.0
 lookAheadE :: Get (Either a b) -> Get (Either a b)
-lookAheadE g = do
-  (decoder, bs) <- runAndKeepTrack g
-  case decoder of
-    Done _ (Left x) -> pushBack bs >> return (Left x)
-    Done inp (Right x) -> C $ \_ ks -> ks inp (Right x)
-    Fail inp s -> C $ \_ _ -> Fail inp s
-    _ -> error "Binary: impossible"
+lookAheadE g = C $ \inp ks ->
+  let go !acc r = case r of
+                    Done _ (Left x)     -> ks (concatChunks inp acc) (Left x)
+                    Done inp' (Right x) -> ks inp' (Right x)
+                    Fail inp' s         -> Fail inp' s
+                    Partial k           -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                    BytesRead unused k  -> BytesRead unused (go acc . k)
+  in case runCont g inp Done of
+       Done _ (Left x)     -> ks inp (Left x)
+       Done inp' (Right x) -> ks inp' (Right x)
+       Fail inp' s         -> Fail inp' s
+       r0                  -> go [] r0
+{-# INLINE lookAheadE #-}
 
 -- | Label a decoder. If the decoder fails, the label will be appended on
 -- a new line to the error message string.
