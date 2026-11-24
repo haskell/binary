@@ -125,10 +125,10 @@ instance Applicative PutM where
                 PairS x w' = unPut k
             in PairS (f x) (w `Monoid.mappend` w')
 
-        m *> k  = Put $
-            let PairS _ w  = unPut m
-                PairS b w' = unPut k
-            in PairS b (w `Monoid.mappend` w')
+        m *> k  = case unPut m of
+            PairS _ w -> Put $
+                let PairS b w' = unPut k
+                in PairS b (w `B.append` w')
         {-# INLINE (*>) #-}
 
 -- Standard Writer monad, with aggressive inlining
@@ -157,10 +157,9 @@ instance Monoid.Monoid (PutM ()) where
     {-# INLINE mappend #-}
 
 mappend' :: Put -> Put -> Put
-mappend' m k = Put $
-    let PairS _ w  = unPut m
-        PairS _ w' = unPut k
-    in PairS () (w `Monoid.mappend` w')
+mappend' (Put (PairS _ w)) k = Put $
+    let PairS _ w' = unPut k
+    in PairS () (w `B.append` w')
 {-# INLINE mappend' #-}
 
 #ifdef HAS_SEMIGROUP
