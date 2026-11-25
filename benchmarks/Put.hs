@@ -34,6 +34,7 @@ main = do
     , rnf smallByteStrings
     , rnf smallStrings
     , rnf doubles
+    , rnf floats
     , rnf word8s
     , rnf word16s
     , rnf word32s
@@ -70,6 +71,7 @@ main = do
     , bench "[small String]" $ whnf (run . put) smallStrings
 
     , bench "Double" $ whnf (run . put) doubles
+    , bench "Float" $ whnf (run . put) floats
 
     , bench "Word8s monoid put" $ whnf (run . foldMap put) word8s
     , bench "Word8s builder" $ whnf (L.length . toLazyByteString . foldMap BB.word8) word8s
@@ -152,6 +154,9 @@ smallStrings = replicate 10000 "abcdefghi"
 
 doubles :: [Double]
 doubles = take 10000 $ [ sign * 2 ** n | sign <- [-1, 1], n <- [ 0, 0.2 .. 1023 ]]
+
+floats :: [Float]
+floats = take 10000 $ [ sign * 2 ** n | sign <- [-1, 1], n <- [ 0, 0.2 .. 126 ]]
 
 word8s :: [Word8]
 word8s = take 10000 $ cycle [minBound .. maxBound]
