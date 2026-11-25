@@ -2,6 +2,7 @@
 
 import Control.DeepSeq
 import Control.Exception (evaluate)
+import Data.Array.Unboxed (Array, UArray, listArray)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
@@ -44,6 +45,8 @@ main = do
     , rnf intMap10k
     , rnf map10k
     , rnf seq10k
+    , rnf array10k
+    , uarray10k `seq` ()
     , rnf sumInts10k
     , rnf identityW32s10k
     , rnf fixedE2s10k
@@ -95,6 +98,8 @@ main = do
       , bench "IntSet (10k)" $ whnf (run . put) intSet10k
       , bench "IntMap Word32 (10k)" $ whnf (run . put) intMap10k
       , bench "Seq Int (10k)" $ whnf (run . put) seq10k
+      , bench "Array Int Int (10k)" $ whnf (run . put) array10k
+      , bench "UArray Int Int (10k)" $ whnf (run . put) uarray10k
       ]
     , bgroup "Wrappers (10k)"
       [ bench "[Sum Int]" $ whnf (run . put) sumInts10k
@@ -191,6 +196,14 @@ intMap10k = IntMap.fromList [(i, fromIntegral i) | i <- [1..10000]]
 seq10k :: Seq.Seq Int
 seq10k = Seq.fromList [1..10000]
 {-# NOINLINE seq10k #-}
+
+array10k :: Array Int Int
+array10k = listArray (1, 10000) [1..10000]
+{-# NOINLINE array10k #-}
+
+uarray10k :: UArray Int Int
+uarray10k = listArray (1, 10000) [1..10000]
+{-# NOINLINE uarray10k #-}
 
 sumInts10k :: [Monoid.Sum Int]
 sumInts10k = [Monoid.Sum i | i <- [1..10000]]
