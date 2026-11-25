@@ -34,6 +34,8 @@ main = do
     , rnf word16s
     , rnf word32s
     , rnf word64s
+    , rnf words10k
+    , rnf ints10k
     , rnf intSet10k
     , rnf set10k
     , rnf intMap10k
@@ -70,6 +72,8 @@ main = do
     , bench "Word64s monoid put" $ whnf (run . foldMap put) word64s
     , bench "Word64s builder" $ whnf (L.length . toLazyByteString . foldMap BB.word64BE) word64s
     , bench "[Word64]" $ whnf (run . put) word64s
+    , bench "[Word]" $ whnf (run . put) words10k
+    , bench "[Int]" $ whnf (run . put) ints10k
 
     , bgroup "Generics"
       [ bench "Struct monoid put" $ whnf (run . foldMap put) structs
@@ -144,6 +148,14 @@ word32s = take 10000 $ cycle [minBound .. maxBound]
 word64s :: [Word64]
 word64s = take 10000 $ cycle [minBound .. maxBound]
 {-# NOINLINE word64s #-}
+
+words10k :: [Word]
+words10k = [1..10000]
+{-# NOINLINE words10k #-}
+
+ints10k :: [Int]
+ints10k = [1..10000]
+{-# NOINLINE ints10k #-}
 
 set10k :: Set.Set Int
 set10k = Set.fromList [1..10000]
