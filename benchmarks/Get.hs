@@ -10,6 +10,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import qualified Data.Monoid as Monoid
+import Data.Ratio (Ratio, (%))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.Bits
@@ -53,7 +54,9 @@ main = do
     rnf encodedIdentityW32s,
     rnf encodedFixedE2s,
     rnf encodedSmallIntegers,
-    rnf encodedSmallNaturals
+    rnf encodedSmallNaturals,
+    rnf encodedEitherIntW32s,
+    rnf encodedRatioInts
      ]
   defaultMain
     [ bgroup "brackets"
@@ -144,6 +147,8 @@ main = do
         [ bench "[Sum Int]"         $ nf (decode :: L.ByteString -> [Monoid.Sum Int]) encodedSumInts
         , bench "[Identity Word32]" $ nf (decode :: L.ByteString -> [Identity Word32]) encodedIdentityW32s
         , bench "[Fixed E2]"        $ nf (decode :: L.ByteString -> [Fixed E2]) encodedFixedE2s
+        , bench "[Either Int Word32]" $ nf (decode :: L.ByteString -> [Either Int Word32]) encodedEitherIntW32s
+        , bench "[Ratio Int]"       $ nf (decode :: L.ByteString -> [Ratio Int]) encodedRatioInts
         ]
     ]
 
@@ -506,3 +511,9 @@ encodedSmallIntegers = L.fromStrict . L.toStrict $ encode [0..fromIntegral conta
 
 encodedSmallNaturals :: L.ByteString
 encodedSmallNaturals = L.fromStrict . L.toStrict $ encode [0..fromIntegral containerSize :: Natural]
+
+encodedEitherIntW32s :: L.ByteString
+encodedEitherIntW32s = L.fromStrict . L.toStrict $ encode [if even i then Left i else Right (fromIntegral i :: Word32) | i <- [1..containerSize]]
+
+encodedRatioInts :: L.ByteString
+encodedRatioInts = L.fromStrict . L.toStrict $ encode [i % (i + 1) | i <- [1..containerSize]]

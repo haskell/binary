@@ -11,6 +11,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
 import qualified Data.Monoid as Monoid
+import Data.Ratio (Ratio, (%))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.Word
@@ -46,6 +47,9 @@ main = do
     , rnf sumInts10k
     , rnf identityW32s10k
     , rnf fixedE2s10k
+    , rnf maybeW32s10k
+    , rnf eitherIntW32s10k
+    , rnf ratioInts10k
     ]
   defaultMain
     [ bench "small Integers" $ whnf (run . foldMap put) smallIntegers
@@ -96,6 +100,9 @@ main = do
       [ bench "[Sum Int]" $ whnf (run . put) sumInts10k
       , bench "[Identity Word32]" $ whnf (run . put) identityW32s10k
       , bench "[Fixed E2]" $ whnf (run . put) fixedE2s10k
+      , bench "[Maybe Word32]" $ whnf (run . put) maybeW32s10k
+      , bench "[Either Int Word32]" $ whnf (run . put) eitherIntW32s10k
+      , bench "[Ratio Int]" $ whnf (run . put) ratioInts10k
       ]
     ]
   where
@@ -196,3 +203,15 @@ identityW32s10k = [Identity (fromIntegral i) | i <- [1..10000 :: Int]]
 fixedE2s10k :: [Fixed E2]
 fixedE2s10k = [fromIntegral i | i <- [1..10000 :: Int]]
 {-# NOINLINE fixedE2s10k #-}
+
+maybeW32s10k :: [Maybe Word32]
+maybeW32s10k = [if even i then Just (fromIntegral i) else Nothing | i <- [1..10000 :: Int]]
+{-# NOINLINE maybeW32s10k #-}
+
+eitherIntW32s10k :: [Either Int Word32]
+eitherIntW32s10k = [if even i then Left i else Right (fromIntegral i) | i <- [1..10000 :: Int]]
+{-# NOINLINE eitherIntW32s10k #-}
+
+ratioInts10k :: [Ratio Int]
+ratioInts10k = [i % (i + 1) | i <- [1..10000 :: Int]]
+{-# NOINLINE ratioInts10k #-}
