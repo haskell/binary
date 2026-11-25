@@ -774,17 +774,23 @@ instance Binary BS.ShortByteString where
 -- Maps and Sets
 
 instance (Binary a) => Binary (Set.Set a) where
-    put s = put (Set.size s) <> mapM_ put (Set.toAscList s)
+    {-# INLINABLE put #-}
+    put s = put (Set.size s) <> putBuilder (Set.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty s)
     {-# INLINABLE get #-}
     get   = liftM Set.fromDistinctAscList get
 
 instance (Binary k, Binary e) => Binary (Map.Map k e) where
+    {-# INLINABLE put #-}
     put m = put (Map.size m) <> putBuilder (Map.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
     {-# INLINABLE get #-}
     get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
+#ifdef __GLASGOW_HASKELL__
+    put s = put (IntSet.size s) <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.int64BE) (IntSet.toAscList s))
+#else
     put s = put (IntSet.size s) <> mapM_ put (IntSet.toAscList s)
+#endif
     get = do
       n <- getInt
       if n < 0
@@ -806,6 +812,7 @@ instance Binary IntSet.IntSet where
             else fail "Data.Binary.get @IntSet: keys not strictly ascending"
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
+    {-# INLINABLE put #-}
     put m = put (IntMap.size m) <> putBuilder (IntMap.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
     {-# INLINABLE get #-}
     get = do
@@ -839,7 +846,8 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 --
 
 instance (Binary e) => Binary (Seq.Seq e) where
-    put s = put (Seq.length s) <> Fold.mapM_ put s
+    {-# INLINABLE put #-}
+    put s = put (Seq.length s) <> putBuilder (Fold.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty s)
     {-# INLINABLE get #-}
     get = do n <- get :: Get Int
              if n < 0
@@ -873,6 +881,7 @@ instance Binary Float where
 -- Trees
 
 instance (Binary e) => Binary (T.Tree e) where
+    {-# INLINABLE put #-}
     put (T.Node r s) = put r <> put s
     {-# INLINABLE get #-}
     get = liftM2 T.Node get get
@@ -881,9 +890,10 @@ instance (Binary e) => Binary (T.Tree e) where
 -- Arrays
 
 instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
+    {-# INLINABLE put #-}
     put a =
         put (bounds a)
-        <> mapM_ put (elems a)
+        <> putBuilder (List.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty (elems a))
     {-# INLINABLE get #-}
     get = do
         bs <- get
@@ -895,9 +905,10 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
 -- The IArray UArray e constraint is non portable. Requires flexible instances
 --
 instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) where
+    {-# INLINABLE put #-}
     put a =
         put (bounds a)
-        <> mapM_ put (elems a)
+        <> putBuilder (List.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty (elems a))
     {-# INLINABLE get #-}
     get = do
         bs <- get
@@ -995,7 +1006,8 @@ instance Binary a => Binary (NE.NonEmpty a) where
       case list of
         [] -> fail "NonEmpty is empty!"
         x:xs -> pure (x NE.:| xs)
-  put = put . NE.toList
+  {-# INLINE put #-}
+  put (x NE.:| xs) = putList (x : xs)
 #endif
 
 ------------------------------------------------------------------------

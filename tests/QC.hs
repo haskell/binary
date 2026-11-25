@@ -13,6 +13,7 @@ import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
                                                             catch, evaluate)
 import           Control.Monad                        (MonadPlus(..), unless, liftM2)
+import           Data.Array.Unboxed                   (Array, UArray, listArray)
 import           Data.Bits                            ((.|.), shiftL)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Internal             as BI
@@ -1461,6 +1462,8 @@ tests =
             , testWithGen "IntSet"          (IntSet.fromList <$> (arbitrary :: Gen [Int]))
             , testWithGen "IntMap Word16"   (IntMap.fromList <$> (arbitrary :: Gen [(Int, Word16)]))
             , testWithGen "Seq Int"         (Seq.fromList <$> (arbitrary :: Gen [Int]))
+            , testWithGen "Array Int Int16" ((\xs -> listArray (0, length xs - 1) xs :: Array Int Int16) <$> arbitrary)
+            , testWithGen "UArray Int Int16" ((\xs -> listArray (0, length xs - 1) xs :: UArray Int Int16) <$> arbitrary)
             , testWithGen "Tree Int8"       genTree
             , testWithGen "Complex Double"  (liftM2 (:+) (arbitrary :: Gen Double) arbitrary)
             , testWithGen "Identity Int"    (Identity <$> (arbitrary :: Gen Int))
