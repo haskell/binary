@@ -1006,6 +1006,27 @@ prop_double_wire_format d =
          , encodeFloat (2^(52 :: Int)) 0
          ] :: [Double])
 
+prop_big_integer_wire_format :: [Word8] -> Bool -> Bool
+prop_big_integer_wire_format ws neg =
+    let mag = foldr (\b acc -> acc * 256 + fromIntegral b) (0 :: Integer) ws
+        big = (mag + 1) * (2 ^ (32 :: Int)) + 1
+        n = if neg then -big else big
+        refUnroll 0 = []
+        refUnroll i = (fromIntegral (i `mod` 256) :: Word8) : refUnroll (i `div` 256)
+        refEnc = runPut (putWord8 1 <> put (fromIntegral (signum n) :: Word8) <> put (refUnroll (abs n)))
+    in encode n == refEnc && decode (encode n) == n
+
+#ifdef HAS_NATURAL
+prop_big_natural_wire_format :: [Word8] -> Bool
+prop_big_natural_wire_format ws =
+    let mag = foldr (\b acc -> acc * 256 + fromIntegral b) (0 :: Natural) ws
+        n = (mag + 1) * (2 ^ (64 :: Int)) + 1
+        refUnroll 0 = []
+        refUnroll i = (fromIntegral (i `mod` 256) :: Word8) : refUnroll (i `div` 256)
+        refEnc = runPut (putWord8 1 <> put (refUnroll n))
+    in encode n == refEnc && decode (encode n) == n
+#endif
+
 genTree :: Gen (Tree.Tree Int8)
 genTree = sized go
   where
@@ -1346,6 +1367,10 @@ tests =
             , testProperty "IntMap negative length" (p prop_intmap_negative_length)
             , testProperty "Float wire format matches decodeFloat" (p prop_float_wire_format)
             , testProperty "Double wire format matches decodeFloat" (p prop_double_wire_format)
+            , testProperty "Big Integer wire format and roundtrip" (p prop_big_integer_wire_format)
+#ifdef HAS_NATURAL
+            , testProperty "Big Natural wire format and roundtrip" (p prop_big_natural_wire_format)
+#endif
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))

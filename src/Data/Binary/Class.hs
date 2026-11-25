@@ -15,6 +15,11 @@
 {-# LANGUAGE MultiWayIf #-}
 #endif
 
+#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,15,0)
+{-# LANGUAGE MagicHash #-}
+#define HAS_GHC_BIGNUM
+#endif
+
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
 #endif
@@ -100,7 +105,16 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder.Prim as Prim
 #endif
 
+#ifdef HAS_GHC_BIGNUM
+import qualified Data.ByteString.Internal as BI
+import qualified Data.ByteString.Unsafe as BU
+import GHC.Exts (Ptr(..), Word(..))
+import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
+import GHC.Num.Natural (naturalFromAddr, naturalSizeInBase#, naturalToAddr)
+import System.IO.Unsafe (unsafeDupablePerformIO)
+#else
 import Data.List    (unfoldr)
+#endif
 import qualified Data.List as List
 
 -- And needed for the instances:
@@ -426,15 +440,57 @@ instance Binary Integer where
             _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
 
 putBigInteger :: Integer -> Put
+#ifdef HAS_GHC_BIGNUM
+putBigInteger n =
+    putWord8 1
+    <> putWord8 sign
+    <> put len
+    -- Safety of unsafeCreate: an = abs n is strictly positive (n is outside
+    -- Int32), and len = integerSizeInBase# 256## an is the exact byte count
+    -- that integerToAddr writes into the freshly allocated len-byte buffer.
+    <> putByteString (BI.unsafeCreate len $ \(Ptr addr#) ->
+         void (integerToAddr an addr# 0#))
+  where
+    an = abs n
+    sign = if n < 0 then 255 else 1 :: Word8
+    len = fromIntegral (W# (integerSizeInBase# 256## an)) :: Int
+#else
 putBigInteger n =
     putWord8 1
     <> put sign
     <> put (unroll (abs n))         -- unroll the bytes
   where
     sign = fromIntegral (signum n) :: Word8
+#endif
 {-# NOINLINE putBigInteger #-}
 
 getBigInteger :: Get Integer
+#ifdef HAS_GHC_BIGNUM
+getBigInteger = do
+    sign <- getWord8
+    n <- get :: Get Int
+    if n < 0
+      then fail "Data.Binary.get @Integer: negative length"
+      else do
+        bs <- getByteString n
+        -- Safety of unsafeDupablePerformIO + unsafeUseAsCString:
+        -- 1. bs is an immutable ByteString of exact length n > 0 (guaranteed by
+        --    getByteString n), and integerFromAddr only reads those n bytes
+        --    (does not mutate or rely on a NUL terminator).
+        -- 2. unsafeUseAsCString wraps withForeignPtr, keeping bs alive for the
+        --    duration of integerFromAddr.
+        -- 3. The read is pure and idempotent, so duplication is safe.
+        let v = if n == 0
+                  then 0
+                  else unsafeDupablePerformIO $
+                         BU.unsafeUseAsCString bs $ \(Ptr addr#) ->
+                           case fromIntegral n of
+                             W# w# -> integerFromAddr w# addr# 0#
+        case sign of
+            1   -> return $! v
+            255 -> return $! - v
+            _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+#else
 getBigInteger = do
     sign  <- get :: Get Word8
     bytes <- get
@@ -443,6 +499,7 @@ getBigInteger = do
         1   -> return $! v
         255 -> return $! - v
         _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+#endif
 {-# NOINLINE getBigInteger #-}
 
 -- | @since 0.8.0.0
@@ -455,6 +512,7 @@ instance forall a. Fixed.HasResolution a => Binary (Fixed.Fixed a) where
   get = (\x -> fromInteger x / fromInteger (Fixed.resolution (undefined :: Maybe a))) `liftM` get
 #endif
 
+#ifndef HAS_GHC_BIGNUM
 --
 -- Fold and unfold an Integer to and from a list of its bytes
 --
@@ -468,6 +526,7 @@ roll :: (Integral a, Bits a) => [Word8] -> a
 roll   = foldl' unstep 0 . reverse
   where
     unstep a b = a `shiftL` 8 .|. fromIntegral b
+#endif
 
 #ifdef HAS_NATURAL
 -- Fixed-size type for a subset of Natural
@@ -497,15 +556,47 @@ instance Binary Natural where
             _ -> fail ("Data.Binary.get @Natural: invalid tag " ++ show tag)
 
 putBigNatural :: Natural -> Put
+#ifdef HAS_GHC_BIGNUM
+putBigNatural n =
+    putWord8 1
+    <> put len
+    -- Safety of unsafeCreate: n > maxBound @Word64 so n > 0, and
+    -- len = naturalSizeInBase# 256## n is the exact byte count that
+    -- naturalToAddr writes into the freshly allocated len-byte buffer.
+    <> putByteString (BI.unsafeCreate len $ \(Ptr addr#) ->
+         void (naturalToAddr n addr# 0#))
+  where
+    len = fromIntegral (W# (naturalSizeInBase# 256## n)) :: Int
+#else
 putBigNatural n =
     putWord8 1
     <> put (unroll (abs n))         -- unroll the bytes
+#endif
 {-# NOINLINE putBigNatural #-}
 
 getBigNatural :: Get Natural
+#ifdef HAS_GHC_BIGNUM
+getBigNatural = do
+    n <- get :: Get Int
+    if n < 0
+      then fail "Data.Binary.get @Natural: negative length"
+      else if n == 0
+        then return 0
+        else do
+          bs <- getByteString n
+          -- Safety of unsafeDupablePerformIO + unsafeUseAsCString:
+          -- bs is an immutable ByteString of exact length n > 0, kept alive by
+          -- unsafeUseAsCString's withForeignPtr, and naturalFromAddr performs
+          -- a pure, idempotent read of exactly those n bytes (no NUL needed).
+          return $! unsafeDupablePerformIO $
+            BU.unsafeUseAsCString bs $ \(Ptr addr#) ->
+              case fromIntegral n of
+                W# w# -> naturalFromAddr w# addr# 0#
+#else
 getBigNatural = do
     bytes <- get
     return $! roll bytes
+#endif
 {-# NOINLINE getBigNatural #-}
 #endif
 
@@ -634,6 +725,13 @@ getCharMultiByte w =
             else invalid -- no continuation byte
 {-# NOINLINE getCharMultiByte #-}
 
+-- Safety of unsafeChr: getChr is private to this module and only called from
+-- the four WTF-8 branches of Binary Char's get, which statically guarantee
+-- 0 <= i <= 0x10ffff:
+--   1-byte (w < 0x80):                       0x00000 .. 0x00007f
+--   2-byte (0xc2 <= w <= 0xdf):              0x00080 .. 0x0007ff
+--   3-byte (0xe0 <= w <= 0xef, not < 0x800): 0x00800 .. 0x00ffff
+--   4-byte (0xf0 <= w <= 0xf4, w==0xf4 => x<=0x8f): 0x10000 .. 0x10ffff
 getChr :: Int -> Get Char
 #ifdef __GLASGOW_HASKELL__
 getChr i = pure $! unsafeChr i
