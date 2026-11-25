@@ -60,7 +60,9 @@ main = do
     rnf encodedRatioInts,
     rnf encodedAsciiString,
     rnf encodedUtf8String,
-    rnf encodedFingerprints
+    rnf encodedFingerprints,
+    rnf encodedDoubles,
+    rnf encodedFloats
      ]
   defaultMain
     [ bgroup "brackets"
@@ -156,6 +158,8 @@ main = do
         , bench "String (ASCII 10k)" $ nf (decode :: L.ByteString -> String) encodedAsciiString
         , bench "String (UTF-8 10k)" $ nf (decode :: L.ByteString -> String) encodedUtf8String
         , bench "[Fingerprint] (10k)" $ nf (decode :: L.ByteString -> [Fingerprint]) encodedFingerprints
+        , bench "[Double] (10k)" $ nf (decode :: L.ByteString -> [Double]) encodedDoubles
+        , bench "[Float] (10k)" $ nf (decode :: L.ByteString -> [Float]) encodedFloats
         ]
     ]
 
@@ -533,3 +537,9 @@ encodedUtf8String = L.fromStrict . L.toStrict $ encode (take containerSize (cycl
 
 encodedFingerprints :: L.ByteString
 encodedFingerprints = L.fromStrict . L.toStrict $ encode [Fingerprint (fromIntegral i) (fromIntegral (i + 1)) | i <- [1..containerSize]]
+
+encodedDoubles :: L.ByteString
+encodedDoubles = L.fromStrict . L.toStrict $ encode (take containerSize [ sign * 2 ** n | sign <- [-1, 1], n <- [0, 0.2 .. 1023 :: Double] ])
+
+encodedFloats :: L.ByteString
+encodedFloats = L.fromStrict . L.toStrict $ encode (take containerSize (cycle [ sign * 2 ** n | sign <- [-1, 1], n <- [0, 0.2 .. 126 :: Float] ]))
