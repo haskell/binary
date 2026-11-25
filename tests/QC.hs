@@ -19,10 +19,18 @@ import qualified Data.ByteString.Internal             as BI
 import qualified Data.ByteString.Lazy                 as L
 import qualified Data.ByteString.Lazy.Internal        as L
 import           Data.ByteString.Short                (ShortByteString)
+import           Data.Complex                         (Complex(..))
+import           Data.Functor.Identity                (Identity(..))
 import           Data.Int
+import qualified Data.IntMap                          as IntMap
+import qualified Data.IntSet                          as IntSet
 import           Data.IORef                           (newIORef, readIORef, writeIORef)
+import           Data.List.NonEmpty                   (NonEmpty(..))
+import qualified Data.Map                             as Map
 import           Data.Ratio
 import qualified Data.Sequence                        as Seq
+import qualified Data.Set                             as Set
+import qualified Data.Tree                            as Tree
 import           Data.Typeable
 import           Data.Word
 import           Foreign                              (Ptr, castPtr, free, mallocBytes, peek, peekByteOff, poke)
@@ -53,6 +61,7 @@ import           Test.QuickCheck hiding (total)
 import qualified Action                               (tests)
 import           Arbitrary                            ()
 import           Data.Binary
+import qualified Data.Binary.Builder                  as Builder
 import           Data.Binary.Get
 import qualified Data.Binary.Get.Internal             as GetI
 import           Data.Binary.Get.Internal.Buf
@@ -890,6 +899,50 @@ prop_GenericSmall_invalidTag w =
         Right _ -> False
 
 ------------------------------------------------------------------------
+-- PutM and container/class tests
+
+prop_putM_monad_and_flush :: Word8 -> Word16 -> Word32 -> Property
+prop_putM_monad_and_flush w8 w16 w32 =
+    let pm :: PutM (Word8, Word16, Word32)
+        pm = do
+          a <- fmap (+ 1) (putWord8 w8 *> pure w8)
+          flush
+          b <- pure (+) <*> (putWord16be w16 *> pure w16) <*> pure 0
+          c <- (putWord32be w32 *> pure w32) >>= \x -> pure x
+          return (a, b, c)
+        (res, lbs) = runPutM pm
+        lbsExec    = Builder.toLazyByteString (execPut (putWord8 w8 `mappend` mempty `mappend` putWord16be w16 `mappend` putWord32be w32))
+    in conjoin
+         [ res === (w8 + 1, w16, w32)
+         , lbs === lbsExec
+         ]
+
+prop_put_infinite_streaming :: Word8 -> Property
+prop_put_infinite_streaming w =
+    forAll (choose (0, 64)) $ \n ->
+      let infMappend = putWord8 w `mappend` infMappend
+          infSeq     = mapM_ putWord8 [w ..]
+      in conjoin
+           [ L.unpack (L.take (fromIntegral n) (runPut infMappend)) === replicate n w
+           , L.unpack (L.take (fromIntegral n) (runPut infSeq)) === take n [w ..]
+           ]
+
+prop_ratio_zero_denom :: Int -> Bool
+prop_ratio_zero_denom n =
+    case decodeOrFail (encode (n, 0 :: Int)) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Ratio Int) of
+      Left _  -> True
+      Right _ -> False
+
+genTree :: Gen (Tree.Tree Int8)
+genTree = sized go
+  where
+    go n
+      | n <= 0    = Tree.Node <$> arbitrary <*> return []
+      | otherwise = do
+          k <- choose (0, min 3 n)
+          Tree.Node <$> arbitrary <*> vectorOf k (go (n `div` 2))
+
+------------------------------------------------------------------------
 -- Buffer representation tests (both PortableBuf and UnboxedBuf)
 
 -- | Generate strict ByteStrings covering empty, full, leading-offset,
@@ -1211,6 +1264,7 @@ tests =
 #ifdef HAS_NATURAL
             , testProperty "Natural invalid tag"  (p prop_natural_invalid_tag)
 #endif
+            , testProperty "Ratio zero denominator" (p prop_ratio_zero_denom)
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
@@ -1345,6 +1399,22 @@ tests =
             , test' "B.ByteString" (test :: T B.ByteString) test
             , test' "L.ByteString" (test :: T L.ByteString) test
             , test' "ShortByteString" (test :: T ShortByteString) test
+
+            , testWithGen "Set Int"         (Set.fromList <$> (arbitrary :: Gen [Int]))
+            , testWithGen "Map Int Word16"  (Map.fromList <$> (arbitrary :: Gen [(Int, Word16)]))
+            , testWithGen "IntSet"          (IntSet.fromList <$> (arbitrary :: Gen [Int]))
+            , testWithGen "IntMap Word16"   (IntMap.fromList <$> (arbitrary :: Gen [(Int, Word16)]))
+            , testWithGen "Seq Int"         (Seq.fromList <$> (arbitrary :: Gen [Int]))
+            , testWithGen "Tree Int8"       genTree
+            , testWithGen "Complex Double"  (liftM2 (:+) (arbitrary :: Gen Double) arbitrary)
+            , testWithGen "Identity Int"    (Identity <$> (arbitrary :: Gen Int))
+            , testWithGen "NonEmpty Int"    (liftM2 (:|) (arbitrary :: Gen Int) arbitrary)
+            , testWithGen "Proxy Int"       (return (Proxy :: Proxy Int))
+            ]
+
+        , testGroup "Put"
+            [ testProperty "PutM Functor/Applicative/Monad/flush/execPut" (p prop_putM_monad_and_flush)
+            , testProperty "Put infinite streaming" (p prop_put_infinite_streaming)
             ]
 
         , testGroup "Invariants" $ map (uncurry testProperty)
