@@ -5,6 +5,11 @@ import Control.Exception (evaluate)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
+import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
+import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import Data.Word
 import Test.Tasty.Bench
 
@@ -26,6 +31,11 @@ main = do
     , rnf word16s
     , rnf word32s
     , rnf word64s
+    , rnf intSet10k
+    , rnf set10k
+    , rnf intMap10k
+    , rnf map10k
+    , rnf seq10k
     ]
   defaultMain
     [ bench "small Integers" $ whnf (run . foldMap put) smallIntegers
@@ -60,6 +70,13 @@ main = do
       , bench "Struct put as list" $ whnf (run . put) structs
       , bench "StructList monoid put" $ whnf (run . foldMap put) structLists
       , bench "StructList put as list" $ whnf (run . put) structLists
+      ]
+    , bgroup "Containers"
+      [ bench "Set Int (10k)" $ whnf (run . put) set10k
+      , bench "Map Int Word32 (10k)" $ whnf (run . put) map10k
+      , bench "IntSet (10k)" $ whnf (run . put) intSet10k
+      , bench "IntMap Word32 (10k)" $ whnf (run . put) intMap10k
+      , bench "Seq Int (10k)" $ whnf (run . put) seq10k
       ]
     ]
   where
@@ -116,3 +133,23 @@ word32s = take 10000 $ cycle [minBound .. maxBound]
 word64s :: [Word64]
 word64s = take 10000 $ cycle [minBound .. maxBound]
 {-# NOINLINE word64s #-}
+
+set10k :: Set.Set Int
+set10k = Set.fromList [1..10000]
+{-# NOINLINE set10k #-}
+
+map10k :: Map.Map Int Word32
+map10k = Map.fromList [(i, fromIntegral i) | i <- [1..10000]]
+{-# NOINLINE map10k #-}
+
+intSet10k :: IntSet.IntSet
+intSet10k = IntSet.fromList [1..10000]
+{-# NOINLINE intSet10k #-}
+
+intMap10k :: IntMap.IntMap Word32
+intMap10k = IntMap.fromList [(i, fromIntegral i) | i <- [1..10000]]
+{-# NOINLINE intMap10k #-}
+
+seq10k :: Seq.Seq Int
+seq10k = Seq.fromList [1..10000]
+{-# NOINLINE seq10k #-}
