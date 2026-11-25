@@ -216,17 +216,20 @@ instance Binary Void where
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone
 instance Binary () where
+    {-# INLINE put #-}
     put ()  = mempty
     {-# INLINE get #-}
     get     = return ()
 
 instance Binary (Proxy a) where
+    {-# INLINE put #-}
     put Proxy = pure ()
     {-# INLINE get #-}
     get       = pure Proxy
 
 -- Bools are encoded as a byte in the range 0 .. 1
 instance Binary Bool where
+    {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
     {-# INLINE get #-}
     get     = getWord8 >>= toBool
@@ -237,6 +240,7 @@ instance Binary Bool where
 
 -- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
+    {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
     {-# INLINE get #-}
     get     = getWord8 >>= toOrd
@@ -251,6 +255,7 @@ instance Binary Ordering where
 
 -- Words8s are written as bytes
 instance Binary Word8 where
+    {-# INLINE put #-}
     put     = putWord8
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -263,6 +268,7 @@ instance Binary Word8 where
 
 -- Words16s are written as 2 bytes in big-endian (network) order
 instance Binary Word16 where
+    {-# INLINE put #-}
     put     = putWord16be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -275,6 +281,7 @@ instance Binary Word16 where
 
 -- Words32s are written as 4 bytes in big-endian (network) order
 instance Binary Word32 where
+    {-# INLINE put #-}
     put     = putWord32be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -287,6 +294,7 @@ instance Binary Word32 where
 
 -- Words64s are written as 8 bytes in big-endian (network) order
 instance Binary Word64 where
+    {-# INLINE put #-}
     put     = putWord64be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -299,6 +307,7 @@ instance Binary Word64 where
 
 -- Int8s are written as a single byte.
 instance Binary Int8 where
+    {-# INLINE put #-}
     put     = putInt8
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -311,6 +320,7 @@ instance Binary Int8 where
 
 -- Int16s are written as a 2 bytes in big endian format
 instance Binary Int16 where
+    {-# INLINE put #-}
     put     = putInt16be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -323,6 +333,7 @@ instance Binary Int16 where
 
 -- Int32s are written as a 4 bytes in big endian format
 instance Binary Int32 where
+    {-# INLINE put #-}
     put     = putInt32be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -335,6 +346,7 @@ instance Binary Int32 where
 
 -- Int64s are written as a 8 bytes in big endian format
 instance Binary Int64 where
+    {-# INLINE put #-}
     put     = putInt64be
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -349,6 +361,7 @@ instance Binary Int64 where
 
 -- Words are are written as Word64s, that is, 8 bytes in big endian format
 instance Binary Word where
+    {-# INLINE put #-}
     put     = putWord64be . fromIntegral
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -361,6 +374,7 @@ instance Binary Word where
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
 instance Binary Int where
+    {-# INLINE put #-}
     put     = putInt64be . fromIntegral
 #ifdef __GLASGOW_HASKELL__
     {-# INLINE putList #-}
@@ -558,11 +572,13 @@ freezeByteArray arr = IO $ \s ->
 -}
 
 instance (Binary a,Integral a) => Binary (R.Ratio a) where
+    {-# INLINABLE put #-}
     put r = put (R.numerator r) <> put (R.denominator r)
+    {-# INLINABLE get #-}
     get = do
         n <- get
         d <- get
-        if d == 0 then fail "zero denominator" else pure (n R.% d)
+        if d == 0 then fail "zero denominator" else pure $! (n R.% d)
 
 instance Binary a => Binary (Complex a) where
     {-# INLINE put #-}
@@ -707,6 +723,7 @@ getMany n
 {-# INLINE getMany #-}
 
 instance (Binary a) => Binary (Maybe a) where
+    {-# INLINE put #-}
     put Nothing  = putWord8 0
     put (Just x) = putWord8 1 <> put x
     {-# INLINE get #-}
@@ -718,6 +735,7 @@ instance (Binary a) => Binary (Maybe a) where
             _ -> fail ("Data.Binary.get @Maybe: invalid tag " ++ show w)
 
 instance (Binary a, Binary b) => Binary (Either a b) where
+    {-# INLINE put #-}
     put (Left  a) = putWord8 0 <> put a
     put (Right b) = putWord8 1 <> put b
     {-# INLINE get #-}
@@ -961,7 +979,9 @@ deriving instance Binary m => Binary (Semigroup.WrappedMonoid m)
 
 -- | @since 0.8.4.0
 instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
+  {-# INLINE get #-}
   get                     = liftM2 Semigroup.Arg get get
+  {-# INLINE put #-}
   put (Semigroup.Arg a b) = put a <> put b
 
 ------------------------------------------------------------------------

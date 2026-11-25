@@ -1477,6 +1477,7 @@ tests =
             , testWithGen "Semigroup.First Int" (Semigroup.First <$> (arbitrary :: Gen Int))
             , testWithGen "Semigroup.Last Int"  (Semigroup.Last <$> (arbitrary :: Gen Int))
             , testWithGen "Semigroup.WrappedMonoid Int" (Semigroup.WrapMonoid <$> (arbitrary :: Gen Int))
+            , testWithGen "Semigroup.Arg Int Word16" (liftM2 Semigroup.Arg (arbitrary :: Gen Int) (arbitrary :: Gen Word16))
             , testWithGen "NonEmpty Int"    (liftM2 (:|) (arbitrary :: Gen Int) arbitrary)
             , testWithGen "Proxy Int"       (return (Proxy :: Proxy Int))
             ]
