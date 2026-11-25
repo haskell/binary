@@ -863,7 +863,15 @@ instance (Binary e) => Binary (Seq.Seq e) where
 
 -- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Double where
+#ifdef __GLASGOW_HASKELL__
+    put d = putBuilder (Prim.primBounded doubleBoundedPrim d)
+    {-# INLINE putList #-}
+    putList xs =
+        put (length xs)
+        <> putBuilder (Prim.primMapListBounded doubleBoundedPrim xs)
+#else
     put d = put (decodeFloat d)
+#endif
     get   = do
         x <- get
         y <- get
@@ -871,11 +879,65 @@ instance Binary Double where
 
 -- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Float where
+#ifdef __GLASGOW_HASKELL__
+    put f = putBuilder (Prim.primFixed floatFixedPrim f)
+    {-# INLINE putList #-}
+    putList xs =
+        put (length xs)
+        <> putBuilder (Prim.primMapListFixed floatFixedPrim xs)
+#else
     put f = put (decodeFloat f)
+#endif
     get   =  do
         x <- get
         y <- get
         return $! encodeFloat x y
+
+#ifdef __GLASGOW_HASKELL__
+floatFixedPrim :: Prim.FixedPrim Float
+floatFixedPrim =
+    (\f -> let (m, e) = decodeFloat f
+           in (0 :: Word8, (fromIntegral m :: Int32, fromIntegral e :: Int64)))
+    Prim.>$< (Prim.word8 Prim.>*< Prim.int32BE Prim.>*< Prim.int64BE)
+{-# INLINE floatFixedPrim #-}
+
+doubleBoundedPrim :: Prim.BoundedPrim Double
+doubleBoundedPrim =
+    (\d -> let (m, e) = decodeFloat d
+           in (fromIntegral m :: Int64, fromIntegral e :: Int64))
+    Prim.>$<
+    Prim.condB
+      (\(m, _) -> m >= fromIntegral (minBound :: Int32) && m <= fromIntegral (maxBound :: Int32))
+      (Prim.liftFixedToBounded
+        ((\(m, e) -> (0 :: Word8, (fromIntegral m :: Int32, e)))
+         Prim.>$< (Prim.word8 Prim.>*< Prim.int32BE Prim.>*< Prim.int64BE)))
+      ((\(m, e) ->
+          let sign = if m < 0 then 255 else 1 :: Word8
+              u    = fromIntegral (abs m) :: Word64
+          in ((sign, u), e))
+       Prim.>$<
+       (Prim.condB (\(_, u) -> u < 0x100000000)
+          (Prim.liftFixedToBounded
+            ((\(sign, u) -> (1 :: Word8, (sign, (4 :: Int64, fromIntegral u :: Word32))))
+             Prim.>$< (Prim.word8 Prim.>*< Prim.word8 Prim.>*< Prim.int64BE Prim.>*< Prim.word32LE)))
+       (Prim.condB (\(_, u) -> u < 0x10000000000)
+          (Prim.liftFixedToBounded
+            ((\(sign, u) -> (1 :: Word8, (sign, (5 :: Int64, (fromIntegral u :: Word32, fromIntegral (u `shiftR` 32) :: Word8)))))
+             Prim.>$< (Prim.word8 Prim.>*< Prim.word8 Prim.>*< Prim.int64BE Prim.>*< Prim.word32LE Prim.>*< Prim.word8)))
+       (Prim.condB (\(_, u) -> u < 0x1000000000000)
+          (Prim.liftFixedToBounded
+            ((\(sign, u) -> (1 :: Word8, (sign, (6 :: Int64, (fromIntegral u :: Word32, fromIntegral (u `shiftR` 32) :: Word16)))))
+             Prim.>$< (Prim.word8 Prim.>*< Prim.word8 Prim.>*< Prim.int64BE Prim.>*< Prim.word32LE Prim.>*< Prim.word16LE)))
+       (Prim.condB (\(_, u) -> u < 0x100000000000000)
+          (Prim.liftFixedToBounded
+            ((\(sign, u) -> (1 :: Word8, (sign, (7 :: Int64, (fromIntegral u :: Word32, (fromIntegral (u `shiftR` 32) :: Word16, fromIntegral (u `shiftR` 48) :: Word8))))))
+             Prim.>$< (Prim.word8 Prim.>*< Prim.word8 Prim.>*< Prim.int64BE Prim.>*< Prim.word32LE Prim.>*< Prim.word16LE Prim.>*< Prim.word8)))
+          (Prim.liftFixedToBounded
+            ((\(sign, u) -> (1 :: Word8, (sign, (8 :: Int64, u))))
+             Prim.>$< (Prim.word8 Prim.>*< Prim.word8 Prim.>*< Prim.int64BE Prim.>*< Prim.word64LE))))))
+       Prim.>*< Prim.liftFixedToBounded Prim.int64BE))
+{-# INLINE doubleBoundedPrim #-}
+#endif
 
 ------------------------------------------------------------------------
 -- Trees

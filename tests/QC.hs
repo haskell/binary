@@ -984,6 +984,28 @@ prop_intmap_negative_length n =
         Left _  -> True
         Right _ -> False
 
+prop_float_wire_format :: Float -> Bool
+prop_float_wire_format f =
+    encode f == runPut (put (decodeFloat f))
+ && all (\x -> encode x == runPut (put (decodeFloat x)))
+        ([0.0, -0.0, 1.0, -1.0, 1/0, -1/0, 0/0, 1e-40, 1e-38, 3.4028235e38] :: [Float])
+
+prop_double_wire_format :: Double -> Bool
+prop_double_wire_format d =
+    encode d == runPut (put (decodeFloat d))
+ && all (\x -> encode x == runPut (put (decodeFloat x)))
+        ([ 0.0, -0.0, 1.0, -1.0, 1/0, -1/0, 0/0
+         , 1e-320, 1e-308, 1.7976931348623157e308
+         , encodeFloat (2^(31 :: Int) - 1) 0
+         , encodeFloat (2^(31 :: Int)) 0
+         , encodeFloat (-(2^(31 :: Int))) 0
+         , encodeFloat (-(2^(31 :: Int)) - 1) 0
+         , encodeFloat (2^(32 :: Int)) 0
+         , encodeFloat (2^(40 :: Int)) 0
+         , encodeFloat (2^(48 :: Int)) 0
+         , encodeFloat (2^(52 :: Int)) 0
+         ] :: [Double])
+
 genTree :: Gen (Tree.Tree Int8)
 genTree = sized go
   where
@@ -1322,6 +1344,8 @@ tests =
             , testProperty "IntSet negative length" (p prop_intset_negative_length)
             , testProperty "IntMap invalid key order" (p prop_intmap_invalid_order)
             , testProperty "IntMap negative length" (p prop_intmap_negative_length)
+            , testProperty "Float wire format matches decodeFloat" (p prop_float_wire_format)
+            , testProperty "Double wire format matches decodeFloat" (p prop_double_wire_format)
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
