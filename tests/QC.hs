@@ -12,7 +12,7 @@ module Main ( main ) where
 import           Control.Applicative
 import           Control.Exception                    as C (SomeException,
                                                             catch, evaluate)
-import           Control.Monad                        (unless, liftM2)
+import           Control.Monad                        (MonadPlus(..), unless, liftM2)
 import           Data.Bits                            ((.|.), shiftL)
 import qualified Data.ByteString                      as B
 import qualified Data.ByteString.Internal             as BI
@@ -54,6 +54,7 @@ import qualified Action                               (tests)
 import           Arbitrary                            ()
 import           Data.Binary
 import           Data.Binary.Get
+import qualified Data.Binary.Get.Internal             as GetI
 import           Data.Binary.Get.Internal.Buf
 import           Data.Binary.Put
 
@@ -276,6 +277,107 @@ prop_skip_negative :: Int -> Property
 prop_skip_negative n =
   n < 1 ==>
     runGet (skip n) L.empty == ()
+
+prop_isolate_negative :: Int -> Property
+prop_isolate_negative n =
+  n < 0 ==>
+    case runGetOrFail (isolate n (return ())) L.empty of
+      Left (_, 0, _) -> True
+      _              -> False
+
+prop_isEmpty :: L.ByteString -> [Int] -> Property
+prop_isEmpty lbs xs =
+    let lbs' = refragment xs lbs
+        -- Test both directly and after feeding empty chunks
+        dec  = do
+          e1 <- isEmpty
+          if e1
+            then return (True, [])
+            else do
+              ws <- many getWord8
+              e2 <- isEmpty
+              return (e2, ws)
+    in case runGetOrFail dec lbs' of
+         Right (left, pos, (endEmpty, ws)) ->
+           conjoin
+             [ L.null left === True
+             , pos === L.length lbs'
+             , endEmpty === True
+             , ws === L.unpack lbs'
+             ]
+         Left (_, _, err) -> counterexample ("unexpected failure: " ++ err) False
+
+prop_isEmpty_emptyChunks :: [Word8] -> Property
+prop_isEmpty_emptyChunks ws =
+    let d0 = runGetIncremental isEmpty
+        d1 = pushChunk (pushChunk d0 B.empty) B.empty
+        d2 = if null ws
+               then pushEndOfInput d1
+               else pushChunk d1 (B.pack ws)
+    in case d2 of
+         Done left 0 res ->
+           conjoin
+             [ res === null ws
+             , B.unpack left === ws
+             ]
+         _ -> counterexample "expected Done at pos 0" False
+
+prop_alternative_empty_some_many :: [Word8] -> [Int] -> Property
+prop_alternative_empty_some_many ws xs =
+    let lbs = refragment xs (L.pack ws)
+        emptyFails = case runGetOrFail (empty :: Get Word8) lbs of
+                       Left (left, 0, _) -> left == lbs
+                       _                 -> False
+        mzeroFails = case runGetOrFail (mzero :: Get Word8) lbs of
+                       Left (left, 0, _) -> left == lbs
+                       _                 -> False
+        mplusWorks = case runGetOrFail (mzero `mplus` pure (42 :: Int)) lbs of
+                       Right (left, 0, 42) -> left == lbs
+                       _                   -> False
+        manyWorks  = runGet (many getWord8) lbs == ws
+        someWorks  = case runGetOrFail (some getWord8) lbs of
+                       Right (left, pos, res) -> not (null ws) && L.null left && pos == fromIntegral (length ws) && res == ws
+                       Left _                 -> null ws
+    in conjoin
+         [ counterexample "empty" emptyFails
+         , counterexample "mzero" mzeroFails
+         , counterexample "mplus" mplusWorks
+         , counterexample "many"  manyWorks
+         , counterexample "some"  someWorks
+         ]
+
+prop_readN_ensureN :: [Word8] -> [Int] -> Property
+prop_readN_ensureN ws xs =
+    let lbs = refragment xs (L.pack ws)
+        len = length ws
+    in forAll (choose (0, len + 2)) $ \n ->
+      let decReadN = GetI.readN n (B.take n)
+          decEnsure = GetI.ensureN n >> getByteString n
+          resReadN = runGetOrFail decReadN lbs
+          resEnsure = runGetOrFail decEnsure lbs
+      in if n <= len
+           then conjoin
+             [ case resReadN of
+                 Right (left, pos, bs) ->
+                   bs == B.pack (take n ws) && pos == fromIntegral n && L.unpack left == drop n ws
+                 Left _ -> False
+             , case resEnsure of
+                 Right (left, pos, bs) ->
+                   bs == B.pack (take n ws) && pos == fromIntegral n && L.unpack left == drop n ws
+                 Left _ -> False
+             ]
+           else conjoin
+             [ case resReadN of Left _ -> True; Right _ -> False
+             , case resEnsure of Left _ -> True; Right _ -> False
+             ]
+
+prop_internal_get_put :: B.ByteString -> B.ByteString -> Bool
+prop_internal_get_put bs1 bs2 =
+    let dec = do
+          _ <- GetI.get
+          GetI.put bs2
+          GetI.get
+    in runGet dec (L.fromChunks [bs1]) == bs2
 
 prop_list_negative_length :: Int -> Property
 prop_list_negative_length n =
@@ -982,6 +1084,12 @@ tests =
             , testProperty "read negative length" (p (prop_getByteString_negative :: T Int))
             , testProperty "read lazy negative length" (p prop_getLazyByteString_negative)
             , testProperty "skip negative length" (p prop_skip_negative)
+            , testProperty "isolate negative length" (p prop_isolate_negative)
+            , testProperty "isEmpty" (p prop_isEmpty)
+            , testProperty "isEmpty with empty chunks" (p prop_isEmpty_emptyChunks)
+            , testProperty "Alternative empty/mzero/mplus/some/many" (p prop_alternative_empty_some_many)
+            , testProperty "readN and ensureN" (p prop_readN_ensureN)
+            , testProperty "Internal get and put" (p prop_internal_get_put)
             , testProperty "list negative length" (p prop_list_negative_length)
             , testProperty "seq negative length"  (p prop_seq_negative_length)
             , testProperty "Maybe invalid tag"    (p prop_maybe_invalid_tag)

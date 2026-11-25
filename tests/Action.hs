@@ -131,9 +131,10 @@ prop_action =
     let max_len_input = max_len actions in
     forAll (randomInput max_len_input) $ \ lbs ->
       let allInput = B.concat (L.toChunks lbs) in
-      case Binary.runGetOrFail (execute allInput actions) lbs of
-        Right (_inp, _off, _x) -> True
-        Left (_inp, _off, _msg) -> True
+      case (eval max_len_input actions, Binary.runGetOrFail (execute allInput actions) lbs) of
+        (ESuccess _, Right (_inp, _off, _x)) -> True
+        (EFail {},   Left  (_inp, _off, _msg)) -> True
+        _ -> False
 
 -- | When a decoder aborts with 'fail', check that all relevant uses of 'label'
 -- are respected.
