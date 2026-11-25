@@ -102,12 +102,15 @@
 --
 -- @
 --incrementalExample :: BL.ByteString -> [Trade]
---incrementalExample input0 = go decoder input0
+--incrementalExample = loop
 --  where
 --    decoder = 'runGetIncremental' getTrade
+--    loop input
+--      | BL.null input = []
+--      | otherwise     = go decoder input
 --    go :: 'Decoder' Trade -> BL.ByteString -> [Trade]
 --    go ('Done' leftover _consumed trade) input =
---      trade : go decoder (BL.chunk leftover input)
+--      trade : loop (BL.chunk leftover input)
 --    go ('Partial' k) input                     =
 --      go (k . takeHeadChunk $ input) (dropHeadChunk input)
 --    go ('Fail' _leftover _consumed msg) _input =
