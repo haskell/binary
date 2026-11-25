@@ -106,12 +106,11 @@ import qualified Data.ByteString.Builder.Prim as Prim
 #endif
 
 #ifdef HAS_GHC_BIGNUM
+import Data.Binary.Get.Internal (readNWith)
 import qualified Data.ByteString.Internal as BI
-import qualified Data.ByteString.Unsafe as BU
 import GHC.Exts (Ptr(..), Word(..))
 import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalSizeInBase#, naturalToAddr)
-import System.IO.Unsafe (unsafeDupablePerformIO)
 #else
 import Data.List    (unfoldr)
 #endif
@@ -472,20 +471,14 @@ getBigInteger = do
     if n < 0
       then fail "Data.Binary.get @Integer: negative length"
       else do
-        bs <- getByteString n
-        -- Safety of unsafeDupablePerformIO + unsafeUseAsCString:
-        -- 1. bs is an immutable ByteString of exact length n > 0 (guaranteed by
-        --    getByteString n), and integerFromAddr only reads those n bytes
-        --    (does not mutate or rely on a NUL terminator).
-        -- 2. unsafeUseAsCString wraps withForeignPtr, keeping bs alive for the
-        --    duration of integerFromAddr.
-        -- 3. The read is pure and idempotent, so duplication is safe.
-        let v = if n == 0
-                  then 0
-                  else unsafeDupablePerformIO $
-                         BU.unsafeUseAsCString bs $ \(Ptr addr#) ->
-                           case fromIntegral n of
-                             W# w# -> integerFromAddr w# addr# 0#
+        v <- if n == 0
+               then return 0
+               -- Safety of readNWith: ensures n > 0 bytes are available in the
+               -- buffer and keeps the underlying ForeignPtr alive across
+               -- integerFromAddr, which performs a pure read of those n bytes.
+               else readNWith n $ \(Ptr addr#) ->
+                      case fromIntegral n of
+                        W# w# -> integerFromAddr w# addr# 0#
         case sign of
             1   -> return $! v
             255 -> return $! - v
@@ -582,16 +575,12 @@ getBigNatural = do
       then fail "Data.Binary.get @Natural: negative length"
       else if n == 0
         then return 0
-        else do
-          bs <- getByteString n
-          -- Safety of unsafeDupablePerformIO + unsafeUseAsCString:
-          -- bs is an immutable ByteString of exact length n > 0, kept alive by
-          -- unsafeUseAsCString's withForeignPtr, and naturalFromAddr performs
-          -- a pure, idempotent read of exactly those n bytes (no NUL needed).
-          return $! unsafeDupablePerformIO $
-            BU.unsafeUseAsCString bs $ \(Ptr addr#) ->
-              case fromIntegral n of
-                W# w# -> naturalFromAddr w# addr# 0#
+        -- Safety of readNWith: ensures n > 0 bytes are available in the buffer
+        -- and keeps the underlying ForeignPtr alive across naturalFromAddr,
+        -- which performs a pure read of those n bytes.
+        else readNWith n $ \(Ptr addr#) ->
+               case fromIntegral n of
+                 W# w# -> naturalFromAddr w# addr# 0#
 #else
 getBigNatural = do
     bytes <- get
