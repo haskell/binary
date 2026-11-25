@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, DeriveGeneric, ScopedTypeVariables, DataKinds, TypeSynonymInstances, MagicHash, UnboxedTuples #-}
+{-# LANGUAGE CPP, DeriveGeneric, ScopedTypeVariables, DataKinds, TypeOperators, TypeSynonymInstances, MagicHash, UnboxedTuples #-}
 module Main ( main ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -53,7 +53,7 @@ import           GHC.Exts (Array#, Word#
 #endif
                           )
 import           GHC.Fingerprint
-import           GHC.Generics (Generic)
+import           GHC.Generics (Generic, (:+:)(..), C1, M1(..), U1(..), Meta(..), FixityI(..))
 
 import qualified Data.Fixed as Fixed
 
@@ -862,8 +862,8 @@ instance Binary GenericVoid
 prop_GenericVoid_get :: L.ByteString -> Bool
 prop_GenericVoid_get lbs =
     case decodeOrFail lbs :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, GenericVoid) of
-      Left _  -> True
-      Right _ -> False
+      Left (_, _, msg) -> not (null msg)
+      Right _          -> False
 
 prop_GenericVoid_put :: Bool
 prop_GenericVoid_put = mustThrowError (L.length (encode (undefined :: GenericVoid)))
@@ -912,8 +912,61 @@ prop_GenericSmall_invalidTag :: Word8 -> Property
 prop_GenericSmall_invalidTag w =
     w >= 4 ==>
       case decodeOrFail (encode w) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, GenericSmall) of
-        Left _  -> True
-        Right _ -> False
+        Left (_, _, msg) -> not (null msg)
+        Right _          -> False
+
+type GSum1       = C1 ('MetaCons "C" 'PrefixI 'False) U1
+type GSum2       = GSum1 :+: GSum1
+type GSum4       = GSum2 :+: GSum2
+type GSum8       = GSum4 :+: GSum4
+type GSum16      = GSum8 :+: GSum8
+type GSum32      = GSum16 :+: GSum16
+type GSum64      = GSum32 :+: GSum32
+type GSum128     = GSum64 :+: GSum64
+type GSum256     = GSum128 :+: GSum128
+type GSum512     = GSum256 :+: GSum256
+type GSum1024    = GSum512 :+: GSum512
+type GSum2048    = GSum1024 :+: GSum1024
+type GSum4096    = GSum2048 :+: GSum2048
+type GSum8192    = GSum4096 :+: GSum4096
+type GSum16384   = GSum8192 :+: GSum8192
+type GSum32768   = GSum16384 :+: GSum16384
+type GSum65536   = GSum32768 :+: GSum32768
+type GSum131072  = GSum65536 :+: GSum65536
+
+prop_Generic_Word16_and_Word32_sums :: Bool
+prop_Generic_Word16_and_Word32_sums =
+    let -- Force U1 unit result
+        ((), u1bs) = runPutM (gput (U1 :: U1 ()))
+        -- 512 constructors (balanced) -> Word16 tag (2 bytes)
+        first512 :: GSum512 ()
+        first512 = L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (M1 U1)))))))))
+        last512 :: GSum512 ()
+        last512  = R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (M1 U1)))))))))
+        bsFirst512 = runPut (gput first512)
+        bsLast512  = runPut (gput last512)
+        -- 131072 constructors (balanced) -> Word32 tag (4 bytes)
+        first131072 :: GSum131072 ()
+        first131072 = L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (L1 (M1 U1)))))))))))))))))
+        last131072 :: GSum131072 ()
+        last131072  = R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (R1 (M1 U1)))))))))))))))))
+        bsFirst131072 = runPut (gput first131072)
+        bsLast131072  = runPut (gput last131072)
+        isFail (Left (_, _, msg)) = not (null msg)
+        isFail (Right _)          = False
+    in L.null u1bs
+    && L.length bsFirst512 == 2
+    && bsFirst512 == encode (0 :: Word16)
+    && bsLast512  == encode (511 :: Word16)
+    && runGet gget bsFirst512 == first512
+    && runGet gget bsLast512  == last512
+    && isFail (runGetOrFail (gget :: Get (GSum512 ())) (encode (512 :: Word16)))
+    && L.length bsFirst131072 == 4
+    && bsFirst131072 == encode (0 :: Word32)
+    && bsLast131072  == encode (131071 :: Word32)
+    && runGet gget bsFirst131072 == first131072
+    && runGet gget bsLast131072  == last131072
+    && isFail (runGetOrFail (gget :: Get (GSum131072 ())) (encode (131072 :: Word32)))
 
 ------------------------------------------------------------------------
 -- PutM and container/class tests
@@ -1561,6 +1614,7 @@ tests =
             , testProperty "GenericRecord (products/fields)" prop_GenericRecord
             , testProperty "GenericSmall (small sum + products)" prop_GenericSmall
             , testProperty "GenericSmall invalid tag fails" prop_GenericSmall_invalidTag
+            , testProperty "Generic Word16 (512) and Word32 (131072) sums" prop_Generic_Word16_and_Word32_sums
             , testProperty "GenericVoid get fails" prop_GenericVoid_get
             , testProperty "GenericVoid put is strict" prop_GenericVoid_put
             , testProperty "GenericVoid empty list" prop_GenericVoid_list
