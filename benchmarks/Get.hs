@@ -16,6 +16,7 @@ import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
 import Data.Word
+import Numeric.Natural (Natural)
 import Test.Tasty.Bench
 
 import Control.Applicative
@@ -50,7 +51,9 @@ main = do
     rnf encodedSeqInt,
     rnf encodedSumInts,
     rnf encodedIdentityW32s,
-    rnf encodedFixedE2s
+    rnf encodedFixedE2s,
+    rnf encodedSmallIntegers,
+    rnf encodedSmallNaturals
      ]
   defaultMain
     [ bgroup "brackets"
@@ -113,6 +116,8 @@ main = do
         ]
     , bgroup "Integer"
         [ bench "decode" $ nf (decode :: L.ByteString -> Integer) encodedBigInteger
+        , bench "[small Integer] (10k)" $ nf (decode :: L.ByteString -> [Integer]) encodedSmallIntegers
+        , bench "[small Natural] (10k)" $ nf (decode :: L.ByteString -> [Natural]) encodedSmallNaturals
         ]
     , bgroup "small messages (1000 x 16B)"
         [ bench "runGet, one chunk" $
@@ -495,3 +500,9 @@ encodedIdentityW32s = L.fromStrict . L.toStrict $ encode [Identity (fromIntegral
 
 encodedFixedE2s :: L.ByteString
 encodedFixedE2s = L.fromStrict . L.toStrict $ encode [fromIntegral i :: Fixed E2 | i <- [1..containerSize]]
+
+encodedSmallIntegers :: L.ByteString
+encodedSmallIntegers = L.fromStrict . L.toStrict $ encode [0..fromIntegral containerSize :: Integer]
+
+encodedSmallNaturals :: L.ByteString
+encodedSmallNaturals = L.fromStrict . L.toStrict $ encode [0..fromIntegral containerSize :: Natural]

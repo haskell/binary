@@ -14,6 +14,7 @@ import qualified Data.Monoid as Monoid
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.Word
+import Numeric.Natural (Natural)
 import Test.Tasty.Bench
 
 import GHC.Generics
@@ -27,6 +28,7 @@ main = do
   evaluate $ rnf
     [ rnf bigIntegers
     , rnf smallIntegers
+    , rnf smallNaturals
     , rnf smallByteStrings
     , rnf smallStrings
     , rnf doubles
@@ -51,6 +53,8 @@ main = do
 
     , bench "big Integers" $ whnf (run . foldMap put) bigIntegers
     , bench "[big Integer]" $ whnf (run . put) bigIntegers
+
+    , bench "[small Natural]" $ whnf (run . put) smallNaturals
 
     , bench "small ByteStrings" $ whnf (run . foldMap put) smallByteStrings
     , bench "[small ByteString]" $ whnf (run . put) smallByteStrings
@@ -121,6 +125,10 @@ bigIntegers = [m .. m + 10000]
     m :: Integer
     m = fromIntegral (maxBound :: Word64)
 {-# NOINLINE bigIntegers #-}
+
+smallNaturals :: [Natural]
+smallNaturals = [0..10000]
+{-# NOINLINE smallNaturals #-}
 
 smallByteStrings :: [S.ByteString]
 smallByteStrings = replicate 10000 $ C.pack "abcdefghi"
