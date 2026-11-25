@@ -15,16 +15,20 @@ import           Control.Exception                    as C (SomeException,
 import           Control.Monad                        (unless, liftM2)
 import           Data.Bits                            ((.|.), shiftL)
 import qualified Data.ByteString                      as B
+import qualified Data.ByteString.Internal             as BI
 import qualified Data.ByteString.Lazy                 as L
 import qualified Data.ByteString.Lazy.Internal        as L
 import           Data.ByteString.Short                (ShortByteString)
 import           Data.Int
+import           Data.IORef                           (newIORef, readIORef, writeIORef)
 import           Data.Ratio
 import qualified Data.Sequence                        as Seq
 import           Data.Typeable
 import           Data.Word
-import           Foreign                              (Ptr, peek, peekByteOff)
+import           Foreign                              (Ptr, castPtr, free, mallocBytes, peek, peekByteOff, poke)
+import qualified Foreign.Concurrent                   as FC
 import           System.IO.Unsafe
+import           System.Mem                           (performGC)
 
 import           Data.Orphans ()
 
@@ -911,6 +915,33 @@ prop_buf_empty =
 #endif
         ]
 
+#ifdef __GLASGOW_HASKELL__
+-- | Verify that unboxedBufReadWith keeps the underlying ForeignPtrContents
+-- alive (via touch#) across the read callback, even if GC runs during the
+-- callback when no other references to the ByteString remain.
+prop_buf_readWith_liveness :: Word8 -> Property
+prop_buf_readWith_liveness w = ioProperty $ do
+    finalized <- newIORef False
+    rawPtr <- mallocBytes 1 :: IO (Ptr Word8)
+    poke rawPtr w
+    fp <- FC.newForeignPtr rawPtr $ do
+      -- Poison memory before freeing so a premature finalizer is caught
+      -- both via the flag and via the read value.
+      poke rawPtr (w + 1)
+      writeIORef finalized True
+      free rawPtr
+    let bs = BI.fromForeignPtr fp 0 1
+    (wasFinalized, got) <- C.evaluate $
+      unboxedBufReadWith
+        (\ptr -> do
+           performGC
+           fin <- readIORef finalized
+           val <- peek (castPtr ptr :: Ptr Word8)
+           return (fin, val))
+        (unpackUnboxedBuf bs)
+    return (not wasFinalized && got == w)
+#endif
+
 ------------------------------------------------------------------------
 
 type T a = a -> Property
@@ -977,6 +1008,9 @@ tests =
             , testProperty "boundary operations" prop_buf_boundaries
             , testProperty "operation sequences (portable vs unboxed vs ref)" prop_buf_ops_equiv
             , testProperty "empty buffer operations" prop_buf_empty
+#ifdef __GLASGOW_HASKELL__
+            , testProperty "unboxedBufReadWith keeps ForeignPtr alive across GC" prop_buf_readWith_liveness
+#endif
             ]
 
         , testGroup "Model"

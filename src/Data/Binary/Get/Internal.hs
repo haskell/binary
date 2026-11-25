@@ -500,7 +500,9 @@ unsafeReadN :: Int -> (B.ByteString -> a) -> Get a
 unsafeReadN !n f = C $ \s ks ->
   ks (bufDrop n s) $! f (packBuf s)
 
--- | @readNWith n f@ where @f@ must be deterministic and not have side effects.
+-- | @readNWith n f@ where @f@ must be deterministic, side-effect-free,
+-- non-diverging, and non-throwing (so that keeping the underlying buffer
+-- alive with @touch#@ across @f@ is sound).
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
 readNWith !n f = C $ \s ks ->
   if bufHasN n s

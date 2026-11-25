@@ -154,6 +154,22 @@ unboxedBufDrop :: Int -> UnboxedBuf -> UnboxedBuf
 unboxedBufDrop (I# n#) (# p#, len#, fpc #) = (# plusAddr# p# n#, len# -# n#, fpc #)
 {-# INLINE unboxedBufDrop #-}
 
+-- | Read from the buffer's current pointer while keeping its
+-- 'ForeignPtrContents' alive across the read.
+--
+-- We intentionally use 'touch#' rather than 'GHC.Exts.keepAlive#' here:
+--
+-- * 'keepAlive#' pushes a @stg_keepAlive_frame@ and acts as a Core
+--   optimization barrier that prevents GHC from unboxing the return value
+--   (boxing every @Word8@/@Word16@/@Word32@/@Word64@ read and slowing
+--   decoding by ~40-115%).
+-- * 'touch#' is sound here because 'unboxedBufReadWith' is only called from
+--   'Data.Binary.Get.Internal.readNWith', whose contract requires @f@ to be
+--   deterministic, side-effect-free, non-diverging, and non-throwing (e.g.
+--   a single memory-load primop or @unsafe@ FFI read). None of the
+--   divergence/exception/GC failure modes of 'touch#' (GHC #14346/#17746)
+--   can occur under that contract — matching @bytestring@'s own use of
+--   'touch#' in @unsafeHead@/@unsafeIndex@.
 unboxedBufReadWith :: (Ptr a -> IO a) -> UnboxedBuf -> a
 unboxedBufReadWith f (# p#, _, fpc #) =
   accursedUnutterablePerformIO $ do
