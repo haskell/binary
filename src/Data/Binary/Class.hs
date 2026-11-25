@@ -728,11 +728,50 @@ instance (Binary k, Binary e) => Binary (Map.Map k e) where
 
 instance Binary IntSet.IntSet where
     put s = put (IntSet.size s) <> mapM_ put (IntSet.toAscList s)
-    get   = liftM IntSet.fromDistinctAscList get
+    get = do
+      n <- getInt
+      if n < 0
+        then fail "Data.Binary.get @IntSet: negative length"
+        else if n == 0
+          then return IntSet.empty
+          else do
+            x0 <- getInt
+            x0 `seq` go (n - 1) x0 [x0]
+      where
+        getInt :: Get Int
+        getInt = fromIntegral <$> getInt64be
+        {-# INLINE getInt #-}
+        go 0 _ acc = return $! IntSet.fromDistinctAscList (reverse acc)
+        go i prev acc = i `seq` prev `seq` do
+          x <- getInt
+          if prev < x
+            then go (i - 1) x (x : acc)
+            else fail "Data.Binary.get @IntSet: keys not strictly ascending"
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
     put m = put (IntMap.size m) <> putBuilder (IntMap.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
-    get   = liftM IntMap.fromDistinctAscList get
+    get = do
+      n <- getInt
+      if n < 0
+        then fail "Data.Binary.get @IntMap: negative length"
+        else if n == 0
+          then return IntMap.empty
+          else do
+            k0 <- getInt
+            v0 <- get
+            k0 `seq` go (n - 1) k0 [(k0, v0)]
+      where
+        getInt :: Get Int
+        getInt = fromIntegral <$> getInt64be
+        {-# INLINE getInt #-}
+        go 0 _ acc = return $! IntMap.fromDistinctAscList (reverse acc)
+        go i prev acc = i `seq` prev `seq` do
+          k <- getInt
+          if prev < k
+            then do
+              v <- get
+              go (i - 1) k ((k, v) : acc)
+            else fail "Data.Binary.get @IntMap: keys not strictly ascending"
 
 ------------------------------------------------------------------------
 -- Queues and Sequences

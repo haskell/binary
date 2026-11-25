@@ -947,6 +947,40 @@ prop_ratio_zero_denom n =
       Left _  -> True
       Right _ -> False
 
+prop_intset_invalid_order :: [Int] -> Property
+prop_intset_invalid_order xs =
+    not (isStrictlyAsc xs) ==>
+      case decodeOrFail (encode xs) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, IntSet.IntSet) of
+        Left _  -> True
+        Right _ -> False
+  where
+    isStrictlyAsc (a:b:rest) = a < b && isStrictlyAsc (b:rest)
+    isStrictlyAsc _          = True
+
+prop_intset_negative_length :: Int -> Property
+prop_intset_negative_length n =
+    n < 0 ==>
+      case decodeOrFail (encode n) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, IntSet.IntSet) of
+        Left _  -> True
+        Right _ -> False
+
+prop_intmap_invalid_order :: [(Int, Word8)] -> Property
+prop_intmap_invalid_order xs =
+    not (isStrictlyAsc (map fst xs)) ==>
+      case decodeOrFail (encode xs) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, IntMap.IntMap Word8) of
+        Left _  -> True
+        Right _ -> False
+  where
+    isStrictlyAsc (a:b:rest) = a < b && isStrictlyAsc (b:rest)
+    isStrictlyAsc _          = True
+
+prop_intmap_negative_length :: Int -> Property
+prop_intmap_negative_length n =
+    n < 0 ==>
+      case decodeOrFail (encode n) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, IntMap.IntMap Word8) of
+        Left _  -> True
+        Right _ -> False
+
 genTree :: Gen (Tree.Tree Int8)
 genTree = sized go
   where
@@ -1281,6 +1315,10 @@ tests =
             , testProperty "Natural invalid tag"  (p prop_natural_invalid_tag)
 #endif
             , testProperty "Ratio zero denominator" (p prop_ratio_zero_denom)
+            , testProperty "IntSet invalid key order" (p prop_intset_invalid_order)
+            , testProperty "IntSet negative length" (p prop_intset_negative_length)
+            , testProperty "IntMap invalid key order" (p prop_intmap_invalid_order)
+            , testProperty "IntMap negative length" (p prop_intmap_negative_length)
             , -- Arbitrary test input
               let testInput :: [Int] ; testInput = [0 .. 10]
               in testProperty "look-ahead independent of chunking" (p (prop_lookAheadIndepOfChunking testInput))
