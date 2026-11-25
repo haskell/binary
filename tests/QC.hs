@@ -851,6 +851,44 @@ prop_GenericVoid_nonEmptyList =
       Left _  -> True
       Right _ -> False
 
+data GenericRecord = GenericRecord Word8 Int16 Word32 B.ByteString
+    deriving (Eq, Show, Generic)
+
+instance Binary GenericRecord
+
+instance Arbitrary GenericRecord where
+    arbitrary = GenericRecord <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+
+prop_GenericRecord :: GenericRecord -> Property
+prop_GenericRecord = roundTripWith put get
+
+data GenericSmall
+    = GSNullary
+    | GSSingle Word32
+    | GSProduct Word8 Int32 B.ByteString
+    | GSNested (Maybe Word16) Bool
+    deriving (Eq, Show, Generic)
+
+instance Binary GenericSmall
+
+instance Arbitrary GenericSmall where
+    arbitrary = oneof
+      [ return GSNullary
+      , GSSingle <$> arbitrary
+      , GSProduct <$> arbitrary <*> arbitrary <*> arbitrary
+      , GSNested <$> arbitrary <*> arbitrary
+      ]
+
+prop_GenericSmall :: GenericSmall -> Property
+prop_GenericSmall = roundTripWith put get
+
+prop_GenericSmall_invalidTag :: Word8 -> Property
+prop_GenericSmall_invalidTag w =
+    w >= 4 ==>
+      case decodeOrFail (encode w) :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, GenericSmall) of
+        Left _  -> True
+        Right _ -> False
+
 ------------------------------------------------------------------------
 -- Buffer representation tests (both PortableBuf and UnboxedBuf)
 
@@ -1328,6 +1366,9 @@ tests =
 
         , testGroup "Generic"
             [ testProperty "Generic256" prop_Generic256
+            , testProperty "GenericRecord (products/fields)" prop_GenericRecord
+            , testProperty "GenericSmall (small sum + products)" prop_GenericSmall
+            , testProperty "GenericSmall invalid tag fails" prop_GenericSmall_invalidTag
             , testProperty "GenericVoid get fails" prop_GenericVoid_get
             , testProperty "GenericVoid put is strict" prop_GenericVoid_put
             , testProperty "GenericVoid empty list" prop_GenericVoid_list
