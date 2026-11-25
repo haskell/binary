@@ -354,7 +354,7 @@ instance Binary Word where
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
-        <> putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
+        <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.word64BE) xs)
 #endif
     {-# INLINE get #-}
     get     = liftM fromIntegral getWord64be
@@ -366,7 +366,7 @@ instance Binary Int where
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
-        <> putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
+        <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.int64BE) xs)
 #endif
     {-# INLINE get #-}
     get     = liftM fromIntegral getInt64be
