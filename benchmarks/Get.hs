@@ -17,6 +17,7 @@ import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
 import Data.Word
+import GHC.Fingerprint (Fingerprint(..))
 import Numeric.Natural (Natural)
 import Test.Tasty.Bench
 
@@ -56,7 +57,10 @@ main = do
     rnf encodedSmallIntegers,
     rnf encodedSmallNaturals,
     rnf encodedEitherIntW32s,
-    rnf encodedRatioInts
+    rnf encodedRatioInts,
+    rnf encodedAsciiString,
+    rnf encodedUtf8String,
+    rnf encodedFingerprints
      ]
   defaultMain
     [ bgroup "brackets"
@@ -149,6 +153,9 @@ main = do
         , bench "[Fixed E2]"        $ nf (decode :: L.ByteString -> [Fixed E2]) encodedFixedE2s
         , bench "[Either Int Word32]" $ nf (decode :: L.ByteString -> [Either Int Word32]) encodedEitherIntW32s
         , bench "[Ratio Int]"       $ nf (decode :: L.ByteString -> [Ratio Int]) encodedRatioInts
+        , bench "String (ASCII 10k)" $ nf (decode :: L.ByteString -> String) encodedAsciiString
+        , bench "String (UTF-8 10k)" $ nf (decode :: L.ByteString -> String) encodedUtf8String
+        , bench "[Fingerprint] (10k)" $ nf (decode :: L.ByteString -> [Fingerprint]) encodedFingerprints
         ]
     ]
 
@@ -517,3 +524,12 @@ encodedEitherIntW32s = L.fromStrict . L.toStrict $ encode [if even i then Left i
 
 encodedRatioInts :: L.ByteString
 encodedRatioInts = L.fromStrict . L.toStrict $ encode [i % (i + 1) | i <- [1..containerSize]]
+
+encodedAsciiString :: L.ByteString
+encodedAsciiString = L.fromStrict . L.toStrict $ encode (take containerSize (cycle ['a'..'z']))
+
+encodedUtf8String :: L.ByteString
+encodedUtf8String = L.fromStrict . L.toStrict $ encode (take containerSize (cycle "aé€😀"))
+
+encodedFingerprints :: L.ByteString
+encodedFingerprints = L.fromStrict . L.toStrict $ encode [Fingerprint (fromIntegral i) (fromIntegral (i + 1)) | i <- [1..containerSize]]
