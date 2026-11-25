@@ -379,6 +379,80 @@ prop_internal_get_put bs1 bs2 =
           GetI.get
     in runGet dec (L.fromChunks [bs1]) == bs2
 
+-- | Differential test: runGet and runGetOrFail must agree with runGetIncremental
+-- across L.Empty, single-chunk, and multi-chunk inputs for immediate Done/Fail,
+-- multi-chunk reads, bytesRead across chunks/EOF, and Partial->EOF failures.
+prop_runGet_equiv_incremental :: [Word8] -> [Int] -> Property
+prop_runGet_equiv_incremental ws xs =
+    let lbs0 = L.pack ws
+        len  = length ws
+        lbsVariants = [L.empty, L.fromChunks [B.pack ws], refragment xs lbs0]
+        runInc :: Get a -> L.ByteString -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
+        runInc dec lbs =
+          case pushEndOfInput (pushChunks (runGetIncremental dec) lbs) of
+            Done left pos a -> Right (L.fromChunks [left | not (B.null left)], pos, a)
+            Fail left pos e -> Left  (L.fromChunks [left | not (B.null left)], pos, e)
+            Partial _       -> error "runInc: unexpected Partial after pushEndOfInput"
+        check :: (Eq a, Show a) => Get a -> L.ByteString -> Property
+        check dec lbs =
+          let incRes = runInc dec lbs
+              orfRes = runGetOrFail dec lbs
+              rgProp = case incRes of
+                         Right (_, _, a) -> property (runGet dec lbs == a)
+                         Left _          -> property (mustThrowError (runGet dec lbs))
+          in conjoin [ orfRes === incRes, rgProp ]
+    in forAll (choose (0, len + 2)) $ \n1 ->
+       forAll (choose (0, len + 2)) $ \n2 ->
+         let decRet   = return (42 :: Int)
+             decFail  = fail "immediate" :: Get Int
+             decRead  = do
+               a <- getByteString n1
+               p1 <- bytesRead
+               b <- getByteString n2
+               p2 <- bytesRead
+               return (a, p1, b, p2)
+             decEofBr = do
+               _ <- getRemainingLazyByteString
+               p1 <- bytesRead
+               e  <- isEmpty
+               p2 <- bytesRead
+               return (p1, e, p2)
+             decEofFail = do
+               _ <- getRemainingLazyByteString
+               _ <- bytesRead
+               _ <- getWord8
+               return ()
+             decEofAlt = (getByteString (len + 5) >> return False) <|> (bytesRead >> return True)
+         in conjoin
+              [ conjoin [ check decRet lbs
+                        , check decFail lbs
+                        , check decRead lbs
+                        , check decEofBr lbs
+                        , check decEofFail lbs
+                        , check decEofAlt lbs
+                        ]
+              | lbs <- lbsVariants
+              ]
+
+prop_pushChunk_and_pushEndOfInput :: B.ByteString -> B.ByteString -> Property
+prop_pushChunk_and_pushEndOfInput bs1 bs2 =
+    let -- pushChunk on Done appends leftover bytes
+        dDone0 = pushChunk (runGetIncremental (return (1 :: Int))) bs1
+        dDone1 = pushEndOfInput (pushChunk dDone0 bs2)
+        okDone = case dDone1 of
+                   Done left 0 1 -> left == B.append bs1 bs2
+                   _             -> False
+        -- pushChunk on Fail appends leftover bytes; pushEndOfInput preserves Fail
+        dFail0 = pushChunk (runGetIncremental (fail "err" :: Get Int)) bs1
+        dFail1 = pushEndOfInput (pushChunk dFail0 bs2)
+        okFail = case dFail1 of
+                   Fail left 0 "err" -> left == B.append bs1 bs2
+                   _                 -> False
+    in conjoin
+         [ counterexample "pushChunk/pushEndOfInput on Done" okDone
+         , counterexample "pushChunk/pushEndOfInput on Fail" okFail
+         ]
+
 prop_list_negative_length :: Int -> Property
 prop_list_negative_length n =
   n < 0 ==>
@@ -1109,6 +1183,8 @@ tests =
             , testProperty "fail"    (p prop_fail)
             , testProperty "bytesRead" (p prop_bytesRead)
             , testProperty "partial only once" (p prop_partialOnlyOnce)
+            , testProperty "runGet/runGetOrFail equiv runGetIncremental" (p prop_runGet_equiv_incremental)
+            , testProperty "pushChunk and pushEndOfInput on Done/Fail" (p prop_pushChunk_and_pushEndOfInput)
             ]
 
         , testGroup "Buf"
