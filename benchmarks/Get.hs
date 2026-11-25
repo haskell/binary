@@ -4,6 +4,11 @@ import Control.DeepSeq
 import Control.Exception (evaluate)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
+import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
+import qualified Data.Map as Map
+import qualified Data.Sequence as Seq
+import qualified Data.Set as Set
 import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
@@ -30,7 +35,16 @@ main = do
     rnf manyBytes,
     rnf encodedBigInteger,
     rnf smallMsgs1Chunk,
-    rnf smallMsgs4Chunks
+    rnf smallMsgs4Chunks,
+    rnf encodedListInt,
+    rnf encodedListW32,
+    rnf encodedListPair,
+    rnf encodedListMaybe,
+    rnf encodedSetInt,
+    rnf encodedMapIntW32,
+    rnf encodedIntSet,
+    rnf encodedIntMapW32,
+    rnf encodedSeqInt
      ]
   defaultMain
     [ bgroup "brackets"
@@ -103,6 +117,17 @@ main = do
             whnf (runSmallMany runSmallOrFail) smallMsgs1Chunk
         , bench "runGetOrFail, 4-byte chunks" $
             whnf (runSmallMany runSmallOrFail) smallMsgs4Chunks
+        ]
+    , bgroup "Containers (10k)"
+        [ bench "[Int]"           $ nf (decode :: L.ByteString -> [Int]) encodedListInt
+        , bench "[Word32]"        $ nf (decode :: L.ByteString -> [Word32]) encodedListW32
+        , bench "[(Int, Word32)]" $ nf (decode :: L.ByteString -> [(Int, Word32)]) encodedListPair
+        , bench "[Maybe Word32]"  $ nf (decode :: L.ByteString -> [Maybe Word32]) encodedListMaybe
+        , bench "Set Int"         $ nf (decode :: L.ByteString -> Set.Set Int) encodedSetInt
+        , bench "Map Int Word32"  $ nf (decode :: L.ByteString -> Map.Map Int Word32) encodedMapIntW32
+        , bench "IntSet"          $ nf (decode :: L.ByteString -> IntSet.IntSet) encodedIntSet
+        , bench "IntMap Word32"   $ nf (decode :: L.ByteString -> IntMap.IntMap Word32) encodedIntMapW32
+        , bench "Seq Int"         $ nf (decode :: L.ByteString -> Seq.Seq Int) encodedSeqInt
         ]
     ]
 
@@ -420,3 +445,33 @@ roll_foldl' :: (Integral a, Bits a) => [Word8] -> a
 roll_foldl'   = foldl' unstep 0 . reverse
   where
     unstep a b = a `shiftL` 8 .|. fromIntegral b
+
+containerSize :: Int
+containerSize = 10000
+
+encodedListInt :: L.ByteString
+encodedListInt = L.fromStrict . L.toStrict $ encode [1..containerSize]
+
+encodedListW32 :: L.ByteString
+encodedListW32 = L.fromStrict . L.toStrict $ encode [1..fromIntegral containerSize :: Word32]
+
+encodedListPair :: L.ByteString
+encodedListPair = L.fromStrict . L.toStrict $ encode [(i, fromIntegral i :: Word32) | i <- [1..containerSize]]
+
+encodedListMaybe :: L.ByteString
+encodedListMaybe = L.fromStrict . L.toStrict $ encode [if even i then Just (fromIntegral i :: Word32) else Nothing | i <- [1..containerSize]]
+
+encodedSetInt :: L.ByteString
+encodedSetInt = L.fromStrict . L.toStrict $ encode (Set.fromList [1..containerSize])
+
+encodedMapIntW32 :: L.ByteString
+encodedMapIntW32 = L.fromStrict . L.toStrict $ encode (Map.fromList [(i, fromIntegral i :: Word32) | i <- [1..containerSize]])
+
+encodedIntSet :: L.ByteString
+encodedIntSet = L.fromStrict . L.toStrict $ encode (IntSet.fromList [1..containerSize])
+
+encodedIntMapW32 :: L.ByteString
+encodedIntMapW32 = L.fromStrict . L.toStrict $ encode (IntMap.fromList [(i, fromIntegral i :: Word32) | i <- [1..containerSize]])
+
+encodedSeqInt :: L.ByteString
+encodedSeqInt = L.fromStrict . L.toStrict $ encode (Seq.fromList [1..containerSize])
