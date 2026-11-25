@@ -107,8 +107,9 @@ import qualified Data.ByteString.Builder.Prim as Prim
 
 #ifdef HAS_GHC_BIGNUM
 import Data.Binary.Get.Internal (readNWith)
-import qualified Data.ByteString.Internal as BI
-import GHC.Exts (Ptr(..), Word(..))
+import qualified Data.ByteString.Builder.Internal as BBI
+import Foreign.Ptr (plusPtr)
+import GHC.Exts (Addr#, Ptr(..), Word(..))
 import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalSizeInBase#, naturalToAddr)
 #else
@@ -438,17 +439,26 @@ instance Binary Integer where
             1 -> getBigInteger
             _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
 
+#ifdef HAS_GHC_BIGNUM
+-- Write exactly @len@ bytes directly into the Builder's output buffer.
+-- Safety: BBI.ensureFree len guarantees that the BufferRange has at least
+-- @len@ writable bytes starting at @op@, and callers pass the exact byte count
+-- produced by integerSizeInBase# / naturalSizeInBase#.
+putBuilderAddr :: Int -> (Addr# -> IO Word) -> Put
+putBuilderAddr len write =
+    putBuilder (BBI.ensureFree len <> BBI.builder (\k (BBI.BufferRange op ope) -> do
+      _ <- case op of Ptr addr# -> write addr#
+      k (BBI.BufferRange (op `plusPtr` len) ope)))
+{-# INLINE putBuilderAddr #-}
+#endif
+
 putBigInteger :: Integer -> Put
 #ifdef HAS_GHC_BIGNUM
 putBigInteger n =
     putWord8 1
     <> putWord8 sign
     <> put len
-    -- Safety of unsafeCreate: an = abs n is strictly positive (n is outside
-    -- Int32), and len = integerSizeInBase# 256## an is the exact byte count
-    -- that integerToAddr writes into the freshly allocated len-byte buffer.
-    <> putByteString (BI.unsafeCreate len $ \(Ptr addr#) ->
-         void (integerToAddr an addr# 0#))
+    <> putBuilderAddr len (\addr# -> integerToAddr an addr# 0#)
   where
     an = abs n
     sign = if n < 0 then 255 else 1 :: Word8
@@ -553,11 +563,7 @@ putBigNatural :: Natural -> Put
 putBigNatural n =
     putWord8 1
     <> put len
-    -- Safety of unsafeCreate: n > maxBound @Word64 so n > 0, and
-    -- len = naturalSizeInBase# 256## n is the exact byte count that
-    -- naturalToAddr writes into the freshly allocated len-byte buffer.
-    <> putByteString (BI.unsafeCreate len $ \(Ptr addr#) ->
-         void (naturalToAddr n addr# 0#))
+    <> putBuilderAddr len (\addr# -> naturalToAddr n addr# 0#)
   where
     len = fromIntegral (W# (naturalSizeInBase# 256## n)) :: Int
 #else
