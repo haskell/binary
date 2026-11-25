@@ -13,7 +13,6 @@ import qualified Data.Monoid as Monoid
 import Data.Ratio (Ratio, (%))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
-import Data.Bits
 import Data.Char (ord)
 import Data.List (foldl')
 import Data.Word
@@ -38,8 +37,8 @@ main = do
     rnf bracketCount,
     rnf oneMegabyte,
     rnf oneMegabyteLBS,
-    rnf manyBytes,
     rnf encodedBigInteger,
+    rnf encodedBigNatural,
     rnf smallMsgs1Chunk,
     rnf smallMsgs4Chunks,
     rnf encodedListInt,
@@ -119,12 +118,9 @@ main = do
         , bench "chunk size 16 bytes" $
             whnf (runGet (getWord8N16A mega)) oneMegabyteLBS
         ]
-    , bgroup "roll"
-        [ bench "foldr"  $ nf (roll_foldr  :: [Word8] -> Integer) manyBytes
-        , bench "foldl'" $ nf (roll_foldl' :: [Word8] -> Integer) manyBytes
-        ]
     , bgroup "Integer"
         [ bench "decode" $ nf (decode :: L.ByteString -> Integer) encodedBigInteger
+        , bench "decode (Natural)" $ nf (decode :: L.ByteString -> Natural) encodedBigNatural
         , bench "[small Integer] (10k)" $ nf (decode :: L.ByteString -> [Integer]) encodedSmallIntegers
         , bench "[small Natural] (10k)" $ nf (decode :: L.ByteString -> [Natural]) encodedSmallNaturals
         ]
@@ -459,24 +455,14 @@ getWord8N16A = loop []
                     <*> getWord8
           loop (v:s) (n-16)
 
-manyBytes :: [Word8]
-manyBytes = concat $ replicate 256 [0..255]
-
 bigInteger :: Integer
-bigInteger = roll_foldl' manyBytes
+bigInteger = (2 :: Integer) ^ (65536 * 8 :: Int) - 1
 
 encodedBigInteger :: L.ByteString
 encodedBigInteger = encode bigInteger
 
-roll_foldr :: (Integral a, Bits a) => [Word8] -> a
-roll_foldr   = foldr unstep 0
-  where
-    unstep b a = a `shiftL` 8 .|. fromIntegral b
-
-roll_foldl' :: (Integral a, Bits a) => [Word8] -> a
-roll_foldl'   = foldl' unstep 0 . reverse
-  where
-    unstep a b = a `shiftL` 8 .|. fromIntegral b
+encodedBigNatural :: L.ByteString
+encodedBigNatural = encode (fromInteger bigInteger :: Natural)
 
 containerSize :: Int
 containerSize = 10000
