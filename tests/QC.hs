@@ -294,6 +294,20 @@ prop_isolate_negative n =
       Left (_, 0, _) -> True
       _              -> False
 
+prop_readN_negative :: Int -> L.ByteString -> Property
+prop_readN_negative n lbs =
+  n < 0 ==>
+    case runGetOrFail (GetI.readN n (const ())) lbs of
+      Left (left, 0, _) -> left == lbs
+      _                 -> False
+
+prop_readNWith_negative :: Int -> L.ByteString -> Property
+prop_readNWith_negative n lbs =
+  n < 0 ==>
+    case runGetOrFail (GetI.readNWith n (const (return ()))) lbs of
+      Left (left, 0, _) -> left == lbs
+      _                 -> False
+
 prop_isEmpty :: L.ByteString -> [Int] -> Property
 prop_isEmpty lbs xs =
     let lbs' = refragment xs lbs
@@ -1250,6 +1264,8 @@ tests =
             , testProperty "read lazy negative length" (p prop_getLazyByteString_negative)
             , testProperty "skip negative length" (p prop_skip_negative)
             , testProperty "isolate negative length" (p prop_isolate_negative)
+            , testProperty "readN negative length" (p prop_readN_negative)
+            , testProperty "readNWith negative length" (p prop_readNWith_negative)
             , testProperty "isEmpty" (p prop_isEmpty)
             , testProperty "isEmpty with empty chunks" (p prop_isEmpty_emptyChunks)
             , testProperty "Alternative empty/mzero/mplus/some/many" (p prop_alternative_empty_some_many)

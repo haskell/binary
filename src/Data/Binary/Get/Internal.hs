@@ -464,12 +464,14 @@ put :: B.ByteString -> Get ()
 put bs = C $ \_ ks -> ks (unpackBuf bs) ()
 
 -- | Return at least @n@ bytes, maybe more. If not enough data is available
--- the computation will escape with 'Partial'.
+-- the computation will escape with 'Partial'. Fails if @n < 0@.
 readN :: Int -> (B.ByteString -> a) -> Get a
-readN !n f = C $ \s ks ->
-  if bufHasN n s
-    then ks (bufDrop n s) $! f (packBuf s)
-    else unGet (ensureNSlow n >> unsafeReadN n f) s ks
+readN !n f
+  | n < 0 = fail "readN: negative size"
+  | otherwise = C $ \s ks ->
+      if bufHasN n s
+        then ks (bufDrop n s) $! f (packBuf s)
+        else unGet (ensureNSlow n >> unsafeReadN n f) s ks
 {-# INLINE readN #-}
 
 -- | Ensure that there are at least @n@ bytes available. If not, the
@@ -502,10 +504,12 @@ unsafeReadN !n f = C $ \s ks ->
 
 -- | @readNWith n f@ where @f@ must be deterministic, side-effect-free,
 -- non-diverging, and non-throwing (so that keeping the underlying buffer
--- alive with @touch#@ across @f@ is sound).
+-- alive with @touch#@ across @f@ is sound). Fails if @n < 0@.
 readNWith :: Int -> (Ptr a -> IO a) -> Get a
-readNWith !n f = C $ \s ks ->
-  if bufHasN n s
-    then ks (bufDrop n s) $! bufReadWith f s
-    else unGet (ensureNSlow n >> C (\s' ks' -> ks' (bufDrop n s') $! bufReadWith f s')) s ks
+readNWith !n f
+  | n < 0 = fail "readNWith: negative size"
+  | otherwise = C $ \s ks ->
+      if bufHasN n s
+        then ks (bufDrop n s) $! bufReadWith f s
+        else unGet (ensureNSlow n >> C (\s' ks' -> ks' (bufDrop n s') $! bufReadWith f s')) s ks
 {-# INLINE readNWith #-}
