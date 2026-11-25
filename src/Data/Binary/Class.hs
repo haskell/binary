@@ -15,7 +15,7 @@
 {-# LANGUAGE MultiWayIf #-}
 #endif
 
-#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,15,0)
+#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,15,0) && !defined(NO_GHC_BIGNUM)
 {-# LANGUAGE MagicHash #-}
 #define HAS_GHC_BIGNUM
 #endif
@@ -112,8 +112,6 @@ import Foreign.Ptr (plusPtr)
 import GHC.Exts (Addr#, Ptr(..), Word(..))
 import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalSizeInBase#, naturalToAddr)
-#else
-import Data.List    (unfoldr)
 #endif
 import qualified Data.List as List
 
@@ -517,18 +515,61 @@ instance forall a. Fixed.HasResolution a => Binary (Fixed.Fixed a) where
 
 #ifndef HAS_GHC_BIGNUM
 --
--- Fold and unfold an Integer to and from a list of its bytes
+-- Fold and unfold an Integer/Natural to and from a list of its little-endian
+-- bytes without O(n^2) byte-by-byte shifts.
 --
 unroll :: (Integral a, Bits a) => a -> [Word8]
-unroll = unfoldr step
+unroll 0 = []
+unroll i =
+    let w = fromIntegral i :: Word64
+        rest = i `shiftR` 64
+    in if rest == 0
+         then emitLast w
+         else fromIntegral w
+            : fromIntegral (w `shiftR` 8)
+            : fromIntegral (w `shiftR` 16)
+            : fromIntegral (w `shiftR` 24)
+            : fromIntegral (w `shiftR` 32)
+            : fromIntegral (w `shiftR` 40)
+            : fromIntegral (w `shiftR` 48)
+            : fromIntegral (w `shiftR` 56)
+            : unroll rest
   where
-    step 0 = Nothing
-    step i = Just (fromIntegral i, i `shiftR` 8)
+    emitLast 0 = []
+    emitLast w = fromIntegral w : emitLast (w `shiftR` 8)
 
 roll :: (Integral a, Bits a) => [Word8] -> a
-roll   = foldl' unstep 0 . reverse
+roll [] = 0
+roll bs = combine 64 (chunk8 bs)
   where
-    unstep a b = a `shiftL` 8 .|. fromIntegral b
+    chunk8 [] = []
+    chunk8 (b0:b1:b2:b3:b4:b5:b6:b7:rest) =
+      let w :: Word64
+          w = fromIntegral b0
+            .|. (fromIntegral b1 `shiftL` 8)
+            .|. (fromIntegral b2 `shiftL` 16)
+            .|. (fromIntegral b3 `shiftL` 24)
+            .|. (fromIntegral b4 `shiftL` 32)
+            .|. (fromIntegral b5 `shiftL` 40)
+            .|. (fromIntegral b6 `shiftL` 48)
+            .|. (fromIntegral b7 `shiftL` 56)
+      in w `seq` fromIntegral w : chunk8 rest
+    chunk8 xs = [packSmall 0 0 xs]
+
+    packSmall acc _ [] = acc
+    packSmall acc sh (b:rest) =
+      let acc' = acc .|. (fromIntegral b `shiftL` sh)
+      in acc' `seq` packSmall acc' (sh + 8) rest
+
+    combine _ []  = 0
+    combine _ [x] = x
+    combine sh xs = sh `seq` combine (sh * 2) (pair sh xs)
+
+    pair _ []          = []
+    pair _ [x]         = [x]
+    pair sh (a:b:rest) =
+      let ab = a .|. (b `shiftL` sh)
+      in ab `seq` ab : pair sh rest
 #endif
 
 #ifdef HAS_NATURAL
