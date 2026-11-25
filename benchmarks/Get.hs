@@ -4,9 +4,12 @@ import Control.DeepSeq
 import Control.Exception (evaluate)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
+import Data.Fixed (Fixed, E2)
+import Data.Functor.Identity (Identity(..))
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
+import qualified Data.Monoid as Monoid
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.Bits
@@ -44,7 +47,10 @@ main = do
     rnf encodedMapIntW32,
     rnf encodedIntSet,
     rnf encodedIntMapW32,
-    rnf encodedSeqInt
+    rnf encodedSeqInt,
+    rnf encodedSumInts,
+    rnf encodedIdentityW32s,
+    rnf encodedFixedE2s
      ]
   defaultMain
     [ bgroup "brackets"
@@ -128,6 +134,11 @@ main = do
         , bench "IntSet"          $ nf (decode :: L.ByteString -> IntSet.IntSet) encodedIntSet
         , bench "IntMap Word32"   $ nf (decode :: L.ByteString -> IntMap.IntMap Word32) encodedIntMapW32
         , bench "Seq Int"         $ nf (decode :: L.ByteString -> Seq.Seq Int) encodedSeqInt
+        ]
+    , bgroup "Wrappers (10k)"
+        [ bench "[Sum Int]"         $ nf (decode :: L.ByteString -> [Monoid.Sum Int]) encodedSumInts
+        , bench "[Identity Word32]" $ nf (decode :: L.ByteString -> [Identity Word32]) encodedIdentityW32s
+        , bench "[Fixed E2]"        $ nf (decode :: L.ByteString -> [Fixed E2]) encodedFixedE2s
         ]
     ]
 
@@ -475,3 +486,12 @@ encodedIntMapW32 = L.fromStrict . L.toStrict $ encode (IntMap.fromList [(i, from
 
 encodedSeqInt :: L.ByteString
 encodedSeqInt = L.fromStrict . L.toStrict $ encode (Seq.fromList [1..containerSize])
+
+encodedSumInts :: L.ByteString
+encodedSumInts = L.fromStrict . L.toStrict $ encode [Monoid.Sum i | i <- [1..containerSize]]
+
+encodedIdentityW32s :: L.ByteString
+encodedIdentityW32s = L.fromStrict . L.toStrict $ encode [Identity (fromIntegral i :: Word32) | i <- [1..containerSize]]
+
+encodedFixedE2s :: L.ByteString
+encodedFixedE2s = L.fromStrict . L.toStrict $ encode [fromIntegral i :: Fixed E2 | i <- [1..containerSize]]

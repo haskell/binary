@@ -5,9 +5,12 @@ import Control.Exception (evaluate)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
+import Data.Fixed (Fixed, E2)
+import Data.Functor.Identity (Identity(..))
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import qualified Data.Map as Map
+import qualified Data.Monoid as Monoid
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.Word
@@ -36,6 +39,9 @@ main = do
     , rnf intMap10k
     , rnf map10k
     , rnf seq10k
+    , rnf sumInts10k
+    , rnf identityW32s10k
+    , rnf fixedE2s10k
     ]
   defaultMain
     [ bench "small Integers" $ whnf (run . foldMap put) smallIntegers
@@ -77,6 +83,11 @@ main = do
       , bench "IntSet (10k)" $ whnf (run . put) intSet10k
       , bench "IntMap Word32 (10k)" $ whnf (run . put) intMap10k
       , bench "Seq Int (10k)" $ whnf (run . put) seq10k
+      ]
+    , bgroup "Wrappers (10k)"
+      [ bench "[Sum Int]" $ whnf (run . put) sumInts10k
+      , bench "[Identity Word32]" $ whnf (run . put) identityW32s10k
+      , bench "[Fixed E2]" $ whnf (run . put) fixedE2s10k
       ]
     ]
   where
@@ -153,3 +164,15 @@ intMap10k = IntMap.fromList [(i, fromIntegral i) | i <- [1..10000]]
 seq10k :: Seq.Seq Int
 seq10k = Seq.fromList [1..10000]
 {-# NOINLINE seq10k #-}
+
+sumInts10k :: [Monoid.Sum Int]
+sumInts10k = [Monoid.Sum i | i <- [1..10000]]
+{-# NOINLINE sumInts10k #-}
+
+identityW32s10k :: [Identity Word32]
+identityW32s10k = [Identity (fromIntegral i) | i <- [1..10000 :: Int]]
+{-# NOINLINE identityW32s10k #-}
+
+fixedE2s10k :: [Fixed E2]
+fixedE2s10k = [fromIntegral i | i <- [1..10000 :: Int]]
+{-# NOINLINE fixedE2s10k #-}
