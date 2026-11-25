@@ -397,26 +397,35 @@ instance Binary Integer where
         lo = fromIntegral (minBound :: SmallInt) :: Integer
         hi = fromIntegral (maxBound :: SmallInt) :: Integer
 
-    put n =
-        putWord8 1
-        <> put sign
-        <> put (unroll (abs n))         -- unroll the bytes
-     where
-        sign = fromIntegral (signum n) :: Word8
+    put n = putBigInteger n
 
-    {-# INLINE get #-}
     get = do
         tag <- get :: Get Word8
         case tag of
-            0 -> liftM fromIntegral (get :: Get SmallInt)
-            1 -> do sign  <- get :: Get Word8
-                    bytes <- get
-                    let v = roll bytes
-                    case sign of
-                        1   -> return $! v
-                        255 -> return $! - v
-                        _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+            0 -> do i <- get :: Get SmallInt
+                    return $! fromIntegral i
+            1 -> getBigInteger
             _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
+
+putBigInteger :: Integer -> Put
+putBigInteger n =
+    putWord8 1
+    <> put sign
+    <> put (unroll (abs n))         -- unroll the bytes
+  where
+    sign = fromIntegral (signum n) :: Word8
+{-# NOINLINE putBigInteger #-}
+
+getBigInteger :: Get Integer
+getBigInteger = do
+    sign  <- get :: Get Word8
+    bytes <- get
+    let v = roll bytes
+    case sign of
+        1   -> return $! v
+        255 -> return $! - v
+        _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+{-# NOINLINE getBigInteger #-}
 
 -- | @since 0.8.0.0
 #ifdef HAS_FIXED_CONSTRUCTOR
@@ -450,23 +459,36 @@ type NaturalWord = Word64
 instance Binary Natural where
     {-# INLINE put #-}
     put n | n <= hi =
+#ifdef __GLASGOW_HASKELL__
+        putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.word64BE) (0, fromIntegral n))
+#else
         putWord8 0
         <> put (fromIntegral n :: NaturalWord)  -- fast path
+#endif
      where
         hi = fromIntegral (maxBound :: NaturalWord) :: Natural
 
-    put n =
-        putWord8 1
-        <> put (unroll (abs n))         -- unroll the bytes
+    put n = putBigNatural n
 
-    {-# INLINE get #-}
     get = do
         tag <- get :: Get Word8
         case tag of
-            0 -> liftM fromIntegral (get :: Get NaturalWord)
-            1 -> do bytes <- get
-                    return $! roll bytes
+            0 -> do w <- get :: Get NaturalWord
+                    return $! fromIntegral w
+            1 -> getBigNatural
             _ -> fail ("Data.Binary.get @Natural: invalid tag " ++ show tag)
+
+putBigNatural :: Natural -> Put
+putBigNatural n =
+    putWord8 1
+    <> put (unroll (abs n))         -- unroll the bytes
+{-# NOINLINE putBigNatural #-}
+
+getBigNatural :: Get Natural
+getBigNatural = do
+    bytes <- get
+    return $! roll bytes
+{-# NOINLINE getBigNatural #-}
 #endif
 
 {-
