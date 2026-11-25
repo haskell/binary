@@ -28,7 +28,9 @@ main = do
     rnf oneMegabyte,
     rnf oneMegabyteLBS,
     rnf manyBytes,
-    rnf encodedBigInteger
+    rnf encodedBigInteger,
+    rnf smallMsgs1Chunk,
+    rnf smallMsgs4Chunks
      ]
   defaultMain
     [ bgroup "brackets"
@@ -92,6 +94,16 @@ main = do
     , bgroup "Integer"
         [ bench "decode" $ nf (decode :: L.ByteString -> Integer) encodedBigInteger
         ]
+    , bgroup "small messages (1000 x 16B)"
+        [ bench "runGet, one chunk" $
+            whnf (runSmallMany (runGet getSmallMsg)) smallMsgs1Chunk
+        , bench "runGet, 4-byte chunks" $
+            whnf (runSmallMany (runGet getSmallMsg)) smallMsgs4Chunks
+        , bench "runGetOrFail, one chunk" $
+            whnf (runSmallMany runSmallOrFail) smallMsgs1Chunk
+        , bench "runGetOrFail, 4-byte chunks" $
+            whnf (runSmallMany runSmallOrFail) smallMsgs4Chunks
+        ]
     ]
 
 checkBracket :: Int -> Int
@@ -125,6 +137,40 @@ oneMegabyte = S.replicate mega $ fromIntegral $ ord 'a'
 
 oneMegabyteLBS :: L.ByteString
 oneMegabyteLBS = L.fromChunks [oneMegabyte]
+
+smallMsgs1Chunk :: [L.ByteString]
+smallMsgs1Chunk =
+  [ L.fromChunks [S.pack [fromIntegral (i + j) | j <- [0..15 :: Int]]]
+  | i <- [0..999 :: Int]
+  ]
+
+smallMsgs4Chunks :: [L.ByteString]
+smallMsgs4Chunks =
+  [ L.fromChunks
+      [ S.pack [fromIntegral (i + j) | j <- [0..3 :: Int]]
+      , S.pack [fromIntegral (i + j) | j <- [4..7 :: Int]]
+      , S.pack [fromIntegral (i + j) | j <- [8..11 :: Int]]
+      , S.pack [fromIntegral (i + j) | j <- [12..15 :: Int]]
+      ]
+  | i <- [0..999 :: Int]
+  ]
+
+getSmallMsg :: Get Word32
+getSmallMsg = do
+  a <- getWord32be
+  b <- getWord32be
+  c <- getWord32be
+  d <- getWord32be
+  return $! a + b + c + d
+
+runSmallOrFail :: L.ByteString -> Word32
+runSmallOrFail lbs =
+  case runGetOrFail getSmallMsg lbs of
+    Right (_, _, x) -> x
+    Left (_, _, e)  -> error e
+
+runSmallMany :: (L.ByteString -> Word32) -> [L.ByteString] -> Word32
+runSmallMany f = foldl' (\acc lbs -> acc + f lbs) 0
 
 mega :: Int
 mega = 1024 * 1024
