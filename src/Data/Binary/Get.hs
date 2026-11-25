@@ -339,11 +339,44 @@ dropHeadChunk lbs =
 -- @since 0.6.4.0
 runGetOrFail :: Get a -> L.ByteString
              -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
-runGetOrFail g lbs0 = feedAll (runGetIncremental g) lbs0
+runGetOrFail g lbs0 =
+  case lbs0 of
+    L.Chunk bs lbs ->
+      case runCont g bs I.Done of
+        I.Done left x   -> Right (L.chunk left lbs, fromIntegral (B.length bs) - fromIntegral (B.length left), x)
+        I.Fail left msg -> Left  (L.chunk left lbs, fromIntegral (B.length bs) - fromIntegral (B.length left), msg)
+        r0              -> feedOrFail r0 lbs (fromIntegral (B.length bs))
+    L.Empty ->
+      case runCont g B.empty I.Done of
+        I.Done left x   -> Right (L.chunk left L.Empty, negate (fromIntegral (B.length left)), x)
+        I.Fail left msg -> Left  (L.chunk left L.Empty, negate (fromIntegral (B.length left)), msg)
+        r0              -> feedOrFail r0 L.Empty 0
+{-# INLINE runGetOrFail #-}
+
+feedOrFail :: I.Decoder a -> L.ByteString -> ByteOffset
+           -> Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, a)
+feedOrFail r0 lbs0 !acc0 = go r0 lbs0 acc0
   where
-  feedAll (Done bs pos x) lbs = Right (L.chunk bs lbs, pos, x)
-  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
-  feedAll (Fail x pos msg) xs = Left (L.chunk x xs, pos, msg)
+    go (I.Done left x) lbs !acc =
+      Right (L.chunk left lbs, acc - fromIntegral (B.length left), x)
+    go (I.Fail left msg) lbs !acc =
+      Left (L.chunk left lbs, acc - fromIntegral (B.length left), msg)
+    go (I.BytesRead unused k) lbs !acc =
+      go (k $! (acc - unused)) lbs acc
+    go (I.Partial k) (L.Chunk c cs) !acc =
+      go (k (Just c)) cs (acc + fromIntegral (B.length c))
+    go (I.Partial k) L.Empty !acc =
+      eof (k Nothing) acc
+
+    eof (I.Done left x) !acc =
+      Right (L.chunk left L.Empty, acc - fromIntegral (B.length left), x)
+    eof (I.Fail left msg) !acc =
+      Left (L.chunk left L.Empty, acc - fromIntegral (B.length left), msg)
+    eof (I.BytesRead unused k) !acc =
+      eof (k $! (acc - unused)) acc
+    eof (I.Partial k) !acc =
+      eof (k Nothing) acc
+{-# NOINLINE feedOrFail #-}
 
 -- | An offset, counted in bytes.
 type ByteOffset = Int64
@@ -351,12 +384,46 @@ type ByteOffset = Int64
 -- | The simplest interface to run a 'Get' decoder. If the decoder runs into
 -- an error, calls 'fail', or runs out of input, it will call 'error'.
 runGet :: Get a -> L.ByteString -> a
-runGet g lbs0 = feedAll (runGetIncremental g) lbs0
+runGet g lbs0 =
+  case lbs0 of
+    L.Chunk bs lbs ->
+      case runCont g bs I.Done of
+        I.Done _ x      -> x
+        I.Fail left msg -> runGetError (fromIntegral (B.length bs) - fromIntegral (B.length left)) msg
+        r0              -> feedRunGet r0 lbs (fromIntegral (B.length bs))
+    L.Empty ->
+      case runCont g B.empty I.Done of
+        I.Done _ x      -> x
+        I.Fail left msg -> runGetError (negate (fromIntegral (B.length left))) msg
+        r0              -> feedRunGet r0 L.Empty 0
+{-# INLINE runGet #-}
+
+runGetError :: ByteOffset -> String -> a
+runGetError pos msg =
+  error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
+{-# NOINLINE runGetError #-}
+
+feedRunGet :: I.Decoder a -> L.ByteString -> ByteOffset -> a
+feedRunGet r0 lbs0 !acc0 = go r0 lbs0 acc0
   where
-  feedAll (Done _ _ x) _ = x
-  feedAll (Partial k) lbs = feedAll (k (takeHeadChunk lbs)) (dropHeadChunk lbs)
-  feedAll (Fail _ pos msg) _ =
-    error ("Data.Binary.Get.runGet at position " ++ show pos ++ ": " ++ msg)
+    go (I.Done _ x) _ _ = x
+    go (I.Fail left msg) _ !acc =
+      runGetError (acc - fromIntegral (B.length left)) msg
+    go (I.BytesRead unused k) lbs !acc =
+      go (k $! (acc - unused)) lbs acc
+    go (I.Partial k) (L.Chunk c cs) !acc =
+      go (k (Just c)) cs (acc + fromIntegral (B.length c))
+    go (I.Partial k) L.Empty !acc =
+      eof (k Nothing) acc
+
+    eof (I.Done _ x) _ = x
+    eof (I.Fail left msg) !acc =
+      runGetError (acc - fromIntegral (B.length left)) msg
+    eof (I.BytesRead unused k) !acc =
+      eof (k $! (acc - unused)) acc
+    eof (I.Partial k) !acc =
+      eof (k Nothing) acc
+{-# NOINLINE feedRunGet #-}
 
 
 -- | Feed a 'Decoder' with more input. If the 'Decoder' is 'Done' or 'Fail' it
