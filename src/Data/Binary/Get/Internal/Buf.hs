@@ -157,9 +157,9 @@ unboxedBufDrop (I# n#) (# p#, len#, fpc #) = (# plusAddr# p# n#, len# -# n#, fpc
 -- | Read from the buffer's current pointer while keeping its
 -- 'ForeignPtrContents' alive across the read.
 --
--- We intentionally use 'touch#' rather than 'GHC.Exts.keepAlive#' here:
+-- We intentionally use 'touch#' rather than @GHC.Exts.keepAlive#@ here:
 --
--- * 'keepAlive#' pushes a @stg_keepAlive_frame@ and acts as a Core
+-- * @keepAlive#@ pushes a @stg_keepAlive_frame@ and acts as a Core
 --   optimization barrier that prevents GHC from unboxing the return value
 --   (boxing every @Word8@/@Word16@/@Word32@/@Word64@ read and slowing
 --   decoding by ~40-115%).
