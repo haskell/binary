@@ -187,7 +187,7 @@ class Binary t where
 
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
-defaultPutList xs = put (List.length xs) <> mapM_ put xs
+defaultPutList xs = put (List.length xs) <> putBuilder (foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty xs)
 
 #ifdef HAS_GENERICALLY
 instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generically a) where
@@ -723,7 +723,7 @@ instance (Binary a) => Binary (Set.Set a) where
     get   = liftM Set.fromDistinctAscList get
 
 instance (Binary k, Binary e) => Binary (Map.Map k e) where
-    put m = put (Map.size m) <> mapM_ put (Map.toAscList m)
+    put m = put (Map.size m) <> putBuilder (Map.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
     get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
@@ -731,7 +731,7 @@ instance Binary IntSet.IntSet where
     get   = liftM IntSet.fromDistinctAscList get
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
-    put m = put (IntMap.size m) <> mapM_ put (IntMap.toAscList m)
+    put m = put (IntMap.size m) <> putBuilder (IntMap.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
     get   = liftM IntMap.fromDistinctAscList get
 
 ------------------------------------------------------------------------
