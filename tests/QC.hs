@@ -27,7 +27,9 @@ import qualified Data.IntSet                          as IntSet
 import           Data.IORef                           (newIORef, readIORef, writeIORef)
 import           Data.List.NonEmpty                   (NonEmpty(..))
 import qualified Data.Map                             as Map
+import qualified Data.Monoid                          as Monoid
 import           Data.Ratio
+import qualified Data.Semigroup                       as Semigroup
 import qualified Data.Sequence                        as Seq
 import qualified Data.Set                             as Set
 import qualified Data.Tree                            as Tree
@@ -1462,6 +1464,19 @@ tests =
             , testWithGen "Tree Int8"       genTree
             , testWithGen "Complex Double"  (liftM2 (:+) (arbitrary :: Gen Double) arbitrary)
             , testWithGen "Identity Int"    (Identity <$> (arbitrary :: Gen Int))
+            , testWithGen "Monoid.Dual Int" (Monoid.Dual <$> (arbitrary :: Gen Int))
+            , testWithGen "Monoid.All"      (Monoid.All <$> (arbitrary :: Gen Bool))
+            , testWithGen "Monoid.Any"      (Monoid.Any <$> (arbitrary :: Gen Bool))
+            , testWithGen "Monoid.Sum Int"  (Monoid.Sum <$> (arbitrary :: Gen Int))
+            , testWithGen "Monoid.Product Int" (Monoid.Product <$> (arbitrary :: Gen Int))
+            , testWithGen "Monoid.First Int"   (Monoid.First <$> (arbitrary :: Gen (Maybe Int)))
+            , testWithGen "Monoid.Last Int"    (Monoid.Last <$> (arbitrary :: Gen (Maybe Int)))
+            , testWithGen "Monoid.Alt Maybe Int" (Monoid.Alt <$> (arbitrary :: Gen (Maybe Int)))
+            , testWithGen "Semigroup.Min Int"  (Semigroup.Min <$> (arbitrary :: Gen Int))
+            , testWithGen "Semigroup.Max Int"  (Semigroup.Max <$> (arbitrary :: Gen Int))
+            , testWithGen "Semigroup.First Int" (Semigroup.First <$> (arbitrary :: Gen Int))
+            , testWithGen "Semigroup.Last Int"  (Semigroup.Last <$> (arbitrary :: Gen Int))
+            , testWithGen "Semigroup.WrappedMonoid Int" (Semigroup.WrapMonoid <$> (arbitrary :: Gen Int))
             , testWithGen "NonEmpty Int"    (liftM2 (:|) (arbitrary :: Gen Int) arbitrary)
             , testWithGen "Proxy Int"       (return (Proxy :: Proxy Int))
             ]

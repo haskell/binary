@@ -1,11 +1,13 @@
 {-# LANGUAGE CPP, FlexibleContexts #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE Trustworthy #-}
 
@@ -418,9 +420,7 @@ instance Binary Integer where
 
 -- | @since 0.8.0.0
 #ifdef HAS_FIXED_CONSTRUCTOR
-instance Binary (Fixed.Fixed a) where
-  put (Fixed.MkFixed a) = put a
-  get = Fixed.MkFixed `liftM` get
+deriving instance Binary (Fixed.Fixed a)
 #else
 instance forall a. Fixed.HasResolution a => Binary (Fixed.Fixed a) where
   -- Using undefined :: Maybe a as a proxy, as Data.Proxy is introduced only in base-4.7
@@ -662,10 +662,7 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 -- Container types
 
 #if MIN_VERSION_base(4,8,0)
-instance Binary a => Binary (Identity a) where
-  put (Identity x) = put x
-  {-# INLINE get #-}
-  get = Identity <$> get
+deriving instance Binary a => Binary (Identity a)
 #endif
 
 instance Binary a => Binary [a] where
@@ -891,45 +888,29 @@ instance Binary Version where
 -- Data.Monoid datatypes
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Monoid.Dual a) where
-  get = fmap Monoid.Dual get
-  put = put . Monoid.getDual
+deriving instance Binary a => Binary (Monoid.Dual a)
 
 -- | @since 0.8.4.0
-instance Binary Monoid.All where
-  get = fmap Monoid.All get
-  put = put . Monoid.getAll
+deriving instance Binary Monoid.All
 
 -- | @since 0.8.4.0
-instance Binary Monoid.Any where
-  get = fmap Monoid.Any get
-  put = put . Monoid.getAny
+deriving instance Binary Monoid.Any
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Monoid.Sum a) where
-  get = fmap Monoid.Sum get
-  put = put . Monoid.getSum
+deriving instance Binary a => Binary (Monoid.Sum a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Monoid.Product a) where
-  get = fmap Monoid.Product get
-  put = put . Monoid.getProduct
+deriving instance Binary a => Binary (Monoid.Product a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Monoid.First a) where
-  get = fmap Monoid.First get
-  put = put . Monoid.getFirst
+deriving instance Binary a => Binary (Monoid.First a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Monoid.Last a) where
-  get = fmap Monoid.Last get
-  put = put . Monoid.getLast
+deriving instance Binary a => Binary (Monoid.Last a)
 
 #if MIN_VERSION_base(4,8,0)
 -- | @since 0.8.4.0
-instance Binary (f a) => Binary (Monoid.Alt f a) where
-  get = fmap Monoid.Alt get
-  put = put . Monoid.getAlt
+deriving instance Binary (f a) => Binary (Monoid.Alt f a)
 #endif
 
 #if MIN_VERSION_base(4,9,0)
@@ -937,36 +918,24 @@ instance Binary (f a) => Binary (Monoid.Alt f a) where
 -- Data.Semigroup datatypes
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Semigroup.Min a) where
-  get = fmap Semigroup.Min get
-  put = put . Semigroup.getMin
+deriving instance Binary a => Binary (Semigroup.Min a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Semigroup.Max a) where
-  get = fmap Semigroup.Max get
-  put = put . Semigroup.getMax
+deriving instance Binary a => Binary (Semigroup.Max a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Semigroup.First a) where
-  get = fmap Semigroup.First get
-  put = put . Semigroup.getFirst
+deriving instance Binary a => Binary (Semigroup.First a)
 
 -- | @since 0.8.4.0
-instance Binary a => Binary (Semigroup.Last a) where
-  get = fmap Semigroup.Last get
-  put = put . Semigroup.getLast
+deriving instance Binary a => Binary (Semigroup.Last a)
 
 #if !MIN_VERSION_base(4,15,0)
 -- | @since 0.8.4.0
-instance Binary a => Binary (Semigroup.Option a) where
-  get = fmap Semigroup.Option get
-  put = put . Semigroup.getOption
+deriving instance Binary a => Binary (Semigroup.Option a)
 #endif
 
 -- | @since 0.8.4.0
-instance Binary m => Binary (Semigroup.WrappedMonoid m) where
-  get = fmap Semigroup.WrapMonoid get
-  put = put . Semigroup.unwrapMonoid
+deriving instance Binary m => Binary (Semigroup.WrappedMonoid m)
 
 -- | @since 0.8.4.0
 instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
