@@ -31,6 +31,8 @@ main = do
     [ rnf bigIntegers
     , rnf smallIntegers
     , rnf smallNaturals
+    , rnf bigNaturals
+    , rnf hugeInteger
     , rnf smallByteStrings
     , rnf smallStrings
     , rnf doubles
@@ -63,6 +65,8 @@ main = do
     , bench "[big Integer]" $ whnf (run . put) bigIntegers
 
     , bench "[small Natural]" $ whnf (run . put) smallNaturals
+    , bench "[big Natural]" $ whnf (run . put) bigNaturals
+    , bench "huge Integer (64KB)" $ whnf (run . put) hugeInteger
 
     , bench "small ByteStrings" $ whnf (run . foldMap put) smallByteStrings
     , bench "[small ByteString]" $ whnf (run . put) smallByteStrings
@@ -143,6 +147,17 @@ bigIntegers = [m .. m + 10000]
 smallNaturals :: [Natural]
 smallNaturals = [0..10000]
 {-# NOINLINE smallNaturals #-}
+
+bigNaturals :: [Natural]
+bigNaturals = [m .. m + 10000]
+  where
+    m :: Natural
+    m = fromIntegral (maxBound :: Word64) + 1
+{-# NOINLINE bigNaturals #-}
+
+hugeInteger :: Integer
+hugeInteger = 2 ^ (524280 :: Int) + 123456789
+{-# NOINLINE hugeInteger #-}
 
 smallByteStrings :: [S.ByteString]
 smallByteStrings = replicate 10000 $ C.pack "abcdefghi"
