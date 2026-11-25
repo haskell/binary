@@ -167,6 +167,7 @@ encode = runPut . put
 -- | Decode a value from a lazy ByteString, reconstructing the original structure.
 decode :: Binary a => ByteString -> a
 decode = runGet get
+{-# INLINE decode #-}
 
 -- | Decode a value from a lazy ByteString. Returning 'Left' on failure and
 -- 'Right' on success. In both cases the unconsumed input and the number of
@@ -178,6 +179,7 @@ decodeOrFail :: Binary a => L.ByteString
              -> Either (L.ByteString, ByteOffset, String)
                        (L.ByteString, ByteOffset, a)
 decodeOrFail = runGetOrFail get
+{-# INLINE decodeOrFail #-}
 
 
 ------------------------------------------------------------------------

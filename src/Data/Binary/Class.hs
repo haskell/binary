@@ -215,15 +215,18 @@ instance Binary Void where
 -- can be reconstructed from the type alone
 instance Binary () where
     put ()  = mempty
+    {-# INLINE get #-}
     get     = return ()
 
 instance Binary (Proxy a) where
     put Proxy = pure ()
+    {-# INLINE get #-}
     get       = pure Proxy
 
 -- Bools are encoded as a byte in the range 0 .. 1
 instance Binary Bool where
     put     = putWord8 . fromIntegral . fromEnum
+    {-# INLINE get #-}
     get     = getWord8 >>= toBool
       where
         toBool 0 = return False
@@ -233,6 +236,7 @@ instance Binary Bool where
 -- Values of type 'Ordering' are encoded as a byte in the range 0 .. 2
 instance Binary Ordering where
     put     = putWord8 . fromIntegral . fromEnum
+    {-# INLINE get #-}
     get     = getWord8 >>= toOrd
       where
         toOrd 0 = return LT
@@ -252,6 +256,7 @@ instance Binary Word8 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word8 xs)
 #endif
+    {-# INLINE get #-}
     get     = getWord8
 
 -- Words16s are written as 2 bytes in big-endian (network) order
@@ -263,6 +268,7 @@ instance Binary Word16 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word16BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getWord16be
 
 -- Words32s are written as 4 bytes in big-endian (network) order
@@ -274,6 +280,7 @@ instance Binary Word32 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word32BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getWord32be
 
 -- Words64s are written as 8 bytes in big-endian (network) order
@@ -285,6 +292,7 @@ instance Binary Word64 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word64BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getWord64be
 
 -- Int8s are written as a single byte.
@@ -296,6 +304,7 @@ instance Binary Int8 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int8 xs)
 #endif
+    {-# INLINE get #-}
     get     = getInt8
 
 -- Int16s are written as a 2 bytes in big endian format
@@ -307,6 +316,7 @@ instance Binary Int16 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int16BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getInt16be
 
 -- Int32s are written as a 4 bytes in big endian format
@@ -318,6 +328,7 @@ instance Binary Int32 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int32BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getInt32be
 
 -- Int64s are written as a 8 bytes in big endian format
@@ -329,6 +340,7 @@ instance Binary Int64 where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int64BE xs)
 #endif
+    {-# INLINE get #-}
     get     = getInt64be
 
 ------------------------------------------------------------------------
@@ -342,6 +354,7 @@ instance Binary Word where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word64BE (map fromIntegral xs))
 #endif
+    {-# INLINE get #-}
     get     = liftM fromIntegral getWord64be
 
 -- Ints are are written as Int64s, that is, 8 bytes in big endian format
@@ -353,6 +366,7 @@ instance Binary Int where
         put (length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int64BE (map fromIntegral xs))
 #endif
+    {-# INLINE get #-}
     get     = liftM fromIntegral getInt64be
 
 ------------------------------------------------------------------------
@@ -650,11 +664,13 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 #if MIN_VERSION_base(4,8,0)
 instance Binary a => Binary (Identity a) where
   put (Identity x) = put x
+  {-# INLINE get #-}
   get = Identity <$> get
 #endif
 
 instance Binary a => Binary [a] where
     put = putList
+    {-# INLINABLE get #-}
     get = do n <- get :: Get Int
              getMany n
 
@@ -674,6 +690,7 @@ getMany n
 instance (Binary a) => Binary (Maybe a) where
     put Nothing  = putWord8 0
     put (Just x) = putWord8 1 <> put x
+    {-# INLINE get #-}
     get = do
         w <- getWord8
         case w of
@@ -684,6 +701,7 @@ instance (Binary a) => Binary (Maybe a) where
 instance (Binary a, Binary b) => Binary (Either a b) where
     put (Left  a) = putWord8 0 <> put a
     put (Right b) = putWord8 1 <> put b
+    {-# INLINE get #-}
     get = do
         w <- getWord8
         case w of
@@ -720,10 +738,12 @@ instance Binary BS.ShortByteString where
 
 instance (Binary a) => Binary (Set.Set a) where
     put s = put (Set.size s) <> mapM_ put (Set.toAscList s)
+    {-# INLINABLE get #-}
     get   = liftM Set.fromDistinctAscList get
 
 instance (Binary k, Binary e) => Binary (Map.Map k e) where
     put m = put (Map.size m) <> putBuilder (Map.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
+    {-# INLINABLE get #-}
     get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
@@ -750,6 +770,7 @@ instance Binary IntSet.IntSet where
 
 instance (Binary e) => Binary (IntMap.IntMap e) where
     put m = put (IntMap.size m) <> putBuilder (IntMap.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
+    {-# INLINABLE get #-}
     get = do
       n <- getInt
       if n < 0
@@ -782,6 +803,7 @@ instance (Binary e) => Binary (IntMap.IntMap e) where
 
 instance (Binary e) => Binary (Seq.Seq e) where
     put s = put (Seq.length s) <> Fold.mapM_ put s
+    {-# INLINABLE get #-}
     get = do n <- get :: Get Int
              if n < 0
                then fail "Data.Binary.get @(Seq e): negative length"
@@ -815,6 +837,7 @@ instance Binary Float where
 
 instance (Binary e) => Binary (T.Tree e) where
     put (T.Node r s) = put r <> put s
+    {-# INLINABLE get #-}
     get = liftM2 T.Node get get
 
 ------------------------------------------------------------------------
@@ -824,6 +847,7 @@ instance (Binary i, Ix i, Binary e) => Binary (Array i e) where
     put a =
         put (bounds a)
         <> mapM_ put (elems a)
+    {-# INLINABLE get #-}
     get = do
         bs <- get
         let n = rangeSize bs
@@ -837,6 +861,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
     put a =
         put (bounds a)
         <> mapM_ put (elems a)
+    {-# INLINABLE get #-}
     get = do
         bs <- get
         let n = rangeSize bs
@@ -953,6 +978,7 @@ instance (Binary a, Binary b) => Binary (Semigroup.Arg a b) where
 
 -- | @since 0.8.4.0
 instance Binary a => Binary (NE.NonEmpty a) where
+  {-# INLINABLE get #-}
   get = do
       list <- get
       case list of
