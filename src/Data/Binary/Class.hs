@@ -247,6 +247,10 @@ instance Binary (Proxy a) where
 instance Binary Bool where
     {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
+#ifdef __GLASGOW_HASKELL__
+    putList xs = put (List.length xs)
+        <> putBuilder (Prim.primMapListFixed ((fromIntegral . fromEnum) Prim.>$< Prim.word8) xs)
+#endif
     {-# INLINE get #-}
     get     = getWord8 >>= toBool
       where
@@ -258,6 +262,10 @@ instance Binary Bool where
 instance Binary Ordering where
     {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
+#ifdef __GLASGOW_HASKELL__
+    putList xs = put (List.length xs)
+        <> putBuilder (Prim.primMapListFixed ((fromIntegral . fromEnum) Prim.>$< Prim.word8) xs)
+#endif
     {-# INLINE get #-}
     get     = getWord8 >>= toOrd
       where
@@ -938,7 +946,7 @@ instance Binary IntSet.IntSet where
 #ifdef __GLASGOW_HASKELL__
     put s = put (IntSet.size s) <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.int64BE) (IntSet.toAscList s))
 #else
-    put s = put (IntSet.size s) <> mapM_ put (IntSet.toAscList s)
+    put s = put (IntSet.size s) <> putBuilder (List.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty (IntSet.toAscList s))
 #endif
     get = do
       n <- getInt
@@ -1132,11 +1140,24 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 
 -- | @since 0.7.6.0
 instance Binary Fingerprint where
+#ifdef __GLASGOW_HASKELL__
+    {-# INLINE put #-}
+    put = putBuilder . Prim.primFixed fingerprintPrim
+    putList xs = put (List.length xs)
+        <> putBuilder (Prim.primMapListFixed fingerprintPrim xs)
+#else
     put (Fingerprint x1 x2) = put x1 <> put x2
+#endif
     get = do
         x1 <- get
         x2 <- get
         return $! Fingerprint x1 x2
+
+#ifdef __GLASGOW_HASKELL__
+fingerprintPrim :: Prim.FixedPrim Fingerprint
+fingerprintPrim = (\(Fingerprint x1 x2) -> (x1, x2)) Prim.>$< (Prim.word64BE Prim.>*< Prim.word64BE)
+{-# INLINE fingerprintPrim #-}
+#endif
 
 ------------------------------------------------------------------------
 -- Version

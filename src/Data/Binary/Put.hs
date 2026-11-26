@@ -124,6 +124,7 @@ instance Applicative PutM where
             let PairS f w  = unPut m
                 PairS x w' = unPut k
             in PairS (f x) (w `Monoid.mappend` w')
+        {-# INLINE (<*>) #-}
 
         m *> k  = case unPut m of
             PairS _ w -> Put $
