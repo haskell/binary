@@ -106,7 +106,11 @@ fromCont f = C $ \s ks -> f (packBuf s) (\bs' a -> ks (unpackBuf bs') a)
 
 instance Monad Get where
   return = pure
+  {-# INLINE return #-}
   (>>=) = bindG
+  {-# INLINE (>>=) #-}
+  (>>) = (*>)
+  {-# INLINE (>>) #-}
 #if !(MIN_VERSION_base(4,13,0))
   fail = Fail.fail -- base < 4.13
 #endif
@@ -146,6 +150,14 @@ instance Applicative Get where
   {-# INLINE pure #-}
   (<*>) = apG
   {-# INLINE (<*>) #-}
+  (*>) (C m) (C k) = C $ \s ks -> m s (\s' _ -> k s' ks)
+  {-# INLINE (*>) #-}
+  (<*) (C m) (C k) = C $ \s ks -> m s (\s' a -> k s' (\s'' _ -> ks s'' a))
+  {-# INLINE (<*) #-}
+#if MIN_VERSION_base(4,10,0)
+  liftA2 f (C m) (C k) = C $ \s ks -> m s (\s' a -> k s' (\s'' b -> ks s'' (f a b)))
+  {-# INLINE liftA2 #-}
+#endif
 
 -- | @since 0.7.1.0
 instance MonadPlus Get where
@@ -387,9 +399,24 @@ lookAheadSlow inp ks = go []
 --
 -- @since 0.7.0.0
 lookAheadM :: Get (Maybe a) -> Get (Maybe a)
-lookAheadM g = do
-  let g' = maybe (Left ()) Right <$> g
-  either (const Nothing) Just <$> lookAheadE g'
+lookAheadM g = C $ \s ks ->
+  case unGet g s doneBuf of
+    Done _ Nothing     -> ks s Nothing
+    Done inp' (Just x) -> ks (unpackBuf inp') (Just x)
+    Fail inp' e        -> Fail inp' e
+    r0                 -> lookAheadMSlow (packBuf s) ks r0
+{-# INLINE lookAheadM #-}
+
+lookAheadMSlow :: B.ByteString -> Success (Maybe a) r -> Decoder (Maybe a) -> Decoder r
+lookAheadMSlow inp ks = go []
+  where
+    go !acc r = case r of
+                  Done _ Nothing     -> ks (unpackBuf (concatChunks inp acc)) Nothing
+                  Done inp' (Just x) -> ks (unpackBuf inp') (Just x)
+                  Fail inp' e        -> Fail inp' e
+                  Partial k          -> Partial $ \minp -> go (maybe acc (:acc) minp) (k minp)
+                  BytesRead unused k -> BytesRead unused (go acc . k)
+{-# NOINLINE lookAheadMSlow #-}
 
 -- | Run the given decoder, and only consume its input if it returns 'Right'.
 -- If 'Left' is returned, the input will be unconsumed.
