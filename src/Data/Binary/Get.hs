@@ -469,7 +469,14 @@ pushEndOfInput r =
 getLazyByteString :: Int64 -> Get L.ByteString
 getLazyByteString n0
   | n0 <= 0   = return L.empty
-  | otherwise = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
+  | n0 <= fromIntegral (maxBound :: Int) =
+      tryTakeBuf (fromIntegral n0) (`L.Chunk` L.Empty) (getLazyByteStringSlow n0)
+  | otherwise = getLazyByteStringSlow n0
+{-# INLINE getLazyByteString #-}
+
+getLazyByteStringSlow :: Int64 -> Get L.ByteString
+getLazyByteStringSlow n0 = withInputChunks n0 consumeBytes L.fromChunks failOnEOF
+{-# NOINLINE getLazyByteStringSlow #-}
 
 consumeBytes :: Consume Int64
 consumeBytes n str
@@ -492,7 +499,12 @@ resumeOnEOF = return . L.fromChunks
 -- The returned string does not contain the NUL byte. Fails
 -- if it reaches the end of input without finding a NUL.
 getLazyByteStringNul :: Get L.ByteString
-getLazyByteStringNul = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
+getLazyByteStringNul = tryTakeUntilNul (`L.Chunk` L.Empty) L.Empty getLazyByteStringNulSlow
+{-# INLINE getLazyByteStringNul #-}
+
+getLazyByteStringNulSlow :: Get L.ByteString
+getLazyByteStringNulSlow = withInputChunks () consumeUntilNul L.fromChunks failOnEOF
+{-# NOINLINE getLazyByteStringNulSlow #-}
 
 -- | Get the remaining bytes as a lazy ByteString.
 -- Note that this can be an expensive function to use as it forces reading
@@ -506,7 +518,10 @@ getRemainingLazyByteString = withInputChunks () consumeAll L.fromChunks resumeOn
 --
 -- @since x.x.x.x
 getShortByteString :: Int -> Get ShortByteString
-getShortByteString = fmap toShort . getByteString
+getShortByteString n = do
+  bs <- getByteString n
+  return $! toShort bs
+{-# INLINE getShortByteString #-}
 
 ------------------------------------------------------------------------
 -- Primitives

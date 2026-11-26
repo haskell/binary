@@ -14,6 +14,8 @@ module Data.Binary.Get.Internal (
     , readN
     , readNWith
     , tryReadN
+    , tryTakeBuf
+    , tryTakeUntilNul
 
     , failGet
 
@@ -451,6 +453,26 @@ tryReadN !n f slow = C $ \s ks ->
            Nothing              -> unGet slow s ks
     else unGet slow s ks
 {-# INLINE tryReadN #-}
+
+-- | Fast-path helper: if at least @n@ bytes are available in the current
+-- buffer, take @n@ bytes, apply @f@, and advance; otherwise run @slow@.
+tryTakeBuf :: Int -> (B.ByteString -> a) -> Get a -> Get a
+tryTakeBuf !n f slow = C $ \s ks ->
+  if bufHasN n s
+    then ks (bufDrop n s) (f (bufTake n s))
+    else unGet slow s ks
+{-# INLINE tryTakeBuf #-}
+
+-- | Fast-path helper: if a NUL byte exists in the current buffer, take the
+-- prefix before it (returning @onEmpty@ if the prefix is empty), advance past
+-- the NUL byte, and continue; otherwise run @slow@.
+tryTakeUntilNul :: (B.ByteString -> a) -> a -> Get a -> Get a
+tryTakeUntilNul f onEmpty slow = C $ \s ks ->
+  case B.elemIndex 0 (packBuf s) of
+    Just 0  -> ks (bufDrop 1 s) onEmpty
+    Just i  -> ks (bufDrop (i + 1) s) (f (bufTake i s))
+    Nothing -> unGet slow s ks
+{-# INLINE tryTakeUntilNul #-}
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
