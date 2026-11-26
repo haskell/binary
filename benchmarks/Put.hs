@@ -19,6 +19,7 @@ import Data.Word
 import Numeric.Natural (Natural)
 import Test.Tasty.Bench
 
+import GHC.Fingerprint (Fingerprint(..))
 import GHC.Generics
 
 import Data.Binary
@@ -56,6 +57,9 @@ main = do
     , rnf maybeW32s10k
     , rnf eitherIntW32s10k
     , rnf ratioInts10k
+    , rnf bools10k
+    , rnf orderings10k
+    , foldr (\f acc -> f `seq` acc) () fingerprints10k
     ]
   defaultMain
     [ bench "small Integers" $ whnf (run . foldMap put) smallIntegers
@@ -91,6 +95,10 @@ main = do
     , bench "[Word64]" $ whnf (run . put) word64s
     , bench "[Word]" $ whnf (run . put) words10k
     , bench "[Int]" $ whnf (run . put) ints10k
+    , bench "[Bool]" $ whnf (run . put) bools10k
+    , bench "[Ordering]" $ whnf (run . put) orderings10k
+    , bench "[Fingerprint]" $ whnf (run . put) fingerprints10k
+    , bench "Fingerprints monoid put" $ whnf (run . foldMap put) fingerprints10k
 
     , bgroup "Generics"
       [ bench "Struct monoid put" $ whnf (run . foldMap put) structs
@@ -248,3 +256,15 @@ eitherIntW32s10k = [if even i then Left i else Right (fromIntegral i) | i <- [1.
 ratioInts10k :: [Ratio Int]
 ratioInts10k = [i % (i + 1) | i <- [1..10000 :: Int]]
 {-# NOINLINE ratioInts10k #-}
+
+bools10k :: [Bool]
+bools10k = take 10000 $ cycle [False, True]
+{-# NOINLINE bools10k #-}
+
+orderings10k :: [Ordering]
+orderings10k = take 10000 $ cycle [LT, EQ, GT]
+{-# NOINLINE orderings10k #-}
+
+fingerprints10k :: [Fingerprint]
+fingerprints10k = [Fingerprint (fromIntegral i) (fromIntegral (i * 31)) | i <- [1..10000 :: Int]]
+{-# NOINLINE fingerprints10k #-}
