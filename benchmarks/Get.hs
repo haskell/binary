@@ -61,7 +61,8 @@ main = do
     rnf encodedUtf8String,
     rnf encodedFingerprints,
     rnf encodedDoubles,
-    rnf encodedFloats
+    rnf encodedFloats,
+    rnf isolateBuf
      ]
   defaultMain
     [ bgroup "brackets"
@@ -156,6 +157,9 @@ main = do
         , bench "[Fingerprint] (10k)" $ nf (decode :: L.ByteString -> [Fingerprint]) encodedFingerprints
         , bench "[Double] (10k)" $ nf (decode :: L.ByteString -> [Double]) encodedDoubles
         , bench "[Float] (10k)" $ nf (decode :: L.ByteString -> [Float]) encodedFloats
+        ]
+    , bgroup "Combinators (10k)"
+        [ bench "isolate 8B" $ whnf (runGet (getIsolateN 10000)) isolateBuf
         ]
     ]
 
@@ -529,3 +533,14 @@ encodedDoubles = L.fromStrict . L.toStrict $ encode (take containerSize [ sign *
 
 encodedFloats :: L.ByteString
 encodedFloats = L.fromStrict . L.toStrict $ encode (take containerSize (cycle [ sign * 2 ** n | sign <- [-1, 1], n <- [0, 0.2 .. 126 :: Float] ]))
+
+isolateBuf :: L.ByteString
+isolateBuf = L.fromStrict (S.replicate (containerSize * 8) 1)
+
+getIsolateN :: Int -> Get Word64
+getIsolateN = go 0
+  where
+    go !acc 0 = return acc
+    go !acc n = do
+      w <- isolate 8 getWord64be
+      go (acc + w) (n - 1)
