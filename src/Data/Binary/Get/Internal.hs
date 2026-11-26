@@ -221,7 +221,22 @@ isolate :: Int   -- ^ The number of bytes that must be consumed
         -> Get a
 isolate n0 act
   | n0 < 0 = fail "isolate: negative size"
-  | otherwise = go n0 (runCont act B.empty Done)
+  | otherwise = C $ \s ks ->
+      if bufHasN n0 s
+        then
+          let s_rest = bufDrop n0 s
+          in case unGet act (bufSlice n0 s) doneBuf of
+               Done left x | B.null left -> ks s_rest x
+               r                         -> unGet (isolateGo n0 0 r) s_rest ks
+        else unGet (isolateSlow n0 act) s ks
+{-# INLINE isolate #-}
+
+isolateSlow :: Int -> Get a -> Get a
+isolateSlow n0 act = isolateGo n0 n0 (runCont act B.empty Done)
+{-# NOINLINE isolateSlow #-}
+
+isolateGo :: Int -> Int -> Decoder a -> Get a
+isolateGo !n0 = go
   where
   go !n (Done left x)
     | n == 0 && B.null left = return x
@@ -245,6 +260,7 @@ isolate n0 act
   go _ (Fail bs err) = pushFront bs >> fail err
   go n (BytesRead r resume) =
     go n (resume $! fromIntegral n0 - fromIntegral n - r)
+{-# NOINLINE isolateGo #-}
 
 type Consume s = s -> B.ByteString -> Either s (B.ByteString, B.ByteString)
 

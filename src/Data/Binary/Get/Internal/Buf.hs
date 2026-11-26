@@ -33,6 +33,7 @@ module Data.Binary.Get.Internal.Buf
     , bufNull
     , bufHasN
     , bufTake
+    , bufSlice
     , bufDrop
     , bufReadWith
 
@@ -44,6 +45,7 @@ module Data.Binary.Get.Internal.Buf
     , portableBufNull
     , portableBufHasN
     , portableBufTake
+    , portableBufSlice
     , portableBufDrop
     , portableBufReadWith
 
@@ -56,6 +58,7 @@ module Data.Binary.Get.Internal.Buf
     , unboxedBufNull
     , unboxedBufHasN
     , unboxedBufTake
+    , unboxedBufSlice
     , unboxedBufDrop
     , unboxedBufReadWith
 #endif
@@ -101,6 +104,10 @@ portableBufHasN n s = B.length s >= n
 portableBufTake :: Int -> PortableBuf -> B.ByteString
 portableBufTake = B.unsafeTake
 {-# INLINE portableBufTake #-}
+
+portableBufSlice :: Int -> PortableBuf -> PortableBuf
+portableBufSlice = B.unsafeTake
+{-# INLINE portableBufSlice #-}
 
 portableBufDrop :: Int -> PortableBuf -> PortableBuf
 portableBufDrop = B.unsafeDrop
@@ -149,6 +156,10 @@ unboxedBufHasN (I# n#) (# _, len#, _ #) = isTrue# (len# >=# n#)
 unboxedBufTake :: Int -> UnboxedBuf -> B.ByteString
 unboxedBufTake (I# n#) (# p#, _, fpc #) = packUnboxedBuf (# p#, n#, fpc #)
 {-# INLINE unboxedBufTake #-}
+
+unboxedBufSlice :: Int -> UnboxedBuf -> UnboxedBuf
+unboxedBufSlice (I# n#) (# p#, _, fpc #) = (# p#, n#, fpc #)
+{-# INLINE unboxedBufSlice #-}
 
 unboxedBufDrop :: Int -> UnboxedBuf -> UnboxedBuf
 unboxedBufDrop (I# n#) (# p#, len#, fpc #) = (# plusAddr# p# n#, len# -# n#, fpc #)
@@ -211,6 +222,10 @@ bufTake :: Int -> Buf -> B.ByteString
 bufTake = unboxedBufTake
 {-# INLINE bufTake #-}
 
+bufSlice :: Int -> Buf -> Buf
+bufSlice = unboxedBufSlice
+{-# INLINE bufSlice #-}
+
 bufDrop :: Int -> Buf -> Buf
 bufDrop = unboxedBufDrop
 {-# INLINE bufDrop #-}
@@ -246,6 +261,10 @@ bufHasN = portableBufHasN
 bufTake :: Int -> Buf -> B.ByteString
 bufTake = portableBufTake
 {-# INLINE bufTake #-}
+
+bufSlice :: Int -> Buf -> Buf
+bufSlice = portableBufSlice
+{-# INLINE bufSlice #-}
 
 bufDrop :: Int -> Buf -> Buf
 bufDrop = portableBufDrop
