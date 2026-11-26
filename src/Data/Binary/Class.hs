@@ -994,7 +994,21 @@ instance Binary Double where
         put (List.length xs)
         <> putBuilder (Prim.primMapListBounded doubleBoundedPrim xs)
 #else
-    put d = put (decodeFloat d)
+    put d = let (m, e) = decodeFloat d
+                m64    = fromIntegral m :: Int64
+                e64    = fromIntegral e :: Int64
+            in if m64 >= fromIntegral (minBound :: Int32) && m64 <= fromIntegral (maxBound :: Int32)
+                 then putWord8 0 <> putInt32be (fromIntegral m64) <> putInt64be e64
+                 else
+                   let sign = if m64 < 0 then 255 else 1 :: Word8
+                       u    = fromIntegral (abs m64) :: Word64
+                   in putWord8 1 <> putWord8 sign <> putMantissa u <> putInt64be e64
+      where
+        putMantissa u
+          | u < 0x100000000     = putInt64be 4 <> putWord32le (fromIntegral u)
+          | u < 0x10000000000   = putInt64be 5 <> putWord32le (fromIntegral u) <> putWord8 (fromIntegral (u `shiftR` 32))
+          | u < 0x1000000000000 = putInt64be 6 <> putWord32le (fromIntegral u) <> putWord16le (fromIntegral (u `shiftR` 32))
+          | otherwise           = putInt64be 7 <> putWord32le (fromIntegral u) <> putWord16le (fromIntegral (u `shiftR` 32)) <> putWord8 (fromIntegral (u `shiftR` 48))
 #endif
     get   = do
         x <- get
@@ -1010,7 +1024,8 @@ instance Binary Float where
         put (List.length xs)
         <> putBuilder (Prim.primMapListFixed floatFixedPrim xs)
 #else
-    put f = put (decodeFloat f)
+    put f = let (m, e) = decodeFloat f
+            in putWord8 0 <> putInt32be (fromIntegral m) <> putInt64be (fromIntegral e)
 #endif
     get   =  do
         x <- get
