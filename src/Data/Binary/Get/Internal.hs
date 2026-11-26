@@ -308,12 +308,31 @@ instance Alternative Get where
   {-# INLINE (<|>) #-}
   some p = (:) <$> p <*> many p
   {-# INLINE some #-}
-  many p = do
-    v <- (Just <$> p) <|> pure Nothing
-    case v of
-      Nothing -> pure []
-      Just x -> (:) x <$> many p
-  {-# INLINEABLE many #-} -- many will never inline because it's recursive, so mark it INLINEABLE instead.
+  many p = C $ \s0 ks ->
+    let go !acc s =
+          case unGet p s doneBuf of
+            Done inp' x -> go (x : acc) (unpackBuf inp')
+            Fail _ _    -> ks s (reverse acc)
+            r0          -> manySlow p acc (packBuf s) ks r0
+    in go [] s0
+  {-# INLINE many #-}
+
+manySlow :: Get a -> [a] -> B.ByteString -> Success [a] r -> Decoder a -> Decoder r
+manySlow p = goChunks
+  where
+    goChunks !acc inp ks = step []
+      where
+        step !chunks r = case r of
+          Done inp' x -> goFast (x : acc) (unpackBuf inp')
+          Fail _ _    -> ks (unpackBuf (concatChunks inp chunks)) (reverse acc)
+          Partial k   -> Partial $ \minp -> step (maybe chunks (:chunks) minp) (k minp)
+          BytesRead unused k -> BytesRead unused (step chunks . k)
+        goFast !acc' s' =
+          case unGet p s' doneBuf of
+            Done inp'' x' -> goFast (x' : acc') (unpackBuf inp'')
+            Fail _ _      -> ks s' (reverse acc')
+            r'            -> goChunks acc' (packBuf s') ks r'
+{-# NOINLINE manySlow #-}
 
 altSlow :: B.ByteString -> Get a -> Success a r -> Decoder a -> Decoder r
 altSlow inp g ks = go []
