@@ -160,6 +160,7 @@ main = do
         ]
     , bgroup "Combinators (10k)"
         [ bench "isolate 8B" $ whnf (runGet (getIsolateN 10000)) isolateBuf
+        , bench "many Word64" $ nf (runGet (many getWord64be)) isolateBuf
         ]
     ]
 
