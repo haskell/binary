@@ -228,9 +228,6 @@ module Data.Binary.Get (
     , remaining -- DEPRECATED
     , getBytes -- DEPRECATED
     ) where
-#if ! MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 
 import Foreign
 import qualified Data.ByteString as B

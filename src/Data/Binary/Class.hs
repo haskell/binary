@@ -32,15 +32,6 @@
 #define HAS_GENERICALLY
 #endif
 
-#if MIN_VERSION_base(4,8,0)
-#define HAS_NATURAL
-#define HAS_VOID
-#endif
-
-#if MIN_VERSION_base(4,7,0)
-#define HAS_FIXED_CONSTRUCTOR
-#endif
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Class
@@ -66,9 +57,6 @@ module Data.Binary.Class (
 
     ) where
 
-import Prelude hiding (Foldable(..))
-import Data.Foldable (Foldable(..))
-
 #ifdef HAS_GHC_OPTS
 import GHC.Base (unsafeChr)
 #else
@@ -79,28 +67,18 @@ import Data.Bits
 import Data.Int
 import Data.Complex (Complex(..))
 import Data.Proxy (Proxy(..))
-#ifdef HAS_VOID
 import Data.Void
-#endif
 
 import Data.Binary.Put
 import Data.Binary.Get
 
-#if ! MIN_VERSION_base(4,8,0)
-import Control.Applicative
-import Data.Monoid (mempty)
-#endif
 import qualified Data.Monoid as Monoid
 #if !MIN_VERSION_base(4,11,0)
 import Data.Monoid ((<>))
 #endif
-#if MIN_VERSION_base(4,8,0)
 import Data.Functor.Identity (Identity (..))
-#endif
-#if MIN_VERSION_base(4,9,0)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Semigroup     as Semigroup
-#endif
 import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
@@ -140,9 +118,7 @@ import Data.Array.Unboxed
 
 import GHC.Generics
 
-#ifdef HAS_NATURAL
 import Numeric.Natural
-#endif
 
 import qualified Data.Fixed as Fixed
 
@@ -223,7 +199,6 @@ instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generica
 ------------------------------------------------------------------------
 -- Simple instances
 
-#ifdef HAS_VOID
 -- Void never gets written nor reconstructed since it's impossible to have a
 -- value of that type
 
@@ -231,7 +206,6 @@ instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generica
 instance Binary Void where
     put     = absurd
     get     = mzero
-#endif
 
 -- The () type need never be written to disk: values of singleton type
 -- can be reconstructed from the type alone
@@ -288,7 +262,7 @@ instance Binary Word8 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word8 xs)
 #endif
     {-# INLINE get #-}
@@ -301,7 +275,7 @@ instance Binary Word16 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word16BE xs)
 #endif
     {-# INLINE get #-}
@@ -314,7 +288,7 @@ instance Binary Word32 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word32BE xs)
 #endif
     {-# INLINE get #-}
@@ -327,7 +301,7 @@ instance Binary Word64 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.word64BE xs)
 #endif
     {-# INLINE get #-}
@@ -340,7 +314,7 @@ instance Binary Int8 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int8 xs)
 #endif
     {-# INLINE get #-}
@@ -353,7 +327,7 @@ instance Binary Int16 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int16BE xs)
 #endif
     {-# INLINE get #-}
@@ -366,7 +340,7 @@ instance Binary Int32 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int32BE xs)
 #endif
     {-# INLINE get #-}
@@ -379,7 +353,7 @@ instance Binary Int64 where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed Prim.int64BE xs)
 #endif
     {-# INLINE get #-}
@@ -394,7 +368,7 @@ instance Binary Word where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.word64BE) xs)
 #endif
     {-# INLINE get #-}
@@ -407,7 +381,7 @@ instance Binary Int where
 #ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.int64BE) xs)
 #endif
     {-# INLINE get #-}
@@ -516,14 +490,7 @@ getBigInteger = do
 {-# NOINLINE getBigInteger #-}
 
 -- | @since 0.8.0.0
-#ifdef HAS_FIXED_CONSTRUCTOR
 deriving instance Binary (Fixed.Fixed a)
-#else
-instance forall a. Fixed.HasResolution a => Binary (Fixed.Fixed a) where
-  -- Using undefined :: Maybe a as a proxy, as Data.Proxy is introduced only in base-4.7
-  put x = put (truncate (x * fromInteger (Fixed.resolution (undefined :: Maybe a))) :: Integer)
-  get = (\x -> fromInteger x / fromInteger (Fixed.resolution (undefined :: Maybe a))) `liftM` get
-#endif
 
 #ifndef HAS_GHC_BIGNUM
 --
@@ -584,7 +551,6 @@ roll bs = combine 64 (chunk8 bs)
       in ab `seq` ab : pair sh rest
 #endif
 
-#ifdef HAS_NATURAL
 -- Fixed-size type for a subset of Natural
 type NaturalWord = Word64
 
@@ -622,7 +588,7 @@ putBigNatural n =
 #else
 putBigNatural n =
     putWord8 1
-    <> put (unroll (abs n))         -- unroll the bytes
+    <> put (unroll n)               -- unroll the bytes
 #endif
 {-# NOINLINE putBigNatural #-}
 
@@ -646,7 +612,6 @@ getBigNatural = do
     return $! roll bytes
 #endif
 {-# NOINLINE getBigNatural #-}
-#endif
 
 {-
 
@@ -860,9 +825,7 @@ instance (Binary a, Binary b, Binary c, Binary d, Binary e,
 ------------------------------------------------------------------------
 -- Container types
 
-#if MIN_VERSION_base(4,8,0)
 deriving instance Binary a => Binary (Identity a)
-#endif
 
 instance Binary a => Binary [a] where
     put = putList
@@ -1028,7 +991,7 @@ instance Binary Double where
     put d = putBuilder (Prim.primBounded doubleBoundedPrim d)
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListBounded doubleBoundedPrim xs)
 #else
     put d = put (decodeFloat d)
@@ -1044,7 +1007,7 @@ instance Binary Float where
     put f = putBuilder (Prim.primFixed floatFixedPrim f)
     {-# INLINE putList #-}
     putList xs =
-        put (length xs)
+        put (List.length xs)
         <> putBuilder (Prim.primMapListFixed floatFixedPrim xs)
 #else
     put f = put (decodeFloat f)
@@ -1195,12 +1158,9 @@ deriving instance Binary a => Binary (Monoid.First a)
 -- | @since 0.8.4.0
 deriving instance Binary a => Binary (Monoid.Last a)
 
-#if MIN_VERSION_base(4,8,0)
 -- | @since 0.8.4.0
 deriving instance Binary (f a) => Binary (Monoid.Alt f a)
-#endif
 
-#if MIN_VERSION_base(4,9,0)
 ------------------------------------------------------------------------
 -- Data.Semigroup datatypes
 
@@ -1244,7 +1204,6 @@ instance Binary a => Binary (NE.NonEmpty a) where
         x:xs -> pure (x NE.:| xs)
   {-# INLINE put #-}
   put (x NE.:| xs) = putList (x : xs)
-#endif
 
 ------------------------------------------------------------------------
 -- Typeable/Reflection

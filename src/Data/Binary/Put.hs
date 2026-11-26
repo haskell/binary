@@ -2,10 +2,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE Safe #-}
 
-#if MIN_VERSION_base(4,9,0)
-#define HAS_SEMIGROUP
-#endif
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Data.Binary.Put
@@ -88,9 +84,7 @@ import qualified Data.ByteString      as S
 import qualified Data.ByteString.Lazy as L
 import Data.ByteString.Short
 
-#ifdef HAS_SEMIGROUP
 import Data.Semigroup
-#endif
 
 import Control.Applicative
 import Prelude -- Silence AMP warning.
@@ -150,11 +144,7 @@ instance Monoid.Monoid (PutM ()) where
     mempty = pure ()
     {-# INLINE mempty #-}
 
-#ifdef HAS_SEMIGROUP
     mappend = (<>)
-#else
-    mappend = mappend'
-#endif
     {-# INLINE mappend #-}
 
 mappend' :: Put -> Put -> Put
@@ -163,11 +153,9 @@ mappend' (Put (PairS _ w)) k = Put $
     in PairS () (w `B.append` w')
 {-# INLINE mappend' #-}
 
-#ifdef HAS_SEMIGROUP
 instance Semigroup (PutM ()) where
     (<>) = mappend'
     {-# INLINE (<>) #-}
-#endif
 
 tell :: Builder -> Put
 tell b = Put $ PairS () b

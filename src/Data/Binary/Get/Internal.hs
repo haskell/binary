@@ -49,9 +49,7 @@ import qualified Data.ByteString as B
 
 import Control.Applicative
 import Control.Monad
-#if MIN_VERSION_base(4,9,0)
 import qualified Control.Monad.Fail as Fail
-#endif
 
 import Data.Binary.Get.Internal.Buf
 
@@ -106,9 +104,7 @@ fromCont f = C $ \s ks -> f (packBuf s) (\bs' a -> ks (unpackBuf bs') a)
 instance Monad Get where
   return = pure
   (>>=) = bindG
-#if !(MIN_VERSION_base(4,9,0))
-  fail = failGet -- base < 4.9
-#elif !(MIN_VERSION_base(4,13,0))
+#if !(MIN_VERSION_base(4,13,0))
   fail = Fail.fail -- base < 4.13
 #endif
 -- NB: Starting with base-4.13, the `fail` method
@@ -116,10 +112,8 @@ instance Monad Get where
 --     according to the MonadFail proposal (MFP) schedule
 --     which completes the process that started with base-4.9.
 
-#if MIN_VERSION_base(4,9,0)
 instance Fail.MonadFail Get where
   fail = failGet
-#endif
 
 bindG :: Get a -> (a -> Get b) -> Get b
 bindG (C c) f = C $ \s ks -> c s (\s' a -> unGet (f a) s' ks)
