@@ -87,11 +87,10 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder.Prim as Prim
 #endif
 
-import Data.Binary.Get.Internal (tryReadN)
+import Data.Binary.Get.Internal (readNWith, tryReadN)
 import Foreign.Ptr (Ptr)
 import Foreign.Storable (peekByteOff)
 #ifdef HAS_GHC_BIGNUM
-import Data.Binary.Get.Internal (readNWith)
 import qualified Data.ByteString.Builder.Internal as BBI
 import Foreign.Ptr (plusPtr)
 import GHC.Exts (Addr#, Ptr(..), Word(..))
@@ -1291,10 +1290,13 @@ instance Binary Fingerprint where
 #else
     put (Fingerprint x1 x2) = put x1 <> put x2
 #endif
-    get = do
-        x1 <- get
-        x2 <- get
-        return $! Fingerprint x1 x2
+    -- Safety of readNWith: ensures 16 readable bytes and keeps the
+    -- ForeignPtr alive across the two 8-byte pure memory loads.
+    {-# INLINE get #-}
+    get = readNWith 16 $ \ptr -> do
+        x1 <- peekInt64BE ptr 0
+        x2 <- peekInt64BE ptr 8
+        return $! Fingerprint (fromIntegral x1) (fromIntegral x2)
 
 #ifdef HAS_GHC_OPTS
 fingerprintPrim :: Prim.FixedPrim Fingerprint
