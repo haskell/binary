@@ -15,7 +15,11 @@
 {-# LANGUAGE MultiWayIf #-}
 #endif
 
-#if defined(__GLASGOW_HASKELL__) && MIN_VERSION_base(4,15,0) && !defined(NO_GHC_BIGNUM)
+#if defined(__GLASGOW_HASKELL__) && !defined(BINARY_PORTABLE)
+#define HAS_GHC_OPTS
+#endif
+
+#if defined(HAS_GHC_OPTS) && MIN_VERSION_base(4,15,0)
 {-# LANGUAGE MagicHash #-}
 #define HAS_GHC_BIGNUM
 #endif
@@ -65,7 +69,7 @@ module Data.Binary.Class (
 import Prelude hiding (Foldable(..))
 import Data.Foldable (Foldable(..))
 
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
 import GHC.Base (unsafeChr)
 #else
 import Data.Char (chr)
@@ -101,7 +105,7 @@ import Control.Monad
 
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as L
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
 import qualified Data.ByteString.Builder.Prim as Prim
 #endif
 
@@ -247,7 +251,7 @@ instance Binary (Proxy a) where
 instance Binary Bool where
     {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     putList xs = put (List.length xs)
         <> putBuilder (Prim.primMapListFixed ((fromIntegral . fromEnum) Prim.>$< Prim.word8) xs)
 #endif
@@ -262,7 +266,7 @@ instance Binary Bool where
 instance Binary Ordering where
     {-# INLINE put #-}
     put     = putWord8 . fromIntegral . fromEnum
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     putList xs = put (List.length xs)
         <> putBuilder (Prim.primMapListFixed ((fromIntegral . fromEnum) Prim.>$< Prim.word8) xs)
 #endif
@@ -281,7 +285,7 @@ instance Binary Ordering where
 instance Binary Word8 where
     {-# INLINE put #-}
     put     = putWord8
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -294,7 +298,7 @@ instance Binary Word8 where
 instance Binary Word16 where
     {-# INLINE put #-}
     put     = putWord16be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -307,7 +311,7 @@ instance Binary Word16 where
 instance Binary Word32 where
     {-# INLINE put #-}
     put     = putWord32be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -320,7 +324,7 @@ instance Binary Word32 where
 instance Binary Word64 where
     {-# INLINE put #-}
     put     = putWord64be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -333,7 +337,7 @@ instance Binary Word64 where
 instance Binary Int8 where
     {-# INLINE put #-}
     put     = putInt8
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -346,7 +350,7 @@ instance Binary Int8 where
 instance Binary Int16 where
     {-# INLINE put #-}
     put     = putInt16be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -359,7 +363,7 @@ instance Binary Int16 where
 instance Binary Int32 where
     {-# INLINE put #-}
     put     = putInt32be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -372,7 +376,7 @@ instance Binary Int32 where
 instance Binary Int64 where
     {-# INLINE put #-}
     put     = putInt64be
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -387,7 +391,7 @@ instance Binary Int64 where
 instance Binary Word where
     {-# INLINE put #-}
     put     = putWord64be . fromIntegral
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -400,7 +404,7 @@ instance Binary Word where
 instance Binary Int where
     {-# INLINE put #-}
     put     = putInt64be . fromIntegral
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE putList #-}
     putList xs =
         put (length xs)
@@ -426,7 +430,7 @@ instance Binary Integer where
 
     {-# INLINE put #-}
     put n | n >= lo && n <= hi =
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
         putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
 #else
         putWord8 0 <> putInt32be (fromIntegral n)
@@ -588,7 +592,7 @@ type NaturalWord = Word64
 instance Binary Natural where
     {-# INLINE put #-}
     put n | n <= hi =
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
         putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.word64BE) (0, fromIntegral n))
 #else
         putWord8 0
@@ -777,7 +781,7 @@ getCharMultiByte w =
 --   3-byte (0xe0 <= w <= 0xef, not < 0x800): 0x00800 .. 0x00ffff
 --   4-byte (0xf0 <= w <= 0xf4, w==0xf4 => x<=0x8f): 0x10000 .. 0x10ffff
 getChr :: Int -> Get Char
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
 getChr i = pure $! unsafeChr i
 #else
 getChr i = pure $! chr i
@@ -943,7 +947,7 @@ instance (Binary k, Binary e) => Binary (Map.Map k e) where
     get   = liftM Map.fromDistinctAscList get
 
 instance Binary IntSet.IntSet where
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     put s = put (IntSet.size s) <> putBuilder (Prim.primMapListFixed (fromIntegral Prim.>$< Prim.int64BE) (IntSet.toAscList s))
 #else
     put s = put (IntSet.size s) <> putBuilder (List.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty (IntSet.toAscList s))
@@ -1020,7 +1024,7 @@ instance (Binary e) => Binary (Seq.Seq e) where
 
 -- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Double where
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     put d = putBuilder (Prim.primBounded doubleBoundedPrim d)
     {-# INLINE putList #-}
     putList xs =
@@ -1036,7 +1040,7 @@ instance Binary Double where
 
 -- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Float where
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     put f = putBuilder (Prim.primFixed floatFixedPrim f)
     {-# INLINE putList #-}
     putList xs =
@@ -1050,7 +1054,7 @@ instance Binary Float where
         y <- get
         return $! encodeFloat x y
 
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
 floatFixedPrim :: Prim.FixedPrim Float
 floatFixedPrim =
     (\f -> let (m, e) = decodeFloat f
@@ -1140,7 +1144,7 @@ instance (Binary i, Ix i, Binary e, IArray UArray e) => Binary (UArray i e) wher
 
 -- | @since 0.7.6.0
 instance Binary Fingerprint where
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
     {-# INLINE put #-}
     put = putBuilder . Prim.primFixed fingerprintPrim
     putList xs = put (List.length xs)
@@ -1153,7 +1157,7 @@ instance Binary Fingerprint where
         x2 <- get
         return $! Fingerprint x1 x2
 
-#ifdef __GLASGOW_HASKELL__
+#ifdef HAS_GHC_OPTS
 fingerprintPrim :: Prim.FixedPrim Fingerprint
 fingerprintPrim = (\(Fingerprint x1 x2) -> (x1, x2)) Prim.>$< (Prim.word64BE Prim.>*< Prim.word64BE)
 {-# INLINE fingerprintPrim #-}

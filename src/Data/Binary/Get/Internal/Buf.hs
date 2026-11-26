@@ -12,10 +12,10 @@
 --
 -- Internal buffer representation threaded through 'Data.Binary.Get.Internal.Get'.
 --
--- On GHC (unless compiled with @-DBINARY_PORTABLE_GET@), the current strict
+-- On GHC (unless compiled with @-DBINARY_PORTABLE@), the current strict
 -- 'B.ByteString' chunk is unboxed as @(\# Addr\#, Int\#, ForeignPtrContents \#)@,
 -- avoiding 'B.ByteString' re-boxing on every read. On other compilers (such as
--- MicroHs) or when @-DBINARY_PORTABLE_GET@ is defined, 'Buf' is a plain
+-- MicroHs) or when @-DBINARY_PORTABLE@ is defined, 'Buf' is a plain
 -- 'B.ByteString'.
 --
 -- Both implementations are compiled and exported so the test suite can verify
@@ -183,7 +183,7 @@ unboxedBufReadWith f (# p#, _, fpc #) =
 ------------------------------------------------------------------------
 -- Active buffer selection
 
-#if defined(__GLASGOW_HASKELL__) && !defined(BINARY_PORTABLE_GET)
+#if defined(__GLASGOW_HASKELL__) && !defined(BINARY_PORTABLE)
 
 type Buf = UnboxedBuf
 
