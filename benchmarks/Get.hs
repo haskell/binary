@@ -166,6 +166,7 @@ main = do
         , bench "getShortByteString 8B" $ nf (runGet (getShortN 10000)) isolateBuf
         , bench "getLazyByteString 8B" $ nf (runGet (getLazyN 10000)) isolateBuf
         , bench "getLazyByteStringNul 8B" $ nf (runGet (getLazyNulN 10000)) nulBuf
+        , bench "lookAheadM 8B" $ whnf (runGet (getLookAheadMN 10000)) isolateBuf
         ]
     ]
 
@@ -577,3 +578,13 @@ getLazyNulN = go []
     go !acc n = do
       s <- getLazyByteStringNul
       go (s : acc) (n - 1)
+
+getLookAheadMN :: Int -> Get Word64
+getLookAheadMN = go 0
+  where
+    go !acc 0 = return acc
+    go !acc n = do
+      mw <- lookAheadM (Just <$> getWord64be)
+      case mw of
+        Just w  -> go (acc + w) (n - 1)
+        Nothing -> return acc
