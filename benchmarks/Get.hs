@@ -4,6 +4,7 @@ import Control.DeepSeq
 import Control.Exception (evaluate)
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Short as BS
 import Data.Fixed (Fixed, E2)
 import Data.Functor.Identity (Identity(..))
 import qualified Data.IntMap as IntMap
@@ -62,7 +63,8 @@ main = do
     rnf encodedFingerprints,
     rnf encodedDoubles,
     rnf encodedFloats,
-    rnf isolateBuf
+    rnf isolateBuf,
+    rnf nulBuf
      ]
   defaultMain
     [ bgroup "brackets"
@@ -161,6 +163,9 @@ main = do
     , bgroup "Combinators (10k)"
         [ bench "isolate 8B" $ whnf (runGet (getIsolateN 10000)) isolateBuf
         , bench "many Word64" $ nf (runGet (many getWord64be)) isolateBuf
+        , bench "getShortByteString 8B" $ nf (runGet (getShortN 10000)) isolateBuf
+        , bench "getLazyByteString 8B" $ nf (runGet (getLazyN 10000)) isolateBuf
+        , bench "getLazyByteStringNul 8B" $ nf (runGet (getLazyNulN 10000)) nulBuf
         ]
     ]
 
@@ -545,3 +550,30 @@ getIsolateN = go 0
     go !acc n = do
       w <- isolate 8 getWord64be
       go (acc + w) (n - 1)
+
+nulBuf :: L.ByteString
+nulBuf = L.fromStrict (S.concat (replicate containerSize "abcdefg\0"))
+
+getShortN :: Int -> Get [BS.ShortByteString]
+getShortN = go []
+  where
+    go !acc 0 = return acc
+    go !acc n = do
+      s <- getShortByteString 8
+      go (s : acc) (n - 1)
+
+getLazyN :: Int -> Get [L.ByteString]
+getLazyN = go []
+  where
+    go !acc 0 = return acc
+    go !acc n = do
+      s <- getLazyByteString 8
+      go (s : acc) (n - 1)
+
+getLazyNulN :: Int -> Get [L.ByteString]
+getLazyNulN = go []
+  where
+    go !acc 0 = return acc
+    go !acc n = do
+      s <- getLazyByteStringNul
+      go (s : acc) (n - 1)
