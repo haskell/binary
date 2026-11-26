@@ -96,7 +96,7 @@ import qualified Data.ByteString.Builder.Internal as BBI
 import Foreign.Ptr (plusPtr)
 import GHC.Exts (Addr#, Ptr(..), Word(..))
 import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
-import GHC.Num.Natural (naturalFromAddr, naturalSizeInBase#, naturalToAddr)
+import GHC.Num.Natural (naturalFromAddr, naturalFromWord, naturalSizeInBase#, naturalToAddr)
 #endif
 import qualified Data.List as List
 
@@ -418,13 +418,31 @@ instance Binary Integer where
 
     put n = putBigInteger n
 
-    get = do
-        tag <- get :: Get Word8
-        case tag of
-            0 -> do i <- get :: Get SmallInt
-                    return $! fromIntegral i
-            1 -> getBigInteger
-            _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
+    -- Safety of tryReadN: checks bufHasN 5 s; peekSmallInteger reads at most
+    -- 5 bytes (tag 0 + Int32 BE).
+    {-# INLINE get #-}
+    get = tryReadN 5 peekSmallInteger getIntegerSlow
+
+peekSmallInteger :: Ptr (Maybe (Int, Integer)) -> IO (Maybe (Int, Integer))
+peekSmallInteger ptr = do
+    tag <- peekByteOff ptr 0 :: IO Word8
+    if tag == 0
+      then do
+        i <- peekInt32BE ptr 1
+        let n = fromIntegral i :: Integer
+        n `seq` return (Just (5, n))
+      else return Nothing
+{-# INLINE peekSmallInteger #-}
+
+getIntegerSlow :: Get Integer
+getIntegerSlow = do
+    tag <- get :: Get Word8
+    case tag of
+        0 -> do i <- get :: Get SmallInt
+                return $! fromIntegral i
+        1 -> getBigInteger
+        _ -> fail ("Data.Binary.get @Integer: invalid tag " ++ show tag)
+{-# NOINLINE getIntegerSlow #-}
 
 #ifdef HAS_GHC_BIGNUM
 -- Write exactly @len@ bytes directly into the Builder's output buffer.
@@ -572,13 +590,41 @@ instance Binary Natural where
 
     put n = putBigNatural n
 
-    get = do
-        tag <- get :: Get Word8
-        case tag of
-            0 -> do w <- get :: Get NaturalWord
-                    return $! fromIntegral w
-            1 -> getBigNatural
-            _ -> fail ("Data.Binary.get @Natural: invalid tag " ++ show tag)
+    -- Safety of tryReadN: checks bufHasN 9 s; peekSmallNatural reads at most
+    -- 9 bytes (tag 0 + Word64 BE).
+    {-# INLINE get #-}
+    get = tryReadN 9 peekSmallNatural getNaturalSlow
+
+word64ToNatural :: Word64 -> Natural
+#ifdef HAS_GHC_BIGNUM
+word64ToNatural w
+  | finiteBitSize (0 :: Word) >= 64 = naturalFromWord (fromIntegral w)
+  | otherwise                       = fromIntegral w
+#else
+word64ToNatural = fromIntegral
+#endif
+{-# INLINE word64ToNatural #-}
+
+peekSmallNatural :: Ptr (Maybe (Int, Natural)) -> IO (Maybe (Int, Natural))
+peekSmallNatural ptr = do
+    tag <- peekByteOff ptr 0 :: IO Word8
+    if tag == 0
+      then do
+        w <- peekInt64BE ptr 1
+        let n = word64ToNatural (fromIntegral w :: Word64)
+        n `seq` return (Just (9, n))
+      else return Nothing
+{-# INLINE peekSmallNatural #-}
+
+getNaturalSlow :: Get Natural
+getNaturalSlow = do
+    tag <- get :: Get Word8
+    case tag of
+        0 -> do w <- get :: Get NaturalWord
+                return $! word64ToNatural w
+        1 -> getBigNatural
+        _ -> fail ("Data.Binary.get @Natural: invalid tag " ++ show tag)
+{-# NOINLINE getNaturalSlow #-}
 
 putBigNatural :: Natural -> Put
 #ifdef HAS_GHC_BIGNUM
