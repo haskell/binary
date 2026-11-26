@@ -189,7 +189,7 @@ class Binary t where
 
 {-# INLINE defaultPutList #-}
 defaultPutList :: Binary a => [a] -> Put
-defaultPutList xs = put (List.length xs) <> putBuilder (foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty xs)
+defaultPutList xs = put (List.length xs) <> putBuilder (List.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty xs)
 
 #ifdef HAS_GENERICALLY
 instance (Generic a, GBinaryPut (Rep a), GBinaryGet (Rep a)) => Binary (Generically a) where
