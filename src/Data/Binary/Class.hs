@@ -20,7 +20,7 @@
 #endif
 
 #if defined(HAS_GHC_OPTS) && MIN_VERSION_base(4,15,0)
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MagicHash, UnboxedTuples #-}
 #define HAS_GHC_BIGNUM
 #endif
 
@@ -95,6 +95,10 @@ import Data.Binary.Get.Internal (readNWith)
 import qualified Data.ByteString.Builder.Internal as BBI
 import Foreign.Ptr (plusPtr)
 import GHC.Exts (Addr#, Ptr(..), Word(..))
+#if __GLASGOW_HASKELL__ >= 902
+import GHC.Exts (Double(..), Int(..), decodeDouble_Int64#)
+import GHC.Int (Int64(..))
+#endif
 import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalFromWord, naturalSizeInBase#, naturalToAddr)
 #endif
@@ -1194,8 +1198,13 @@ floatFixedPrim =
 
 doubleBoundedPrim :: Prim.BoundedPrim Double
 doubleBoundedPrim =
+#if defined(HAS_GHC_BIGNUM) && __GLASGOW_HASKELL__ >= 902
+    (\(D# d#) -> case decodeDouble_Int64# d# of
+                   (# m#, e# #) -> (I64# m#, fromIntegral (I# e#) :: Int64))
+#else
     (\d -> let (m, e) = decodeFloat d
            in (fromIntegral m :: Int64, fromIntegral e :: Int64))
+#endif
     Prim.>$<
     Prim.condB
       (\(m, _) -> m >= fromIntegral (minBound :: Int32) && m <= fromIntegral (maxBound :: Int32))
