@@ -87,6 +87,9 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder.Prim as Prim
 #endif
 
+import Data.Binary.Get.Internal (tryReadN)
+import Foreign.Ptr (Ptr)
+import Foreign.Storable (peekByteOff)
 #ifdef HAS_GHC_BIGNUM
 import Data.Binary.Get.Internal (readNWith)
 import qualified Data.ByteString.Builder.Internal as BBI
@@ -1010,10 +1013,9 @@ instance Binary Double where
           | u < 0x1000000000000 = putInt64be 6 <> putWord32le (fromIntegral u) <> putWord16le (fromIntegral (u `shiftR` 32))
           | otherwise           = putInt64be 7 <> putWord32le (fromIntegral u) <> putWord16le (fromIntegral (u `shiftR` 32)) <> putWord8 (fromIntegral (u `shiftR` 48))
 #endif
-    get   = do
-        x <- get
-        y <- get
-        return $! encodeFloat x y
+    -- Safety of tryReadN: checks bufHasN 25 s; peekDoubleFast reads at most
+    -- 18 + 7 = 25 bytes and performs only pure memory loads.
+    get = tryReadN 25 peekDoubleFast getDoubleSlow
 
 -- | Uses non-IEEE754 encoding. Does not round-trip NaN.
 instance Binary Float where
@@ -1027,10 +1029,114 @@ instance Binary Float where
     put f = let (m, e) = decodeFloat f
             in putWord8 0 <> putInt32be (fromIntegral m) <> putInt64be (fromIntegral e)
 #endif
-    get   =  do
-        x <- get
-        y <- get
-        return $! encodeFloat x y
+    -- Safety of tryReadN: checks bufHasN 13 s; peekFloatFast reads at most
+    -- 13 bytes and performs only pure memory loads.
+    get = tryReadN 13 peekFloatFast getFloatSlow
+
+peekDoubleFast :: Ptr (Maybe (Int, Double)) -> IO (Maybe (Int, Double))
+peekDoubleFast ptr = do
+    tag <- peekByteOff ptr 0 :: IO Word8
+    case tag of
+      0 -> do
+        m <- peekInt32BE ptr 1
+        e <- peekInt64BE ptr 5
+        let d = encodeFloat (fromIntegral m :: Integer) (fromIntegral e)
+        d `seq` return (Just (13, d))
+      1 -> do
+        sign <- peekByteOff ptr 1 :: IO Word8
+        len  <- peekInt64BE ptr 2
+        if (sign == 1 || sign == 255) && len >= 1 && len <= 7
+          then do
+            let lenInt = fromIntegral len
+            u <- peekLEWord64Off lenInt ptr 10
+            e <- peekInt64BE ptr (10 + lenInt)
+            let m64 = if sign == 1
+                        then fromIntegral u :: Int64
+                        else negate (fromIntegral u :: Int64)
+                d = encodeFloat (fromIntegral m64 :: Integer) (fromIntegral e)
+            d `seq` return (Just (18 + lenInt, d))
+          else return Nothing
+      _ -> return Nothing
+{-# INLINE peekDoubleFast #-}
+
+peekFloatFast :: Ptr (Maybe (Int, Float)) -> IO (Maybe (Int, Float))
+peekFloatFast ptr = do
+    tag <- peekByteOff ptr 0 :: IO Word8
+    if tag == 0
+      then do
+        m <- peekInt32BE ptr 1
+        e <- peekInt64BE ptr 5
+        let f = encodeFloat (fromIntegral m :: Integer) (fromIntegral e)
+        f `seq` return (Just (13, f))
+      else return Nothing
+{-# INLINE peekFloatFast #-}
+
+-- Read @len@ (1 <= len <= 7) little-endian bytes starting at @off@ into a Word64.
+-- Safety: caller ensures @ptr@ points to at least @off + len@ readable bytes.
+peekLEWord64Off :: Int -> Ptr a -> Int -> IO Word64
+peekLEWord64Off len ptr off = go 0 0 0
+  where
+    go i sh acc
+      | i >= len  = return acc
+      | otherwise = do
+          b <- peekByteOff ptr (off + i) :: IO Word8
+          let acc' = acc .|. (fromIntegral b `unsafeShiftL` sh)
+          acc' `seq` go (i + 1) (sh + 8) acc'
+{-# INLINE peekLEWord64Off #-}
+
+-- Read a big-endian Int32 at byte offset @off@.
+-- Safety: caller ensures @ptr@ has at least @off + 4@ readable bytes.
+peekInt32BE :: Ptr a -> Int -> IO Int32
+peekInt32BE ptr off = do
+    b0 <- peekByteOff ptr off       :: IO Word8
+    b1 <- peekByteOff ptr (off + 1) :: IO Word8
+    b2 <- peekByteOff ptr (off + 2) :: IO Word8
+    b3 <- peekByteOff ptr (off + 3) :: IO Word8
+    let w :: Word32
+        w = (fromIntegral b0 `unsafeShiftL` 24)
+            .|. (fromIntegral b1 `unsafeShiftL` 16)
+            .|. (fromIntegral b2 `unsafeShiftL`  8)
+            .|.  fromIntegral b3
+    return $! fromIntegral w
+{-# INLINE peekInt32BE #-}
+
+-- Read a big-endian Int64 at byte offset @off@.
+-- Safety: caller ensures @ptr@ has at least @off + 8@ readable bytes.
+peekInt64BE :: Ptr a -> Int -> IO Int64
+peekInt64BE ptr off = do
+    b0 <- peekByteOff ptr off       :: IO Word8
+    b1 <- peekByteOff ptr (off + 1) :: IO Word8
+    b2 <- peekByteOff ptr (off + 2) :: IO Word8
+    b3 <- peekByteOff ptr (off + 3) :: IO Word8
+    b4 <- peekByteOff ptr (off + 4) :: IO Word8
+    b5 <- peekByteOff ptr (off + 5) :: IO Word8
+    b6 <- peekByteOff ptr (off + 6) :: IO Word8
+    b7 <- peekByteOff ptr (off + 7) :: IO Word8
+    let w :: Word64
+        w = (fromIntegral b0 `unsafeShiftL` 56)
+            .|. (fromIntegral b1 `unsafeShiftL` 48)
+            .|. (fromIntegral b2 `unsafeShiftL` 40)
+            .|. (fromIntegral b3 `unsafeShiftL` 32)
+            .|. (fromIntegral b4 `unsafeShiftL` 24)
+            .|. (fromIntegral b5 `unsafeShiftL` 16)
+            .|. (fromIntegral b6 `unsafeShiftL`  8)
+            .|.  fromIntegral b7
+    return $! fromIntegral w
+{-# INLINE peekInt64BE #-}
+
+getDoubleSlow :: Get Double
+getDoubleSlow = do
+    x <- get
+    y <- get
+    return $! encodeFloat x y
+{-# NOINLINE getDoubleSlow #-}
+
+getFloatSlow :: Get Float
+getFloatSlow = do
+    x <- get
+    y <- get
+    return $! encodeFloat x y
+{-# NOINLINE getFloatSlow #-}
 
 #ifdef HAS_GHC_OPTS
 floatFixedPrim :: Prim.FixedPrim Float

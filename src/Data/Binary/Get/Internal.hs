@@ -13,6 +13,7 @@ module Data.Binary.Get.Internal (
 
     , readN
     , readNWith
+    , tryReadN
 
     , failGet
 
@@ -415,6 +416,22 @@ labelSlow msg ks = go
              Fail inp' e   -> Fail inp' (e ++ "\n" ++ msg)
              BytesRead u k -> BytesRead u (go . k)
 {-# NOINLINE labelSlow #-}
+
+-- | Fast-path helper: if at least @n@ bytes are available in the current
+-- buffer, invoke @peek@ on the buffer pointer. If it returns
+-- @Just (consumed, val)@, advance the buffer by @consumed@ bytes and yield
+-- @val@; otherwise fall back to @slow@.
+--
+-- Safety: @peek@ must be deterministic, side-effect-free, non-diverging,
+-- non-throwing, and read at most @n@ bytes.
+tryReadN :: Int -> (Ptr (Maybe (Int, a)) -> IO (Maybe (Int, a))) -> Get a -> Get a
+tryReadN !n f slow = C $ \s ks ->
+  if bufHasN n s
+    then case bufReadWith f s of
+           Just (consumed, val) -> ks (bufDrop consumed s) val
+           Nothing              -> unGet slow s ks
+    else unGet slow s ks
+{-# INLINE tryReadN #-}
 
 -- | DEPRECATED. Get the number of bytes of remaining input.
 -- Note that this is an expensive function to use as in order to calculate how
