@@ -29,6 +29,9 @@ import           Data.IORef                           (newIORef, readIORef, writ
 import           Data.List.NonEmpty                   (NonEmpty(..))
 import qualified Data.Map                             as Map
 import qualified Data.Monoid                          as Monoid
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Monoid                          ((<>))
+#endif
 import           Data.Ratio
 import qualified Data.Semigroup                       as Semigroup
 import qualified Data.Sequence                        as Seq
