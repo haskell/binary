@@ -93,12 +93,12 @@ import Foreign.Storable (peekByteOff)
 #ifdef HAS_GHC_BIGNUM
 import qualified Data.ByteString.Builder.Internal as BBI
 import Foreign.Ptr (plusPtr)
-import GHC.Exts (Addr#, Ptr(..), Word(..))
+import GHC.Exts (Addr#, Int(..), Ptr(..), Word(..))
 #if __GLASGOW_HASKELL__ >= 902
-import GHC.Exts (Double(..), Int(..), decodeDouble_Int64#)
+import GHC.Exts (Double(..), decodeDouble_Int64#)
 import GHC.Int (Int64(..))
 #endif
-import GHC.Num.Integer (integerFromAddr, integerSizeInBase#, integerToAddr)
+import GHC.Num.Integer (Integer(IS), integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalFromWord, naturalSizeInBase#, naturalToAddr)
 #endif
 import qualified Data.List as List
@@ -409,6 +409,15 @@ type SmallInt = Int32
 instance Binary Integer where
 
     {-# INLINE put #-}
+#ifdef HAS_GHC_BIGNUM
+    put n = case n of
+        IS x# ->
+          let i = I# x#
+          in if i >= fromIntegral (minBound :: SmallInt) && i <= fromIntegral (maxBound :: SmallInt)
+               then putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral i))
+               else putBigInteger n
+        _ -> putBigInteger n
+#else
     put n | n >= lo && n <= hi =
 #ifdef HAS_GHC_OPTS
         putBuilder (Prim.primFixed (Prim.word8 Prim.>*< Prim.int32BE) (0, fromIntegral n))
@@ -420,6 +429,7 @@ instance Binary Integer where
         hi = fromIntegral (maxBound :: SmallInt) :: Integer
 
     put n = putBigInteger n
+#endif
 
     -- Safety of tryReadN: checks bufHasN 5 s; peekSmallInteger reads at most
     -- 5 bytes (tag 0 + Int32 BE).
