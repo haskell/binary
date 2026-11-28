@@ -114,10 +114,10 @@ instance Applicative PutM where
         pure a  = Put $ PairS a Monoid.mempty
         {-# INLINE pure #-}
 
-        m <*> k = Put $
-            let PairS f w  = unPut m
-                PairS x w' = unPut k
-            in PairS (f x) (w `Monoid.mappend` w')
+        m <*> k = case unPut m of
+            PairS f w -> Put $
+                let PairS x w' = unPut k
+                in PairS (f x) (w `B.append` w')
         {-# INLINE (<*>) #-}
 
         m *> k  = case unPut m of
@@ -126,12 +126,26 @@ instance Applicative PutM where
                 in PairS b (w `B.append` w')
         {-# INLINE (*>) #-}
 
+        m <* k  = case unPut m of
+            PairS a w -> Put $
+                let PairS _ w' = unPut k
+                in PairS a (w `B.append` w')
+        {-# INLINE (<*) #-}
+
+#if MIN_VERSION_base(4,10,0)
+        liftA2 f m k = case unPut m of
+            PairS a w -> Put $
+                let PairS b w' = unPut k
+                in PairS (f a b) (w `B.append` w')
+        {-# INLINE liftA2 #-}
+#endif
+
 -- Standard Writer monad, with aggressive inlining
 instance Monad PutM where
-    m >>= k  = Put $
-        let PairS a w  = unPut m
-            PairS b w' = unPut (k a)
-        in PairS b (w `Monoid.mappend` w')
+    m >>= k  = case unPut m of
+        PairS a w -> Put $
+            let PairS b w' = unPut (k a)
+            in PairS b (w `B.append` w')
     {-# INLINE (>>=) #-}
 
     return = pure
