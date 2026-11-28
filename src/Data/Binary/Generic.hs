@@ -24,7 +24,6 @@ import Control.Applicative
 import Data.Binary.Class
 import Data.Binary.Get
 import Data.Binary.Put
-import Data.Bits
 import Data.Word
 import Data.Proxy
 #if !MIN_VERSION_base(4,11,0)
@@ -84,7 +83,7 @@ instance Binary a => GBinaryGet (K1 i a) where
 -- use two bytes, and so on till 2^64-1.
 
 #define GUARD(WORD) (size - 1) <= fromIntegral (maxBound :: WORD)
-#define PUTSUM(WORD) GUARD(WORD) = putSum (Proxy :: Proxy WORD) 0 size
+#define PUTSUM(WORD) GUARD(WORD) = putSum (Proxy :: Proxy WORD) 0
 #define GETSUM(WORD) GUARD(WORD) = (get :: Get WORD) >>= checkGetSum size . fromIntegral
 
 instance ( GSumPut  a, GSumPut  b
@@ -111,36 +110,34 @@ sizeError s size =
 
 checkGetSum :: (GSumGet f) => Word64 -> Word64 -> Get (f a)
 checkGetSum size code
-    | code < size = getSumWith (size > 8) id code size
+    | code < size = getSumWith (size > 8) id code
     | otherwise   = fail "Unknown encoding for constructor"
 {-# INLINE checkGetSum #-}
 
 class GSumGet f where
-    getSumWith :: Bool -> (f a -> r) -> Word64 -> Word64 -> Get r
+    getSumWith :: Bool -> (f a -> r) -> Word64 -> Get r
 
 class GSumPut f where
-    putSum :: (Binary word, Num word) => Proxy word -> Word64 -> Word64 -> f a -> Put
+    putSum :: (Binary word, Num word) => Proxy word -> Word64 -> f a -> Put
 
-instance (GSumGet a, GSumGet b) => GSumGet (a :+: b) where
-    getSumWith large k !code !size
-        | code < sizeL = getSumWith large (k . L1) code           sizeL
-        | otherwise    = getSumWith large (k . R1) (code - sizeL) sizeR
+instance (GSumGet a, GSumGet b, SumSize a) => GSumGet (a :+: b) where
+    getSumWith large k !code
+        | code < sizeL = getSumWith large (k . L1) code
+        | otherwise    = getSumWith large (k . R1) (code - sizeL)
       where
-        sizeL = size `shiftR` 1
-        sizeR = size - sizeL
+        sizeL = unTagged (sumSize :: Tagged a Word64)
     {-# INLINE getSumWith #-}
 
-instance (GSumPut a, GSumPut b) => GSumPut (a :+: b) where
-    putSum p !code !size s = case s of
-        L1 x -> putSum p code           sizeL x
-        R1 x -> putSum p (code + sizeL) sizeR x
+instance (GSumPut a, GSumPut b, SumSize a) => GSumPut (a :+: b) where
+    putSum p !code s = case s of
+        L1 x -> putSum p code           x
+        R1 x -> putSum p (code + sizeL) x
       where
-        sizeL = size `shiftR` 1
-        sizeR = size - sizeL
+        sizeL = unTagged (sumSize :: Tagged a Word64)
     {-# INLINE putSum #-}
 
 instance GBinaryGet a => GSumGet (C1 c a) where
-    getSumWith large k _ _
+    getSumWith large k _
       | large     = fmapSum k gget
       | otherwise = k <$> gget
     {-# INLINE getSumWith #-}
@@ -150,7 +147,7 @@ fmapSum f g = f <$> g
 {-# NOINLINE fmapSum #-}
 
 instance GBinaryPut a => GSumPut (C1 c a) where
-    putSum (_ :: Proxy word) !code _ x = put (fromIntegral code :: word) <> gput x
+    putSum (_ :: Proxy word) !code x = put (fromIntegral code :: word) <> gput x
     {-# INLINE putSum #-}
 
 ------------------------------------------------------------------------

@@ -66,7 +66,8 @@ import           Test.QuickCheck hiding (total)
 
 import qualified Action                               (tests)
 import           Arbitrary                            ()
-import           GenericLargeSum                      (prop_Generic_Word16_and_Word32_sums)
+import           GenericLargeSum                      (prop_Generic_Word16_and_Word32_sums,
+                                                       prop_Generic_unbalanced_sums)
 import           Data.Binary
 import qualified Data.Binary.Builder                  as Builder
 import           Data.Binary.Get
@@ -1582,6 +1583,7 @@ tests =
             , testProperty "GenericSmall (small sum + products)" prop_GenericSmall
             , testProperty "GenericSmall invalid tag fails" prop_GenericSmall_invalidTag
             , testProperty "Generic Word16 (512) and Word32 (131072) sums" prop_Generic_Word16_and_Word32_sums
+            , testProperty "Generic unbalanced sum trees" prop_Generic_unbalanced_sums
             , testProperty "GenericVoid get fails" prop_GenericVoid_get
             , testProperty "GenericVoid put is strict" prop_GenericVoid_put
             , testProperty "GenericVoid empty list" prop_GenericVoid_list

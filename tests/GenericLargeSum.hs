@@ -3,14 +3,15 @@
 -- tree, consuming ~30 GiB of RAM and OOM-killing CI runners (both 64-bit and
 -- 32-bit i386). The library under test (Data.Binary.Generic) is still compiled
 -- with full optimization.
-{-# OPTIONS_GHC -O0 #-}
+{-# OPTIONS_GHC -O0 -fmax-simplifier-iterations=0 #-}
 {-# LANGUAGE DataKinds, TypeOperators #-}
 module GenericLargeSum
   ( prop_Generic_Word16_and_Word32_sums
+  , prop_Generic_unbalanced_sums
   ) where
 
 import qualified Data.ByteString.Lazy as L
-import           Data.Word            (Word16, Word32)
+import           Data.Word            (Word8, Word16, Word32)
 import           GHC.Generics         ((:+:)(..), C1, M1(..), U1(..), Meta(..), FixityI(..))
 
 import           Data.Binary
@@ -69,3 +70,24 @@ prop_Generic_Word16_and_Word32_sums =
     && runGet gget bsFirst131072 == first131072
     && runGet gget bsLast131072  == last131072
     && isFail (runGetOrFail (gget :: Get (GSum131072 ())) (encode (131072 :: Word32)))
+
+type UnbalR4 = GSum1 :+: (GSum1 :+: (GSum1 :+: GSum1))
+type UnbalL4 = ((GSum1 :+: GSum1) :+: GSum1) :+: GSum1
+
+prop_Generic_unbalanced_sums :: Bool
+prop_Generic_unbalanced_sums =
+    let c = M1 U1 :: GSum1 ()
+        rVals :: [UnbalR4 ()]
+        rVals = [L1 c, R1 (L1 c), R1 (R1 (L1 c)), R1 (R1 (R1 c))]
+        lVals :: [UnbalL4 ()]
+        lVals = [L1 (L1 (L1 c)), L1 (L1 (R1 c)), L1 (R1 c), R1 c]
+        check vals =
+          let encs = map (runPut . gput) vals
+              expected = map (encode :: Word8 -> L.ByteString) [0, 1, 2, 3]
+          in encs == expected && map (runGet gget) encs == vals
+        isFail (Left _)  = True
+        isFail (Right _) = False
+    in check rVals
+    && check lVals
+    && isFail (runGetOrFail (gget :: Get (UnbalR4 ())) (encode (4 :: Word8)))
+    && isFail (runGetOrFail (gget :: Get (UnbalL4 ())) (encode (4 :: Word8)))
