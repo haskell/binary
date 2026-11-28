@@ -1031,6 +1031,12 @@ prop_big_natural_wire_format ws =
     in encode n == refEnc && decode (encode n) == n
 #endif
 
+prop_tryReadN_negative :: Int -> Property
+prop_tryReadN_negative n =
+    n < 0 ==>
+      let g = GetI.tryReadN n (\_ -> error "tryReadN called peek on negative n") (return (42 :: Int))
+      in runGet g L.empty == 42 && runGet g (L.pack [1, 2, 3]) == 42
+
 genTree :: Gen (Tree.Tree Int8)
 genTree = sized go
   where
@@ -1541,6 +1547,7 @@ tests =
         , testGroup "Put"
             [ testProperty "PutM Functor/Applicative/Monad/flush/execPut" (p prop_putM_monad_and_flush)
             , testProperty "Put infinite streaming" (p prop_put_infinite_streaming)
+            , testProperty "tryReadN negative n falls back to slow" (p prop_tryReadN_negative)
             ]
 
         , testGroup "Invariants" $ map (uncurry testProperty)

@@ -474,7 +474,7 @@ labelSlow msg ks = go
 -- non-throwing, and read at most @n@ bytes.
 tryReadN :: Int -> (Ptr (Maybe (Int, a)) -> IO (Maybe (Int, a))) -> Get a -> Get a
 tryReadN !n f slow = C $ \s ks ->
-  if bufHasN n s
+  if n >= 0 && bufHasN n s
     then case bufReadWith f s of
            Just (consumed, val) -> ks (bufDrop consumed s) val
            Nothing              -> unGet slow s ks
@@ -485,7 +485,7 @@ tryReadN !n f slow = C $ \s ks ->
 -- buffer, take @n@ bytes, apply @f@, and advance; otherwise run @slow@.
 tryTakeBuf :: Int -> (B.ByteString -> a) -> Get a -> Get a
 tryTakeBuf !n f slow = C $ \s ks ->
-  if bufHasN n s
+  if n >= 0 && bufHasN n s
     then ks (bufDrop n s) (f (bufTake n s))
     else unGet slow s ks
 {-# INLINE tryTakeBuf #-}
