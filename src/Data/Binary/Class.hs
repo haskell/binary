@@ -963,13 +963,13 @@ instance (Binary a) => Binary (Set.Set a) where
     {-# INLINABLE put #-}
     put s = put (Set.size s) <> putBuilder (Set.foldr (\x acc -> let b = execPut (put x) in b `seq` (b <> acc)) mempty s)
     {-# INLINABLE get #-}
-    get   = liftM Set.fromDistinctAscList get
+    get   = get >>= \xs -> return $! Set.fromDistinctAscList xs
 
 instance (Binary k, Binary e) => Binary (Map.Map k e) where
     {-# INLINABLE put #-}
     put m = put (Map.size m) <> putBuilder (Map.foldrWithKey (\k v acc -> let bk = execPut (put k); bv = execPut (put v) in bk `seq` bv `seq` (bk <> (bv <> acc))) mempty m)
     {-# INLINABLE get #-}
-    get   = liftM Map.fromDistinctAscList get
+    get   = get >>= \xs -> return $! Map.fromDistinctAscList xs
 
 instance Binary IntSet.IntSet where
 #ifdef HAS_GHC_OPTS
