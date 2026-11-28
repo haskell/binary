@@ -19,21 +19,28 @@ have GHC installed, you already have ``binary``.
 More recent versions of ``binary`` than you might have installed may be
 available from [Hackage](https://hackage.haskell.org/package/binary).
 
-## Building binary ##
+## Building and testing binary ##
 
-``binary`` comes with both a test suite and a set of benchmarks.
-While developing, you probably want to enable both.
-Here's how to get the latest version of the repository, configure and build.
+``binary`` comes with both a test suite and a set of benchmarks in the
+``binary-tests`` package (configured in ``cabal.project`` so test and
+benchmark dependencies do not collide with GHC's boot ``binary`` package).
 
     $ git clone https://github.com/haskell/binary.git
     $ cd binary
     $ cabal update
-    $ cabal configure --enable-tests --enable-benchmarks
-    $ cabal build
+    $ cabal build all
 
-Run the test suite.
+Run the test suite:
 
-    $ cabal test
+    $ cabal test all
+
+Run a benchmark (for example ``put`` or ``get``):
+
+    $ cabal bench binary-tests:bench:put
+
+To build the Haddock documentation for ``binary.cabal`` directly:
+
+    $ cabal haddock -z
 
 ## Using binary ##
 
