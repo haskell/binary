@@ -7,6 +7,7 @@ import Control.Applicative ((<|>))
 import Control.DeepSeq (rnf)
 import Control.Exception (evaluate)
 import Control.Monad (unless)
+import System.IO.Error (catchIOError)
 import qualified Data.Attoparsec.ByteString as A
 import qualified Data.Attoparsec.ByteString.Lazy as AL
 import qualified Data.Binary as Binary
@@ -78,6 +79,7 @@ runAttoL p lbs = case AL.parseOnly p lbs of
 main :: IO ()
 main = do
   compressed <- L.readFile "benchmarks/sample.bencode.gz"
+    `catchIOError` (\_ -> L.readFile "../benchmarks/sample.bencode.gz")
   let !rawStrict   = L.toStrict (GZip.decompress compressed)
       !rawOneChunk = L.fromStrict rawStrict
       !raw64B      = rechunk 64 rawStrict

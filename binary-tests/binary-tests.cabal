@@ -1,0 +1,233 @@
+cabal-version:  3.0
+
+-- Un-published test and benchmark package for binary.
+--
+-- Because binary is a GHC boot package, several test and benchmark
+-- dependencies (Cabal, text, QuickCheck, tasty-bench, attoparsec, ...)
+-- transitively depend on GHC's pre-installed binary. Compiling src/ and
+-- cbits/ under a separate package name (binary-tests) avoids a Cabal
+-- cyclic dependency while keeping binary.cabal library-only.
+
+name:            binary-tests
+version:         0
+license:         BSD-3-Clause
+license-file:    ../LICENSE
+author:          Lennart Kolmodin <kolmodin@gmail.com>
+maintainer:      konsumlamm <konsumlamm@gmail.com>
+homepage:        https://github.com/haskell/binary
+synopsis:        Tests and benchmarks for the binary package
+category:        Data, Parsing
+build-type:      Simple
+
+-- NOTE: The library stanza below mirrors binary.cabal (compiling ../src and
+-- ../cbits under the package name binary-tests). Any changes to modules,
+-- build-depends, c-sources, include-dirs, or ghc-options here MUST be kept in
+-- sync with binary.cabal.
+library
+  build-depends:    base >= 4.9 && < 5, bytestring >= 0.10.4, containers, array
+  hs-source-dirs:   ../src
+  exposed-modules:  Data.Binary
+                    Data.Binary.Put
+                    Data.Binary.Get
+                    Data.Binary.Get.Internal
+                    Data.Binary.Get.Internal.Buf
+                    Data.Binary.Builder
+
+  other-modules:    Data.Binary.Class
+                    Data.Binary.Internal
+                    Data.Binary.Generic
+                    Data.Binary.FloatCast
+  include-dirs:     ../cbits
+  install-includes: unaligned_read.h
+  c-sources:        ../cbits/unaligned_read.c
+  ghc-options:      -O2 -Wall -fliberate-case-threshold=1000
+
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wnoncanonical-monad-instances
+  default-language: Haskell2010
+
+test-suite qc
+  type:  exitcode-stdio-1.0
+  hs-source-dirs: ../tests
+  main-is: QC.hs
+  other-modules:
+    Action
+    Arbitrary
+    GenericLargeSum
+  build-depends:
+    base >= 4.9 && < 5,
+    base-orphans >=0.8.1 && <0.9,
+    binary-tests,
+    bytestring >= 0.10.4,
+    random >= 1.0.1.0,
+    test-framework,
+    test-framework-quickcheck2 >= 0.3,
+    QuickCheck >= 2.9,
+    array,
+    containers
+  ghc-options: -Wall -O2 -threaded
+  default-language: Haskell2010
+
+test-suite read-write-file
+  type:  exitcode-stdio-1.0
+  hs-source-dirs: ../tests
+  main-is: File.hs
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    Cabal,
+    directory,
+    filepath,
+    HUnit,
+    array,
+    containers
+  ghc-options: -Wall
+  default-language: Haskell2010
+
+benchmark throughput
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: Benchmark.hs
+  other-modules:
+    MemBench
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    array,
+    containers
+  c-sources: ../benchmarks/CBenchmark.c
+  include-dirs: ../benchmarks
+  ghc-options: -O2
+  default-language: Haskell2010
+
+benchmark get
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: Get.hs
+  build-depends:
+    attoparsec,
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    cereal,
+    deepseq,
+    mtl,
+    tasty-bench,
+    array,
+    containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
+
+benchmark put
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: Put.hs
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    deepseq,
+    tasty-bench,
+    array,
+    containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
+
+benchmark generics-bench
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: GenericsBench.hs
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    -- The benchmark already depended on 'generic-deriving' transitively. That's
+    -- what caused one of the problems, as both 'generic-deriving' and
+    -- 'GenericsBenchTypes' used to define 'instance Generic Version'.
+    generic-deriving >= 0.10,
+    directory,
+    filepath,
+    tasty-bench,
+    unordered-containers,
+    zlib,
+    array,
+    containers
+  other-modules:
+    Cabal24
+    GenericsBenchCache
+    GenericsBenchTypes
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
+
+benchmark builder
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: Builder.hs
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    deepseq,
+    mtl,
+    tasty-bench,
+    array,
+    containers
+  ghc-options: -O2
+  default-language: Haskell2010
+
+benchmark wasm
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: WasmBench.hs
+  other-modules:
+    Wasm
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    deepseq,
+    tasty-bench,
+    zlib,
+    array,
+    containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
+
+benchmark pcap
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: PcapBench.hs
+  other-modules:
+    Pcap
+  build-depends:
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    deepseq,
+    tasty-bench,
+    zlib,
+    array,
+    containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010
+
+benchmark bencode
+  type: exitcode-stdio-1.0
+  hs-source-dirs: ../benchmarks
+  main-is: BencodeBench.hs
+  other-modules:
+    Bencode
+  build-depends:
+    attoparsec,
+    base >= 4.9 && < 5,
+    binary-tests,
+    bytestring >= 0.10.4,
+    deepseq,
+    tasty-bench,
+    zlib,
+    array,
+    containers
+  ghc-options: -O2 -Wall
+  default-language: Haskell2010

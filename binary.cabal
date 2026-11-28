@@ -1,13 +1,4 @@
 cabal-version:  3.0
-
--- To run tests and binaries you'll need to rename the name of the library
--- and all the local dependencies on it. If not, cabal is unable to come up
--- with a build plan.
---
--- Try this;
---   sed -i 's/\(name:\s*binary\)/\1-cabal-is-broken/' binary.cabal
---   sed -i 's/\(binary\),/\1-cabal-is-broken,/' binary.cabal
-
 name:            binary
 version:         0.8.9.2
 license:         BSD-3-Clause
@@ -30,9 +21,6 @@ build-type:      Simple
 tested-with:     GHC == 8.0.2, GHC ==8.2.2, GHC == 8.4.4, GHC == 8.6.5, GHC == 8.8.4, GHC == 8.10.7, GHC == 9.0.2, GHC == 9.2.8, GHC == 9.4.8, GHC == 9.6.7, GHC == 9.8.4, GHC == 9.10.3, GHC == 9.12.2, GHC == 9.14.1
 extra-source-files:
   tools/derive/*.hs
--- from the benchmark 'throughput'
-extra-source-files:
-  benchmarks/CBenchmark.h
 extra-doc-files:
   README.md changelog.md docs/hcar/binary-Lb.tex
 
@@ -40,6 +28,11 @@ source-repository head
   type: git
   location: https://github.com/haskell/binary.git
 
+-- NOTE: The library stanza below is duplicated in
+-- binary-tests/binary-tests.cabal (so tests and benchmarks can build against
+-- local sources without colliding with GHC's boot binary package). Any changes
+-- to modules, build-depends, c-sources, include-dirs, or ghc-options here MUST
+-- be mirrored in binary-tests/binary-tests.cabal.
 library
   build-depends:    base >= 4.9 && < 5, bytestring >= 0.10.4, containers, array
   hs-source-dirs:   src
@@ -61,194 +54,4 @@ library
 
   if impl(ghc >= 8.0)
     ghc-options: -Wcompat -Wnoncanonical-monad-instances
-  default-language: Haskell2010
-
-test-suite qc
-  type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
-  main-is: QC.hs
-  other-modules:
-    Action
-    Arbitrary
-    GenericLargeSum
-  build-depends:
-    base >= 4.9 && < 5,
-    base-orphans >=0.8.1 && <0.9,
-    binary,
-    bytestring >= 0.10.4,
-    random>=1.0.1.0,
-    test-framework,
-    test-framework-quickcheck2 >= 0.3,
-    QuickCheck >= 2.9
-
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -Wall -O2 -threaded
-  default-language: Haskell2010
-
-test-suite read-write-file
-  type:  exitcode-stdio-1.0
-  hs-source-dirs: tests
-  main-is: File.hs
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    Cabal,
-    directory,
-    filepath,
-    HUnit
-
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -Wall
-  default-language: Haskell2010
-
-
-benchmark throughput
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: Benchmark.hs
-  other-modules:
-    MemBench
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  c-sources: benchmarks/CBenchmark.c
-  include-dirs: benchmarks
-  ghc-options: -O2
-  default-language: Haskell2010
-
-benchmark get
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: Get.hs
-  build-depends:
-    attoparsec,
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    cereal,
-    deepseq,
-    mtl,
-    tasty-bench
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
-  default-language: Haskell2010
-
-benchmark put
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: Put.hs
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    deepseq,
-    tasty-bench
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
-  default-language: Haskell2010
-
-benchmark generics-bench
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: GenericsBench.hs
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    -- The benchmark already depended on 'generic-deriving' transitively. That's
-    -- what caused one of the problems, as both 'generic-deriving' and
-    -- 'GenericsBenchTypes' used to define 'instance Generic Version'.
-    generic-deriving >= 0.10,
-    directory,
-    filepath,
-    tasty-bench,
-    unordered-containers,
-    zlib
-
-  other-modules:
-    Cabal24
-    GenericsBenchCache
-    GenericsBenchTypes
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
-  default-language: Haskell2010
-
-benchmark builder
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: Builder.hs
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    deepseq,
-    mtl,
-    tasty-bench
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2
-  default-language: Haskell2010
-
-benchmark wasm
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: WasmBench.hs
-  other-modules:
-    Wasm
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    deepseq,
-    tasty-bench,
-    zlib
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
-  default-language: Haskell2010
-
-benchmark pcap
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: PcapBench.hs
-  other-modules:
-    Pcap
-  build-depends:
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    deepseq,
-    tasty-bench,
-    zlib
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
-  default-language: Haskell2010
-
-benchmark bencode
-  type: exitcode-stdio-1.0
-  hs-source-dirs: benchmarks
-  main-is: BencodeBench.hs
-  other-modules:
-    Bencode
-  build-depends:
-    attoparsec,
-    base >= 4.9 && < 5,
-    binary,
-    bytestring >= 0.10.4,
-    deepseq,
-    tasty-bench,
-    zlib
-  -- build dependencies from using binary source rather than depending on the library
-  build-depends: array, containers
-  ghc-options: -O2 -Wall
   default-language: Haskell2010

@@ -1,0 +1,8 @@
+packages:
+  binary-tests/
+
+-- Note: binary.cabal is intentionally omitted here so that test and benchmark
+-- dependencies (Cabal, text, QuickCheck, tasty-bench, ...) can reuse GHC's
+-- pre-installed boot binary instead of rebuilding them from source.
+-- To build and haddock binary.cabal directly, pass `-z` (--ignore-project):
+--   cabal haddock -z
