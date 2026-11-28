@@ -24,6 +24,14 @@
 #define HAS_GHC_BIGNUM
 #endif
 
+#if defined(__GLASGOW_HASKELL__) && !defined(__HADDOCK__)
+#include "MachDeps.h"
+#endif
+
+#if defined(MIN_VERSION_GLASGOW_HASKELL) && MIN_VERSION_GLASGOW_HASKELL(9,10,0,0) && !defined(BINARY_PORTABLE)
+#define HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE
+#endif
+
 #if MIN_VERSION_base(4,16,0)
 #define HAS_TYPELITS_CHAR
 #endif
@@ -97,6 +105,11 @@ import GHC.Exts (Addr#, Int(..), Ptr(..), Word(..))
 #if __GLASGOW_HASKELL__ >= 902
 import GHC.Exts (Double(..), decodeDouble_Int64#)
 import GHC.Int (Int64(..))
+#endif
+#ifdef HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE
+import GHC.Exts (readWord8OffAddrAsWord32#, readWord8OffAddrAsWord64#)
+import GHC.IO (IO(..))
+import GHC.Word (Word32(..), Word64(..))
 #endif
 import GHC.Num.Integer (Integer(IS), integerFromAddr, integerSizeInBase#, integerToAddr)
 import GHC.Num.Natural (naturalFromAddr, naturalFromWord, naturalSizeInBase#, naturalToAddr)
@@ -1146,6 +1159,16 @@ peekLEWord64Off len ptr off = go 0 0 0
 -- Read a big-endian Int32 at byte offset @off@.
 -- Safety: caller ensures @ptr@ has at least @off + 4@ readable bytes.
 peekInt32BE :: Ptr a -> Int -> IO Int32
+#ifdef HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE
+peekInt32BE (Ptr p#) (I# off#) =
+    IO $ \s -> case readWord8OffAddrAsWord32# p# off# s of
+      (# s', w32# #) ->
+#ifdef WORDS_BIGENDIAN
+        (# s', fromIntegral (W32# w32#) #)
+#else
+        (# s', fromIntegral (byteSwap32 (W32# w32#)) #)
+#endif
+#else
 peekInt32BE ptr off = do
     b0 <- peekByteOff ptr off       :: IO Word8
     b1 <- peekByteOff ptr (off + 1) :: IO Word8
@@ -1157,11 +1180,22 @@ peekInt32BE ptr off = do
             .|. (fromIntegral b2 `unsafeShiftL`  8)
             .|.  fromIntegral b3
     return $! fromIntegral w
+#endif
 {-# INLINE peekInt32BE #-}
 
 -- Read a big-endian Int64 at byte offset @off@.
 -- Safety: caller ensures @ptr@ has at least @off + 8@ readable bytes.
 peekInt64BE :: Ptr a -> Int -> IO Int64
+#ifdef HS_UNALIGNED_ADDR_PRIMOPS_AVAILABLE
+peekInt64BE (Ptr p#) (I# off#) =
+    IO $ \s -> case readWord8OffAddrAsWord64# p# off# s of
+      (# s', w64# #) ->
+#ifdef WORDS_BIGENDIAN
+        (# s', fromIntegral (W64# w64#) #)
+#else
+        (# s', fromIntegral (byteSwap64 (W64# w64#)) #)
+#endif
+#else
 peekInt64BE ptr off = do
     b0 <- peekByteOff ptr off       :: IO Word8
     b1 <- peekByteOff ptr (off + 1) :: IO Word8
@@ -1181,6 +1215,7 @@ peekInt64BE ptr off = do
             .|. (fromIntegral b6 `unsafeShiftL`  8)
             .|.  fromIntegral b7
     return $! fromIntegral w
+#endif
 {-# INLINE peekInt64BE #-}
 
 getDoubleSlow :: Get Double
