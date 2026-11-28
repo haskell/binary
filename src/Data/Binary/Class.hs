@@ -508,31 +508,31 @@ getBigInteger :: Get Integer
 #ifdef HAS_GHC_BIGNUM
 getBigInteger = do
     sign <- getWord8
-    n <- get :: Get Int
-    if n < 0
-      then fail "Data.Binary.get @Integer: negative length"
+    if sign /= 1 && sign /= 255
+      then fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
       else do
-        v <- if n == 0
-               then return 0
-               -- Safety of readNWith: ensures n > 0 bytes are available in the
-               -- buffer and keeps the underlying ForeignPtr alive across
-               -- integerFromAddr, which performs a pure read of those n bytes.
-               else readNWith n $ \(Ptr addr#) ->
-                      case fromIntegral n of
-                        W# w# -> integerFromAddr w# addr# 0#
-        case sign of
-            1   -> return $! v
-            255 -> return $! - v
-            _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+        n <- get :: Get Int
+        if n < 0
+          then fail "Data.Binary.get @Integer: negative length"
+          else do
+            v <- if n == 0
+                   then return 0
+                   -- Safety of readNWith: ensures n > 0 bytes are available in the
+                   -- buffer and keeps the underlying ForeignPtr alive across
+                   -- integerFromAddr, which performs a pure read of those n bytes.
+                   else readNWith n $ \(Ptr addr#) ->
+                          case fromIntegral n of
+                            W# w# -> integerFromAddr w# addr# 0#
+            return $! if sign == 1 then v else - v
 #else
 getBigInteger = do
-    sign  <- get :: Get Word8
-    bytes <- get
-    let v = roll bytes
-    case sign of
-        1   -> return $! v
-        255 -> return $! - v
-        _   -> fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+    sign <- get :: Get Word8
+    if sign /= 1 && sign /= 255
+      then fail ("Data.Binary.get @Integer: invalid sign " ++ show sign)
+      else do
+        bytes <- get
+        let v = roll bytes
+        return $! if sign == 1 then v else - v
 #endif
 {-# NOINLINE getBigInteger #-}
 

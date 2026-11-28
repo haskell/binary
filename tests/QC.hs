@@ -1037,6 +1037,14 @@ prop_tryReadN_negative n =
       let g = GetI.tryReadN n (\_ -> error "tryReadN called peek on negative n") (return (42 :: Int))
       in runGet g L.empty == 42 && runGet g (L.pack [1, 2, 3]) == 42
 
+prop_big_integer_invalid_sign_fails_fast :: Word8 -> Property
+prop_big_integer_invalid_sign_fails_fast s =
+    s /= 1 && s /= 255 ==>
+      let payload = runPut (putWord8 1 <> putWord8 s <> put (maxBound :: Int))
+      in case decodeOrFail payload :: Either (L.ByteString, ByteOffset, String) (L.ByteString, ByteOffset, Integer) of
+           Left (_, consumed, _) -> consumed == 2
+           Right _               -> False
+
 genTree :: Gen (Tree.Tree Int8)
 genTree = sized go
   where
@@ -1548,6 +1556,7 @@ tests =
             [ testProperty "PutM Functor/Applicative/Monad/flush/execPut" (p prop_putM_monad_and_flush)
             , testProperty "Put infinite streaming" (p prop_put_infinite_streaming)
             , testProperty "tryReadN negative n falls back to slow" (p prop_tryReadN_negative)
+            , testProperty "big Integer invalid sign fails before reading payload" (p prop_big_integer_invalid_sign_fails_fast)
             ]
 
         , testGroup "Invariants" $ map (uncurry testProperty)
