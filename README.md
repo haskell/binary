@@ -1,6 +1,6 @@
 # binary package
 
-[![Hackage version](https://img.shields.io/hackage/v/binary.svg?label=Hackage)](https://hackage.haskell.org/package/binary) [![Stackage version](https://www.stackage.org/package/binary/badge/lts?label=Stackage)](https://www.stackage.org/package/binary) [![Build Status](https://api.travis-ci.org/kolmodin/binary.png?branch=master)](http://travis-ci.org/kolmodin/binary)
+[![Hackage version](https://img.shields.io/hackage/v/binary.svg?label=Hackage)](https://hackage.haskell.org/package/binary) [![Stackage version](https://www.stackage.org/package/binary/badge/lts?label=Stackage)](https://www.stackage.org/package/binary) [![Haskell CI](https://github.com/haskell/binary/actions/workflows/haskell-ci.yaml/badge.svg)](https://github.com/haskell/binary/actions/workflows/haskell-ci.yaml)
 
 *Pure binary serialisation using lazy ByteStrings.*
 
@@ -25,7 +25,7 @@ available from [Hackage](https://hackage.haskell.org/package/binary).
 While developing, you probably want to enable both.
 Here's how to get the latest version of the repository, configure and build.
 
-    $ git clone git@github.com:kolmodin/binary.git
+    $ git clone https://github.com/haskell/binary.git
     $ cd binary
     $ cabal update
     $ cabal configure --enable-tests --enable-benchmarks
@@ -103,4 +103,4 @@ Binary Foo``.
 * Florian Weimer
 
 For a full list of contributors, see
-[here](https://github.com/kolmodin/binary/graphs/contributors).
+[here](https://github.com/haskell/binary/graphs/contributors).
