@@ -58,7 +58,7 @@ main = do
     , rnf eitherIntW32s10k
     , rnf ratioInts10k
     , rnf bools10k
-    , rnf orderings10k
+    , foldr (\o acc -> o `seq` acc) () orderings10k
     , foldr (\f acc -> f `seq` acc) () fingerprints10k
     ]
   defaultMain
