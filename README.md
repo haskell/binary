@@ -32,15 +32,15 @@ benchmark dependencies do not collide with GHC's boot ``binary`` package).
 
 Run the test suite:
 
-    $ cabal test all
+    $ cabal test all --enable-tests
 
 Run a benchmark (for example ``put`` or ``get``):
 
     $ cabal bench binary-tests:bench:put
 
-To build the Haddock documentation for ``binary.cabal`` directly:
+To build the Haddock documentation:
 
-    $ cabal haddock -z
+    $ cabal haddock all
 
 ## Using binary ##
 

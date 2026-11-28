@@ -29,11 +29,11 @@ jobs:
       - name: Build tests
         run: cabal build all --enable-tests
       - name: Test
-        run: cabal test all
+        run: cabal test all --enable-tests
       - name: Build benchmarks
         run: cabal build all --enable-benchmarks
       - name: Haddock
-        run: cabal haddock -z
+        run: cabal haddock all
 
   ghc-i386:
     runs-on: ubuntu-24.04
@@ -50,7 +50,7 @@ jobs:
       - name: Build
         run: cabal build all
       - name: Test
-        run: cabal test all
+        run: cabal test all --enable-tests
 
   mhs:
     runs-on: ubuntu-latest
